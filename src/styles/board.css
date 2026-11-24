@@ -153,13 +153,17 @@ button.th:hover {
 .th.is-sorted {
   color: var(--accent);
 }
+/* A faint ⇅ on every sortable header says it can be clicked. */
 .sort-mark {
   font-size: 9px;
-  opacity: 0;
+  opacity: 0.3;
   transition: opacity 120ms ease;
 }
+:root[data-theme='light'] .sort-mark {
+  opacity: 0.4;
+}
 button.th:hover .sort-mark {
-  opacity: 0.55;
+  opacity: 0.75;
 }
 .th.is-sorted .sort-mark {
   opacity: 1;
