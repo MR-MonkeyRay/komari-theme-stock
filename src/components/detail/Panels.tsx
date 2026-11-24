@@ -4,6 +4,7 @@ import type { NodeEvent, RangeStats, Volume } from '../../lib/candles'
 import { clock, dateText, duration, finite, parseTime, size } from '../../lib/format'
 import type { Row } from '../../lib/model'
 import { continentName } from '../../lib/region'
+import { QUOTA } from '../../lib/thresholds'
 import { Tags } from '../QuoteBoard'
 import { Pair, Tick } from '../primitives'
 
@@ -96,7 +97,7 @@ export function NetworkPanel({ r, volume, traffic, monthly }: { r: Row; volume: 
               <span className="num">
                 {size(used)} / {size(limit)}
               </span>
-              <span className={clsx('meter', usedPct >= 90 ? 'is-danger' : usedPct >= 75 ? 'is-warn' : '')}>
+              <span className={clsx('meter', usedPct >= QUOTA.danger ? 'is-danger' : usedPct >= QUOTA.warn ? 'is-warn' : '')}>
                 <i style={{ transform: `scaleX(${Math.max(0.01, usedPct / 100)})` }} />
               </span>
             </span>

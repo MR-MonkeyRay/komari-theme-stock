@@ -10,6 +10,7 @@ import { resolveTheme, type Appearance } from '../lib/appearance'
 import { clock, dateText, finite, sizeParts, utcOffset } from '../lib/format'
 import type { Bulletin, MarketSummary } from '../lib/market'
 import { lastLatency } from '../lib/rpc'
+import { HOT } from '../lib/thresholds'
 import { Tick } from './primitives'
 
 // Quote-board digits roll quickly so 2 s ticks never overlap.
@@ -166,7 +167,7 @@ export function IndexStrip({ m, loading }: { m: MarketSummary; loading: boolean 
           <i className="b-off" style={{ flexGrow: m.offline }} />
         </span>
       </div>
-      <div className="ix" title="在线节点：CPU ≥ 80% 或内存 ≥ 90%">
+      <div className="ix" title={`在线节点：CPU ≥ ${HOT.cpu}% 或内存 ≥ ${HOT.ram}%`}>
         <span className="ix-label">高负载节点</span>
         <span className="ix-value num">
           {m.hot === null ? <span className="dash">—</span> : (

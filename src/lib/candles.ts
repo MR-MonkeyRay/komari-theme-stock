@@ -1,4 +1,5 @@
 import type { HistoryKey, HistoryResult } from './api'
+import { CPU_EVENT, HOT } from './thresholds'
 
 export interface Candle {
   time: number // seconds (UTC)
@@ -119,7 +120,7 @@ export interface NodeEvent {
   text: string
 }
 
-/** Events inferred from samples (not alerts): sustained CPU ≥ 80%, recovery < 75%, memory ≥ 90%, report gaps. */
+/** Events inferred from samples (not alerts): sustained high CPU, its recovery, memory reaching HOT.ram, report gaps. */
 export function inferEvents(cpu: Slot[], mem: Slot[], memTotalGiB: number | null, online: boolean, lastSeen: number | null): NodeEvent[] {
   const events: NodeEvent[] = []
   let run = 0
@@ -131,26 +132,26 @@ export function inferEvents(cpu: Slot[], mem: Slot[], memTotalGiB: number | null
       cool = 0
       continue
     }
-    if (s.close >= 80) {
+    if (s.close >= CPU_EVENT.rise) {
       run++
       cool = 0
       if (run === 3 && !hot) {
         hot = true
-        events.push({ time: s.time * 1000, kind: 'rise', label: '升高', text: `CPU 连续 3 个区间 ≥ 80%（收 ${s.close.toFixed(1)}%）` })
+        events.push({ time: s.time * 1000, kind: 'rise', label: '升高', text: `CPU 连续 3 个区间 ≥ ${CPU_EVENT.rise}%（收 ${s.close.toFixed(1)}%）` })
       }
     } else {
       run = 0
-      if (hot && s.close < 75) {
+      if (hot && s.close < CPU_EVENT.fall) {
         cool++
         if (cool === 2) {
           hot = false
-          events.push({ time: s.time * 1000, kind: 'fall', label: '回落', text: `CPU 连续 2 个区间 < 75%（收 ${s.close.toFixed(1)}%）` })
+          events.push({ time: s.time * 1000, kind: 'fall', label: '回落', text: `CPU 连续 2 个区间 < ${CPU_EVENT.fall}%（收 ${s.close.toFixed(1)}%）` })
         }
       }
     }
   }
   if (memTotalGiB) {
-    const peak = mem.filter(isCandle).find((s) => s.high / memTotalGiB >= 0.9)
+    const peak = mem.filter(isCandle).find((s) => (s.high / memTotalGiB) * 100 >= HOT.ram)
     if (peak) events.push({ time: peak.time * 1000, kind: 'high-mem', label: '高位', text: `内存触及 ${((peak.high / memTotalGiB) * 100).toFixed(1)}%` })
   }
   for (let i = 1; i < cpu.length - 1; i++) {

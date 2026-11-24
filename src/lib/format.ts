@@ -1,4 +1,5 @@
 import { filesize } from 'filesize'
+import { LEVEL } from './thresholds'
 
 export const finite = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x)
 
@@ -88,8 +89,8 @@ export function parseTags(tags: string | undefined) {
   return out
 }
 
-/** Meter level class: warn at 70%, danger at 85%. */
+/** Meter level class: amber from LEVEL.warn, red from LEVEL.danger. */
 export function levelOf(p: number | null) {
   if (!finite(p)) return ''
-  return p >= 85 ? 'is-danger' : p >= 70 ? 'is-warn' : ''
+  return p >= LEVEL.danger ? 'is-danger' : p >= LEVEL.warn ? 'is-warn' : ''
 }

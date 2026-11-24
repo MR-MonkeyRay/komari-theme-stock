@@ -1,8 +1,6 @@
 import { finite } from './format'
 import type { Row } from './model'
-
-const CPU_WARN = 80
-const RAM_WARN = 90
+import { ALERT, HOT } from './thresholds'
 
 export interface MarketSummary {
   total: number
@@ -21,7 +19,7 @@ export function summarize(rows: Row[], traffic: MarketSummary['traffic']): Marke
   for (const { cpu, ram } of live) {
     if (!finite(cpu) && !finite(ram)) continue
     hot ??= 0
-    if ((cpu ?? 0) >= CPU_WARN || (ram ?? 0) >= RAM_WARN) hot++
+    if ((cpu ?? 0) >= HOT.cpu || (ram ?? 0) >= HOT.ram) hot++
   }
   const memUsed = live.reduce((a, r) => a + (r.status!.ram ?? 0), 0)
   const memTotal = live.reduce((a, r) => a + (r.status!.ram_total || r.node.mem_total || 0), 0)
@@ -49,9 +47,9 @@ export function bulletins(rows: Row[]): Bulletin[] {
     const n = r.node.name
     if (!r.online) out.push({ id: `off-${r.node.uuid}`, level: 'bad', text: `${n} 离线` })
     else {
-      if ((r.cpu ?? 0) >= CPU_WARN) out.push({ id: `cpu-${r.node.uuid}`, level: 'warn', text: `${n} CPU ${r.cpu!.toFixed(1)}%` })
-      if ((r.ram ?? 0) >= RAM_WARN) out.push({ id: `ram-${r.node.uuid}`, level: 'warn', text: `${n} 内存 ${r.ram!.toFixed(1)}%` })
-      if ((r.disk ?? 0) >= 90) out.push({ id: `disk-${r.node.uuid}`, level: 'warn', text: `${n} 磁盘 ${r.disk!.toFixed(1)}%` })
+      if ((r.cpu ?? 0) >= ALERT.cpu) out.push({ id: `cpu-${r.node.uuid}`, level: 'warn', text: `${n} CPU ${r.cpu!.toFixed(1)}%` })
+      if ((r.ram ?? 0) >= ALERT.ram) out.push({ id: `ram-${r.node.uuid}`, level: 'warn', text: `${n} 内存 ${r.ram!.toFixed(1)}%` })
+      if ((r.disk ?? 0) >= ALERT.disk) out.push({ id: `disk-${r.node.uuid}`, level: 'warn', text: `${n} 磁盘 ${r.disk!.toFixed(1)}%` })
     }
   }
   return out
