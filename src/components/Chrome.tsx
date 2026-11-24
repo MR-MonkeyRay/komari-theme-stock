@@ -3,7 +3,7 @@ import clsx from 'clsx'
 import { LogIn, Monitor, Moon, ShieldCheck, Sun } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useMemo, useState, type ComponentProps } from 'react'
-import { useLocation } from 'react-router'
+import { Link, useLocation } from 'react-router'
 import { SettingsButton } from './Settings'
 import type { Me } from '../lib/api'
 import { resolveTheme, type Appearance } from '../lib/appearance'
@@ -142,13 +142,17 @@ function LiveBadge({ conn, updatedAt, refreshSeconds, onRetry, retrying }: { con
 }
 
 export function TopBar({ siteName, conn, retrying, updatedAt, onRetry, refreshSeconds, me, mePending, appearance, onAppearance }: { siteName: string; conn: Conn; retrying: boolean; updatedAt: number; onRetry: () => void; refreshSeconds: number; me: Me | undefined; mePending: boolean; appearance: Appearance; onAppearance: (a: Appearance) => void }) {
+  // On a plain board already, clicking the mark must not stack another identical history entry.
+  const { pathname, search } = useLocation()
+  const atHome = pathname === '/' && !search
   return (
     <header className="topbar">
-      <a className="brand" href={import.meta.env.BASE_URL} aria-label={`${siteName} 首页`}>
+      {/* In-app link: back to a plain board (search, tab and sort cleared) without reloading. */}
+      <Link className="brand" to="/" replace={atHome} onClick={() => window.scrollTo({ top: 0 })} aria-label={`${siteName} 首页`}>
         <Logomark />
         <strong>{siteName}</strong>
         <span className="crumb">/ 节点监控</span>
-      </a>
+      </Link>
       <div className="topbar-tools">
         <LiveBadge conn={conn} updatedAt={updatedAt} refreshSeconds={refreshSeconds} onRetry={onRetry} retrying={retrying} />
         <SettingsButton />
