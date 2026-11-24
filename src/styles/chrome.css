@@ -97,6 +97,17 @@
 .chip svg {
   opacity: 0.75;
 }
+/* A toggle that is not narrowing anything yet. */
+.chip-quiet {
+  padding-right: 9px;
+  color: var(--text-2);
+  background: transparent;
+  border-color: var(--line-strong);
+}
+.chip-quiet:hover {
+  color: var(--text-1);
+  background: var(--bg-hover);
+}
 
 /* ---------- top bar ---------- */
 

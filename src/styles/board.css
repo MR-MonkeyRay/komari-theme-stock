@@ -388,6 +388,17 @@ button.th:hover .sort-mark {
   color: var(--brand);
   opacity: 0.85;
 }
+/* A node hidden in Komari's admin, shown because the viewer is logged in. */
+.hidden-tag {
+  margin-left: 6px;
+  padding: 0 4px;
+  font-family: var(--font-sans);
+  font-size: 9.5px;
+  letter-spacing: 0;
+  color: var(--text-2);
+  border: 1px dashed var(--line-strong);
+  border-radius: 3px;
+}
 
 .c-state {
   display: flex;

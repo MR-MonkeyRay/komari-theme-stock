@@ -28,6 +28,8 @@ interface Spec {
   monthly?: [number, number]
   group?: string
   remark?: string
+  /** Hidden in Komari's admin: only logged-in sessions get the node, its status and its metrics. */
+  hidden?: boolean
 }
 
 const specs: Spec[] = [
@@ -42,6 +44,8 @@ const specs: Spec[] = [
   { name: 'LAX-01', flag: '🇺🇸', cpu: 42, ram: 63, disk: 51, up: 1.71, down: 2.95, age: 3, uptime: 22 * 86400 + 6 * 3600, tags: '裸金属<violet>;IPv6', ramGiB: 64, diskGiB: 960, cores: 16, cpuName: 'AMD Ryzen 9 7950X', arch: 'amd64', virt: 'none', load: [1.32, 1.19, 1.08], bill: [96, '$', 365, '2027-08-17T00:00:00Z', true], monthly: [311.8, 528.2], group: '北美' },
   { name: 'GRU-01', flag: '🇧🇷', cpu: 21, ram: 39, disk: 67, up: 0.52, down: 1.12, age: 5, uptime: 16 * 86400 + 3 * 3600, tags: 'VPS', ramGiB: 4, diskGiB: 100, cores: 2, cpuName: 'Intel Xeon Silver 4214', arch: 'amd64', virt: 'kvm', load: [0.36, 0.4, 0.42], monthly: [67.4, 116.3], group: '其他' },
   { name: 'NYC-01', flag: '🇺🇸', cpu: null, ram: 55, disk: 44, up: 0.4, down: 0.9, age: 9 * 60, uptime: 0, tags: 'VPS', ramGiB: 8, diskGiB: 120, cores: 4, cpuName: 'Intel Xeon Gold 6148', arch: 'amd64', virt: 'kvm', load: [0, 0, 0], group: '北美' },
+  // Hidden, and its plan runs out in 3 days (inside the 7-day expiry notice), for the admin-only views.
+  { name: 'TPE-01', flag: '🇹🇼', cpu: 33, ram: 57, disk: 46, up: 0.71, down: 1.33, age: 4, uptime: 5 * 86400 + 2 * 3600, tags: 'VPS;内部<plum>', ramGiB: 4, diskGiB: 60, cores: 2, cpuName: 'AMD EPYC 9654', arch: 'amd64', virt: 'kvm', load: [0.31, 0.29, 0.27], bill: [12, '$', 30, new Date(START + 3 * 86400_000).toISOString(), false], monthly: [14.2, 30.6], group: '亚太', remark: '内部测试节点', hidden: true },
   { name: 'YUL-01', flag: '🇨🇦', cpu: 28, ram: 44, disk: 30, up: 0.31, down: 0.86, age: 6, uptime: 9 * 86400 + 8 * 3600, tags: 'VPS', ramGiB: 8, diskGiB: 120, cores: 4, cpuName: 'Intel Xeon E5-2697 v2', arch: 'amd64', virt: 'kvm', load: [0.57, 0.53, 0.47], bill: [-1, '', -1, '0001-01-01T00:00:00Z', false], monthly: [18.0, 37.1], group: '北美' },
 ]
 
@@ -104,8 +108,15 @@ function value(i: number, key: MetricKey, ms: number): number {
   }
 }
 
-export function nodesInformation() {
-  return specs.map((s, i) => ({
+/** Whether the caller may see node `i`: hidden nodes only reach logged-in sessions, as in Komari. */
+const visible = (i: number, admin: boolean) => admin || !specs[i].hidden
+
+export function nodesInformation(admin = false) {
+  return specs.flatMap((s, i) => (visible(i, admin) ? [node(s, i)] : []))
+}
+
+function node(s: Spec, i: number) {
+  return {
     uuid: uuidOf(i),
     name: s.name,
     cpu_name: s.cpuName,
@@ -129,16 +140,40 @@ export function nodesInformation() {
     expired_at: s.bill?.[3] ?? '0001-01-01T00:00:00Z',
     group: s.group ?? '',
     tags: s.tags,
-    hidden: false,
+    hidden: !!s.hidden,
     traffic_limit: i === 4 ? 10 * 1024 * GIB : 0,
     traffic_limit_type: 'sum',
+  }
+}
+
+/**
+ * `admin:listClients`: the public fields plus what only an admin gets. The token is a dummy so a
+ * test can check the theme never renders it; addresses come from the documentation ranges.
+ */
+export function listClients() {
+  const stamp = new Date(START - 40 * 86400_000).toISOString()
+  return specs.map((s, i) => ({
+    ...node(s, i),
+    ipv4: `203.0.113.${10 + i}`,
+    ipv6: i % 3 === 2 ? '' : `2001:db8:${(i + 1).toString(16)}::1`,
+    version: i % 5 === 3 ? '1.6.18' : '1.6.20',
+    token: 'mock-agent-token-never-render',
+    created_at: stamp,
+    updated_at: stamp,
   }))
 }
 
-export function latestStatus() {
+/** The part of `admin:getSettings` the theme reads. */
+export const adminSettings = {
+  expire_notification_enabled: true,
+  expire_notification_lead_days: 7,
+}
+
+export function latestStatus(admin = false) {
   const out: Record<string, unknown> = {}
   const now = Date.now()
   specs.forEach((s, i) => {
+    if (!visible(i, admin)) return
     const online = s.cpu !== null
     const t = online ? now - (1 + (i % 4)) * 1000 : lastSeen(i)
     const tick = Math.floor(now / 2000)
@@ -188,7 +223,7 @@ interface QueryParams {
   aggregation?: string
 }
 
-export function queryMetrics(p: QueryParams) {
+export function queryMetrics(p: QueryParams, admin = false) {
   const keys = (p.metric_keys ?? (p.metric_key ? [p.metric_key] : [])) as MetricKey[]
   const ids = p.entity_ids ?? (p.entity_id ? [p.entity_id] : [])
   const end = p.end ? Date.parse(p.end) : Date.now()
@@ -202,7 +237,7 @@ export function queryMetrics(p: QueryParams) {
   for (const key of keys) {
     for (const id of ids) {
       const i = specs.findIndex((_, n) => uuidOf(n) === id)
-      if (i < 0) continue
+      if (i < 0 || !visible(i, admin)) continue
       const points = []
       const last = lastSeen(i)
       const firstBucket = Math.floor(start / 1000 / interval) * interval

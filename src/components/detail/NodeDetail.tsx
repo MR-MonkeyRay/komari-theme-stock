@@ -67,6 +67,11 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, onStep }: { r: R
             <i aria-hidden="true" />
             {r.online ? '在线' : '离线'}
           </span>
+          {r.node.hidden && (
+            <span className="badge badge-hidden" title="后台设为隐藏：只有登录后才看得到">
+              隐藏
+            </span>
+          )}
         </div>
 
         <div className={clsx('qb-price', dir)}>

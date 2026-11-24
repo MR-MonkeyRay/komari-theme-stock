@@ -1,7 +1,7 @@
 import * as Popover from '@radix-ui/react-popover'
 import * as RadioGroup from '@radix-ui/react-radio-group'
 import clsx from 'clsx'
-import { ArrowDownUp, Check, ChevronRight, Search, X } from 'lucide-react'
+import { ArrowDownUp, Check, ChevronRight, Eye, EyeOff, Search, X } from 'lucide-react'
 import { motion } from 'motion/react'
 import { memo, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 import { Link, useLocation } from 'react-router'
@@ -109,13 +109,18 @@ const QuoteRow = memo(function QuoteRow({ r, x, showSpark, search, rank }: { r: 
     // with the rank as its dependency it measures a row only when its place changes (rows are of
     // equal height, so a row that keeps its rank keeps its position).
     <motion.div layout={rank !== null ? 'position' : false} layoutDependency={rank} transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="row-wrap">
-      <Link to={{ pathname: `/instance/${r.node.uuid}`, search }} state={{ fromBoard: true }} className={clsx('qrow', !r.online && 'is-off')} data-uuid={r.node.uuid} aria-label={`${r.node.name} ${r.region.name} ${r.online ? '在线' : '离线'}，查看详情`}>
+      <Link to={{ pathname: `/instance/${r.node.uuid}`, search }} state={{ fromBoard: true }} className={clsx('qrow', !r.online && 'is-off')} data-uuid={r.node.uuid} aria-label={`${r.node.name} ${r.region.name} ${r.online ? '在线' : '离线'}${r.node.hidden ? '，隐藏节点' : ''}，查看详情`}>
         <span className="c-name">
           <Flag code={r.region.code} title={r.region.name} />
           <span className="name-stack">
             <b className="node-name num">{r.node.name}</b>
             <span className="node-code num">
               {r.code.area}·<em>{r.code.hash}</em>
+              {r.node.hidden && (
+                <span className="hidden-tag" title="后台设为隐藏：只有登录后才看得到">
+                  隐藏
+                </span>
+              )}
             </span>
           </span>
         </span>
@@ -210,7 +215,7 @@ function SortMenu({ sort, grouped, onChange }: { sort: Sort; grouped: boolean; o
 }
 
 // Memoized: the app re-renders every second for its clocks, the board only when its data does.
-export const QuoteBoard = memo(function QuoteBoard({ rows, view, onHold, settings, x, loading, searchRef }: { rows: Row[]; view: BoardView; onHold: (hold: boolean) => void; settings: ThemeSettings; x: BoardExtras; loading: boolean; searchRef: React.RefObject<HTMLInputElement | null> }) {
+export const QuoteBoard = memo(function QuoteBoard({ rows, view, onHold, hiddenCount, showHidden, onToggleHidden, settings, x, loading, searchRef }: { rows: Row[]; view: BoardView; onHold: (hold: boolean) => void; hiddenCount: number; showHidden: boolean; onToggleHidden: () => void; settings: ThemeSettings; x: BoardExtras; loading: boolean; searchRef: React.RefObject<HTMLInputElement | null> }) {
   const [{ q: query, quick, sort }, setBoard, flushQuery] = useBoardQuery()
   const { search } = useLocation()
   const listRef = useRef<HTMLDivElement>(null)
@@ -276,6 +281,20 @@ export const QuoteBoard = memo(function QuoteBoard({ rows, view, onHold, setting
               <X size={12} aria-hidden="true" />
             </button>
           )}
+          {/* Only a logged-in session gets hidden nodes, so only it sees this toggle. */}
+          {hiddenCount > 0 &&
+            (showHidden ? (
+              <button type="button" className="chip chip-quiet" onClick={onToggleHidden} aria-label={`暂不显示 ${hiddenCount} 台隐藏节点`} title="这些节点在后台设为隐藏，只有登录后才看得到。点击暂不显示（例如截图分享），刷新页面后恢复">
+                <Eye size={12} aria-hidden="true" />
+                隐藏节点 {hiddenCount}
+              </button>
+            ) : (
+              <button type="button" className="chip" onClick={onToggleHidden} aria-label={`恢复显示 ${hiddenCount} 台隐藏节点`}>
+                <EyeOff size={12} aria-hidden="true" />
+                已暂不显示隐藏节点
+                <X size={12} aria-hidden="true" />
+              </button>
+            ))}
           {sort && (
             <button type="button" className="chip" onClick={() => setBoard({ sort: null })} aria-label={`取消排序（按${SORT_LABEL[sort.key]}${sort.dir === 'asc' ? '升序' : '降序'}），${settings.groupBy === 'none' ? '恢复默认顺序' : '恢复分组'}`}>
               按 {SORT_LABEL[sort.key]} {sort.dir === 'asc' ? '升序' : '降序'}

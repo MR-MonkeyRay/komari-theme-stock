@@ -27,7 +27,16 @@ export default function App() {
     document.documentElement.dataset.convention = settings.redUp ? 'red-up' : 'green-up'
   }, [settings.redUp])
 
-  const rows = useMemo(() => buildRows(nodes.data, status.data), [nodes.data, status.data])
+  // Hidden nodes only reach a logged-in session. The admin can leave them out for a while (say, for
+  // a screenshot to share) without changing anything in Komari; a reload brings them back.
+  const [showHidden, setShowHidden] = useState(true)
+  const toggleHidden = useCallback(() => setShowHidden((v) => !v), [])
+  // Gated on the login too: after logging out in another tab, the node list may still hold hidden
+  // nodes until its next refresh.
+  const admin = me.data?.logged_in === true
+  const hiddenCount = useMemo(() => (admin ? (nodes.data ?? []).filter((n) => n.hidden).length : 0), [nodes.data, admin])
+  const shownNodes = useMemo(() => (admin && showHidden ? nodes.data : nodes.data?.filter((n) => !n.hidden)), [nodes.data, admin, showHidden])
+  const rows = useMemo(() => buildRows(shownNodes, status.data), [shownNodes, status.data])
   const uuids = useMemo(() => (nodes.data ?? []).map((n) => n.uuid), [nodes.data])
   const sparks = useSparklines(uuids, settings.showSparkline)
 
@@ -104,7 +113,7 @@ export default function App() {
             </div>
           </section>
         ) : (
-          <QuoteBoard rows={rows} view={view} onHold={setHoldOrder} settings={settings} x={extras} loading={nodes.isLoading} searchRef={searchRef} />
+          <QuoteBoard rows={rows} view={view} onHold={setHoldOrder} hiddenCount={hiddenCount} showHidden={showHidden} onToggleHidden={toggleHidden} settings={settings} x={extras} loading={nodes.isLoading} searchRef={searchRef} />
         )}
         {/* Phones have no room in the status bar for the credit Komari requires. */}
         <p className="page-credit">

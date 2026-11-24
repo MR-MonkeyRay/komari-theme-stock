@@ -48,8 +48,10 @@ export function useNodes() {
     queryKey: ['nodes'],
     queryFn: async ({ signal }) => {
       const res = await rpc<NodeInfo[] | Record<string, NodeInfo>>('public:getNodesInformation', {}, signal)
+      // Komari returns hidden nodes only to logged-in sessions, so whatever arrives may be shown;
+      // hidden ones carry a 隐藏 mark.
       const list = Array.isArray(res) ? res : Object.values(res ?? {})
-      return list.filter((n) => !n.hidden).sort((a, b) => a.weight - b.weight || a.name.localeCompare(b.name))
+      return list.sort((a, b) => a.weight - b.weight || a.name.localeCompare(b.name))
     },
     refetchInterval: 60_000,
   })
