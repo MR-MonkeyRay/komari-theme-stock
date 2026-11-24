@@ -8,7 +8,7 @@ import { fitRange, useAvailableRanges, useClientOps, useConnHistory, useExpiryLe
 import { buildCandles, buildVolume, inferEvents, rangeStats } from '../../lib/candles'
 import { ago, clock, finite, pct, ratio, signed, utcOffset } from '../../lib/format'
 import type { Row } from '../../lib/model'
-import type { Range, ThemeSettings } from '../../lib/settings'
+import { usePrefs, type ChartStyle, type Range, type ThemeSettings } from '../../lib/settings'
 import { Flag, Segmented, Tick } from '../primitives'
 import { BillingPanel, EventsPanel, LocationPanel, NetworkPanel, StatBook, SystemPanel } from './Panels'
 import { PingPanel, type PingPick } from './PingPanel'
@@ -18,6 +18,8 @@ const KLineChart = lazy(() => import('./KLineChart'))
 type SubPane = import('./KLineChart').SubPane
 
 const GIB = 1024 ** 3
+const LOOKS: ChartStyle[] = ['candle', 'line']
+const setLook = (chartStyle: ChartStyle) => usePrefs.getState().update({ chartStyle })
 const fmtPct = (v: number) => `${v.toFixed(1)}%`
 const fmtGiB = (v: number) => v.toFixed(v >= 100 ? 1 : 2)
 
@@ -146,16 +148,18 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange,
           <section className="panel chart-panel chart-main">
             <div className="panel-head compact">
               <h3>
-                CPU 使用率 <small>K 线 · 副图：{sub === 'vol' ? '网络流量' : '连接数'}</small>
+                CPU 使用率 <small>{settings.chartStyle === 'line' ? '分时' : 'K 线'} · 副图：{sub === 'vol' ? '网络流量' : '连接数'}</small>
               </h3>
               <div className="chart-tools">
                 <span className="chart-now num">
                   覆盖 <b>{cpuStats ? `${Math.round(cpuStats.coverage * 100)}%` : '—'}</b>
                 </span>
+                {/* A reading preference: kept in this browser, and the memory and disk charts follow it. */}
+                <Segmented className="range-tabs look-tabs" value={settings.chartStyle} options={LOOKS} format={(v) => (v === 'line' ? '分时' : 'K 线')} onChange={setLook} label="图表形态" />
                 <Segmented className="range-tabs" value={range} options={available.ranges} onChange={onRange} label="时间范围" />
               </div>
             </div>
-            <KLineChart slots={cpu} volume={volume} sub={sub} onSub={onSub} conn={conn} format={fmtPct} percent ma loading={loading} stale={stale} offline={!r.online} label="CPU 使用率" rangeKey={dataKey} />
+            <KLineChart look={settings.chartStyle} slots={cpu} volume={volume} sub={sub} onSub={onSub} conn={conn} format={fmtPct} percent ma loading={loading} stale={stale} offline={!r.online} label="CPU 使用率" rangeKey={dataKey} />
           </section>
 
           <PingPanel uuid={uuid} range={range} refreshSeconds={settings.refreshSeconds} offline={!r.online} pick={ping} onPick={onPing} />
@@ -171,7 +175,7 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange,
                   {st && <em className="dim"> {pct(ratio(st.ram, st.ram_total || r.node.mem_total))}</em>}
                 </span>
               </div>
-              <KLineChart slots={mem} format={fmtGiB} loading={loading} stale={stale} offline={!r.online} label="内存已用" rangeKey={dataKey} />
+              <KLineChart look={settings.chartStyle} slots={mem} format={fmtGiB} loading={loading} stale={stale} offline={!r.online} label="内存已用" rangeKey={dataKey} />
               <StatBook stats={memStats} format={fmtGiB} items={['avg', 'high']} />
             </section>
             <section className="panel chart-panel chart-mini">
@@ -184,7 +188,7 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange,
                   {st && <em className="dim"> {pct(ratio(st.disk, st.disk_total || r.node.disk_total))}</em>}
                 </span>
               </div>
-              <KLineChart slots={disk} format={fmtGiB} loading={loading} stale={stale} offline={!r.online} label="磁盘已用" rangeKey={dataKey} />
+              <KLineChart look={settings.chartStyle} slots={disk} format={fmtGiB} loading={loading} stale={stale} offline={!r.online} label="磁盘已用" rangeKey={dataKey} />
               <StatBook stats={diskStats} format={fmtGiB} items={['avg', 'high']} />
             </section>
           </div>

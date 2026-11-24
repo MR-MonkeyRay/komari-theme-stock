@@ -1,11 +1,12 @@
 import * as RadioGroup from '@radix-ui/react-radio-group'
 import clsx from 'clsx'
-import { CandlestickSeries, createChart, LineSeries, LineStyle, type IChartApi, type IPriceLine, type ISeriesApi, type MouseEventParams, type Time } from 'lightweight-charts'
+import { AreaSeries, CandlestickSeries, createChart, LineSeries, LineStyle, type IChartApi, type IPriceLine, type ISeriesApi, type MouseEventParams, type Time } from 'lightweight-charts'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import type { ConnPoint } from '../../lib/api'
 import { cssVar, usePaletteVersion } from '../../lib/appearance'
 import { isCandle, movingAverage, volumeBars, type Candle, type Slot, type Volume } from '../../lib/candles'
 import { size } from '../../lib/format'
+import type { ChartStyle } from '../../lib/settings'
 import { asTs, baseChartOptions, chartPalette, crosshairLabel } from './chartBase'
 
 const VOL_FORMAT = { type: 'custom' as const, formatter: (v: number) => (v > 0 ? size(v, true) : '0'), minMove: 1 }
@@ -22,6 +23,8 @@ export interface KLineProps {
   sub?: SubPane
   onSub?: (s: SubPane) => void
   conn?: ConnPoint[] | null
+  /** Candles (K 线) or a line of bucket averages (分时). */
+  look?: ChartStyle
   /** axis/legend formatter for candle values */
   format: (v: number) => string
   /** clamp autoscale to [0, 100] for percentages */
@@ -41,11 +44,12 @@ interface Hover {
   volume?: Volume
 }
 
-export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, format, percent, ma, loading, stale, offline, label, rangeKey }: KLineProps) {
+export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, look = 'candle', format, percent, ma, loading, stale, offline, label, rangeKey }: KLineProps) {
   const host = useRef<HTMLDivElement>(null)
   const chart = useRef<IChartApi | null>(null)
   const series = useRef<{
     candle: ISeriesApi<'Candlestick'>
+    area: ISeriesApi<'Area'>
     ma5?: ISeriesApi<'Line'>
     ma20?: ISeriesApi<'Line'>
     vol?: ISeriesApi<'Candlestick'>
@@ -64,7 +68,13 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, fo
   }, [format])
 
   const candles = useMemo(() => slots.filter(isCandle), [slots])
-  const bars = useMemo(() => (volume ? volumeBars(volume, candles) : []), [volume, candles])
+  const line = look === 'line'
+  const bars = useMemo(() => (volume ? volumeBars(volume, candles, line) : []), [volume, candles, line])
+  // The crosshair reports a time; the legend reads that bucket from here, in either view.
+  const byTime = useRef(new Map<number, Candle>())
+  useEffect(() => {
+    byTime.current = new Map(candles.map((c) => [c.time, c]))
+  }, [candles])
   const barByTime = useMemo(() => new Map(bars.map((b) => [b.time, b])), [bars])
   const connByTime = useMemo(() => new Map(conn?.map((c) => [c.time, c])), [conn])
   // Not hovering: the latest bucket with connection samples (its history refreshes on its own clock).
@@ -92,7 +102,9 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, fo
           }
         : undefined,
     })
-    const s: NonNullable<typeof series.current> = { candle }
+    // 分时: the bucket averages as a line over a fading fill.
+    const area = c.addSeries(AreaSeries, { priceFormat: valueFormat, lineWidth: 2, visible: false, priceLineVisible: false, lastValueVisible: true, crosshairMarkerRadius: 3, autoscaleInfoProvider: candle.options().autoscaleInfoProvider })
+    const s: NonNullable<typeof series.current> = { candle, area }
     if (ma) {
       const line = { lineWidth: 1 as const, priceFormat: valueFormat, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false }
       // MA5 turns into noise on phone-width charts; keep MA20 there.
@@ -130,8 +142,7 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, fo
         return
       }
       const t = p.time as number
-      const bar = p.seriesData.get(candle) as Candle | undefined
-      setHover({ time: t, candle: bar && 'open' in bar ? bar : null })
+      setHover({ time: t, candle: byTime.current.get(t) ?? null })
     }
     c.subscribeCrosshairMove(onMove)
     return () => {
@@ -154,6 +165,7 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, fo
     c.applyOptions(chartPalette())
     // Rising candles are hollow (outline only), falling candles are solid.
     s.candle.applyOptions({ upColor: cssVar('--bg-chart'), borderUpColor: up, wickUpColor: up, downColor: down, borderDownColor: down, wickDownColor: down })
+    s.area.applyOptions({ lineColor: cssVar('--chart-line'), topColor: cssVar('--chart-area-top'), bottomColor: cssVar('--chart-area-bottom') })
     s.ma5?.applyOptions({ color: cssVar('--ma5') })
     s.ma20?.applyOptions({ color: cssVar('--ma20') })
     const volDown = cssVar('--vol-down')
@@ -163,6 +175,16 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, fo
     s.tcp?.applyOptions({ color: cssVar('--conn-tcp') })
     s.udp?.applyOptions({ color: cssVar('--conn-udp') })
   }, [palette])
+
+  // K 线 or 分时.
+  useEffect(() => {
+    const s = series.current
+    if (!s) return
+    s.candle.applyOptions({ visible: !line })
+    s.area.applyOptions({ visible: line })
+    // In 分时 the gold MA20 plays the stock chart's average line; MA5 would only crowd it.
+    s.ma5?.applyOptions({ visible: !line && !window.matchMedia('(max-width: 640px)').matches })
+  }, [line])
 
   // Sub-pane view.
   useEffect(() => {
@@ -199,6 +221,7 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, fo
         })
       : null
     s.candle.setData(slots.map((x) => (isCandle(x) ? { time: asTs(x.time), open: x.open, high: x.high, low: x.low, close: x.close } : { time: asTs(x.time) })))
+    s.area.setData(slots.map((x) => (isCandle(x) ? { time: asTs(x.time), value: x.avg } : { time: asTs(x.time) })))
     if (s.ma5 && s.ma20) {
       const conv = (arr: { time: number; value?: number }[]) => arr.map((p) => (p.value === undefined ? { time: asTs(p.time) } : { time: asTs(p.time), value: p.value }))
       s.ma5.setData(conv(movingAverage(slots, 5)))
@@ -206,18 +229,21 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, fo
     }
     if (s.vol && s.volMa5 && s.volMa10) {
       const flat = cssVar('--vol-flat')
+      // 分时 volume is all solid, like a stock's intraday volume.
+      const upSolid = line ? cssVar('--vol-up-solid') : null
       s.vol.setData(
         bars.map((b) => {
           const time = asTs(b.time)
           if (b.dir === 'down') return { time, open: b.total, high: b.total, low: 0, close: 0 }
           const bar = { time, open: 0, high: b.total, low: 0, close: b.total }
-          return b.dir === 'flat' ? { ...bar, color: flat, borderColor: flat } : bar
+          if (b.dir === 'flat') return { ...bar, color: flat, borderColor: flat }
+          return upSolid ? { ...bar, color: upSolid, borderColor: upSolid } : bar
         }),
       )
       s.volMa5.setData(bars.map((b) => (b.ma5 === undefined ? { time: asTs(b.time) } : { time: asTs(b.time), value: b.ma5 })))
       s.volMa10.setData(bars.map((b) => (b.ma10 === undefined ? { time: asTs(b.time) } : { time: asTs(b.time), value: b.ma10 })))
     }
-  }, [slots, candles, bars, palette])
+  }, [slots, candles, bars, palette, line])
 
   // Keep the VOL legend at the top of its pane.
   useLayoutEffect(() => {
@@ -253,7 +279,8 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, fo
     const i = cursor === null ? candles.length - 1 : Math.max(0, Math.min(candles.length - 1, cursor + (e.key === 'ArrowLeft' ? -1 : 1)))
     setCursor(i)
     const c = candles[i]
-    chart.current.setCrosshairPosition(c.close, asTs(c.time), series.current.candle)
+    if (line) chart.current.setCrosshairPosition(c.avg, asTs(c.time), series.current.area)
+    else chart.current.setCrosshairPosition(c.close, asTs(c.time), series.current.candle)
     // Moving the crosshair from code fires no crosshair event: update the legend here.
     setHover({ time: c.time, candle: c })
   }
@@ -279,6 +306,25 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, fo
           <>
             <span className="lg-time">{crosshairLabel(hover.time as Time)}</span>
             <span className="dim">无上报样本</span>
+          </>
+        ) : shown && line ? (
+          <>
+            <span className="lg-time">{crosshairLabel(shown.time as Time)}</span>
+            <span>
+              均 <b>{format(shown.avg)}</b>
+            </span>
+            <span>
+              高 <b>{format(shown.high)}</b>
+            </span>
+            <span>
+              低 <b>{format(shown.low)}</b>
+            </span>
+            {ma && (
+              <span className="lg-ma">
+                <i className="ma20" />
+                MA20
+              </span>
+            )}
           </>
         ) : shown ? (
           <>
@@ -317,7 +363,7 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, fo
         className="kline-canvas"
         tabIndex={0}
         role="img"
-        aria-label={`${label} K 线图，空心为区间上升、实心为区间下降；按左右方向键逐个查看区间`}
+        aria-label={line ? `${label}分时图，每个时段的均值连成折线；按左右方向键逐个查看时段` : `${label} K 线图，空心为区间上升、实心为区间下降；按左右方向键逐个查看区间`}
         onKeyDown={onKey}
         onBlur={onBlur}
       />

@@ -14,7 +14,7 @@ export default function App() {
   const [appearance, setAppearance] = useAppearance()
   const pub = usePublicSettings()
   const site = useMemo(() => readSiteSettings(pub.data), [pub.data])
-  const prefs = usePrefs(useShallow(({ redUp, showSparkline, refreshSeconds, defaultRange, showEvents }) => ({ redUp, showSparkline, refreshSeconds, defaultRange, showEvents })))
+  const prefs = usePrefs(useShallow(({ redUp, showSparkline, refreshSeconds, defaultRange, showEvents, chartStyle }) => ({ redUp, showSparkline, refreshSeconds, defaultRange, showEvents, chartStyle })))
   const settings: ThemeSettings = useMemo(() => ({ ...site, ...prefs }), [site, prefs])
   const nodes = useNodes()
   const status = useLatestStatus(settings.refreshSeconds)

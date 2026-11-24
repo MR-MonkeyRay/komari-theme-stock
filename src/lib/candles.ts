@@ -77,15 +77,23 @@ export interface VolBar extends Volume {
  * The traffic pane drawn like a stock chart's volume: bars of up + down, each taking the direction
  * of the candle in the same bucket (as volume follows price there), with 5- and 10-bucket averages.
  */
-export function volumeBars(volume: Volume[], candles: Candle[]): VolBar[] {
+export function volumeBars(volume: Volume[], candles: Candle[], line = false): VolBar[] {
   const byTime = new Map(candles.map((c) => [c.time, c]))
+  const prevAvg = new Map(candles.map((c, i) => [c.time, i > 0 ? candles[i - 1].avg : null]))
   const totals: number[] = []
   const avg = (n: number) => (totals.length >= n ? totals.slice(-n).reduce((a, b) => a + b, 0) / n : undefined)
+  // As candles: the candle's own rise or fall. As a line (分时): the average against the bucket
+  // before, as a stock's intraday volume follows the price tick.
+  const direction = (c: Candle | undefined): VolBar['dir'] => {
+    if (!c) return 'flat'
+    const from = line ? prevAvg.get(c.time) : c.open
+    const to = line ? c.avg : c.close
+    return from === null || from === undefined || to === from ? 'flat' : to > from ? 'up' : 'down'
+  }
   return volume.map((v) => {
-    const c = byTime.get(v.time)
     const total = v.up + v.down
     totals.push(total)
-    return { ...v, total, dir: !c || c.close === c.open ? 'flat' : c.close > c.open ? 'up' : 'down', ma5: avg(5), ma10: avg(10) }
+    return { ...v, total, dir: direction(byTime.get(v.time)), ma5: avg(5), ma10: avg(10) }
   })
 }
 

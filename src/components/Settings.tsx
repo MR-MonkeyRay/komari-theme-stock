@@ -5,7 +5,7 @@ import * as Switch from '@radix-ui/react-switch'
 import { RotateCcw, SlidersHorizontal, X } from 'lucide-react'
 import { useId, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { fitRange, useAvailableRanges } from '../lib/api'
-import { isDefaultPrefs, REFRESH_OPTIONS, usePrefs, type Range } from '../lib/settings'
+import { isDefaultPrefs, REFRESH_OPTIONS, usePrefs, type ChartStyle, type Range } from '../lib/settings'
 import { Segmented } from './primitives'
 
 // Visitor display preferences: a popover under the top-bar button on desktop, a bottom sheet on
@@ -24,6 +24,7 @@ function useIsPhone() {
 }
 
 const REFRESH = REFRESH_OPTIONS.map(String)
+const CHART_STYLES: ChartStyle[] = ['candle', 'line']
 
 function Field({ label, note, children }: { label: string; note?: string; children: (ids: { label: string; note?: string }) => ReactNode }) {
   const id = useId()
@@ -101,6 +102,9 @@ function PrefsForm() {
         <h3 className="pref-section-title">节点详情</h3>
         <Field label="默认时间范围" note="详情页内可临时切换">
           {(ids) => <Segmented<Range> className="seg-fill" value={fitRange(p.defaultRange, available)} options={available.ranges} onChange={(defaultRange) => p.update({ defaultRange })} labelledBy={ids.label} />}
+        </Field>
+        <Field label="图表形态" note="分时：每个时段的均值连成折线；详情页内也可切换">
+          {(ids) => <Segmented<ChartStyle> className="seg-fill" value={p.chartStyle} options={CHART_STYLES} onChange={(chartStyle) => p.update({ chartStyle })} labelledBy={ids.label} format={(v) => (v === 'line' ? '分时' : 'K 线')} />}
         </Field>
         <SwitchField label="显示节点事件" note="由样本推断的升高、回落与缺测" checked={p.showEvents} onChange={(showEvents) => p.update({ showEvents })} />
       </section>
