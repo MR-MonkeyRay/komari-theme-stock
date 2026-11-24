@@ -5,10 +5,11 @@ export const finite = (x: unknown): x is number => typeof x === 'number' && Numb
 const SYMBOLS = { B: 'B', KB: 'K', MB: 'M', GB: 'G', TB: 'T', PB: 'P' }
 
 /** Binary (1024) size split into [number, unit] with compact units: 1.62 / M. */
-export function sizeParts(bytes: number | null | undefined, rate = false): [string, string] | null {
+/** `fixed` pads to 2 decimals (1 from 100) so ticking values keep their width; capacities stay short (12G). */
+export function sizeParts(bytes: number | null | undefined, rate = false, fixed = rate): [string, string] | null {
   if (!finite(bytes) || bytes < 0) return null
   const [v, unit] = filesize(bytes, { base: 2, standard: 'jedec', round: 2, symbols: SYMBOLS, output: 'array' }) as [number, string]
-  const text = v >= 100 ? v.toFixed(1) : String(v)
+  const text = v >= 100 ? v.toFixed(1) : fixed ? v.toFixed(2) : String(v)
   return [bytes > 0 && v === 0 ? '<1' : text, unit + (rate ? '/s' : '')]
 }
 
@@ -27,7 +28,9 @@ export function ratio(used: number | undefined, total: number | undefined) {
 
 export function signed(x: number, digits = 1) {
   const v = x.toFixed(digits)
-  return x > 0 ? `+${v}` : v === (-0).toFixed(digits) ? (0).toFixed(digits) : v
+  // Values that round to zero (e.g. -0.03 → "-0.0") print unsigned.
+  if (Number(v) === 0) return (0).toFixed(digits)
+  return x > 0 ? `+${v}` : v
 }
 
 /** Uptime like 18天4时 / 5时12分. */

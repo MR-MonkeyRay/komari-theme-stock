@@ -89,7 +89,9 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, onStep }: { r: R
             <Tick value={price} threshold={0.5}>{pct(price)}</Tick>
           </b>
           <span className="qb-change num">
-            <span>{dir === 'up' ? '▲' : dir === 'down' ? '▼' : '■'} {finite(change) ? signed(change, 1) : '—'}</span>
+            <span>{dir === 'up' ? '▲' : dir === 'down' ? '▼' : '■'} {finite(change) ? signed(change, 1) : '—'}
+              {finite(change) && <small>pp</small>}
+            </span>
             <span>{finite(changePct) ? `${signed(changePct, 2)}%` : ''}</span>
           </span>
         </div>
@@ -171,11 +173,11 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, onStep }: { r: R
         </div>
 
         <aside className="detail-side" aria-label="节点资料">
-          <LocationPanel r={r} />
           <NetworkPanel r={r} volume={volume} traffic={traffic} monthly={monthly} />
-          <BillingPanel r={r} now={now} />
           <SystemPanel r={r} />
+          <BillingPanel r={r} now={now} />
           {settings.showEvents && <EventsPanel events={events} />}
+          <LocationPanel r={r} />
         </aside>
       </div>
       </Suspense>

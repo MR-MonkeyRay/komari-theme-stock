@@ -102,13 +102,10 @@
 
 .board {
   --gap: 12px;
-  --cols: minmax(150px, 1.5fr) 80px minmax(104px, 1fr) 88px minmax(104px, 1fr) minmax(104px, 1fr) 140px 100px 108px minmax(90px, 0.9fr) 66px;
+  --cols: minmax(136px, 1fr) 76px repeat(3, minmax(124px, 1.15fr)) 124px 96px 104px minmax(80px, 0.7fr) 60px;
 }
 .board.no-spark {
-  --cols: minmax(150px, 1.5fr) 80px minmax(104px, 1fr) minmax(104px, 1fr) minmax(104px, 1fr) 140px 100px 108px minmax(90px, 0.9fr) 66px;
-}
-.board.no-spark .c-spark {
-  display: none;
+  --cols: minmax(150px, 1.5fr) 80px repeat(3, minmax(104px, 1fr)) 140px 100px 108px minmax(90px, 0.9fr) 66px;
 }
 
 .qhead,
@@ -325,23 +322,79 @@ button.th:hover .sort-mark {
 }
 
 .metric {
+  display: grid;
+  align-items: center;
+  min-width: 0;
+}
+.m-nums {
+  grid-area: nums;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  justify-content: center;
+  gap: 1px;
+  min-width: 0;
 }
-.metric-top {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 6px;
-}
-.metric-top b {
+.m-value {
   font-size: 13.5px;
   font-weight: 650;
+  white-space: nowrap;
+}
+/* Load level is a separate channel from rise/fall: amber text for high, a badge for critical. */
+.metric.is-warn .m-value {
+  color: var(--warn);
+}
+.metric.is-danger .m-value {
+  width: fit-content;
+  padding: 0 4px;
+  margin: 0 -4px;
+  color: var(--text-1);
+  background: color-mix(in srgb, var(--alert) 24%, transparent);
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--alert) 58%, transparent);
+}
+.metric .spark,
+.metric .meter {
+  grid-area: viz;
+}
+/* Quote style: price over change on the left, intraday trail on the right. */
+.metric.has-spark {
+  grid-template-columns: 56px minmax(0, 1fr);
+  grid-template-areas: 'nums viz';
+  column-gap: 7px;
+  padding-right: 10px;
+}
+.metric.has-meter {
+  grid-template-areas:
+    'nums'
+    'viz';
+  row-gap: 5px;
+}
+.metric.has-meter .m-nums {
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: baseline;
+  gap: 6px;
 }
 .delta {
   font-size: 10.5px;
   font-weight: 600;
+  white-space: nowrap;
+}
+.delta.flat {
+  font-weight: 500;
+  color: var(--text-3);
+}
+.delta small {
+  margin-left: 1px;
+  font-size: 8.5px;
+  font-weight: 500;
+  opacity: 0.75;
+}
+.th-sub {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-3);
+  opacity: 0.72;
 }
 .m-label {
   display: none;
@@ -372,53 +425,78 @@ button.th:hover .sort-mark {
   background: var(--red);
 }
 
-.c-spark {
-  display: flex;
-  align-items: center;
-}
 .spark {
+  --spark-h: 30px;
+  --dot: 4px;
+  position: relative;
   display: block;
+  width: 100%;
+  height: var(--spark-h);
+  color: var(--flat);
+}
+.spark svg {
+  display: block;
+  width: 100%;
+  height: 100%;
   overflow: visible;
 }
 .spark-empty {
-  display: block;
-  border-bottom: 1px dashed var(--line-strong);
-  transform: translateY(-50%);
+  background: repeating-linear-gradient(90deg, var(--text-3) 0 3px, transparent 3px 7px) center / 100% 1px no-repeat;
+  opacity: 0.7;
+}
+.spark-axis {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
 }
 .spark-line {
   fill: none;
+  stroke: currentColor;
   stroke-width: 1.3;
   stroke-linejoin: round;
-}
-.spark-area {
-  stroke: none;
-  opacity: 0.14;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
 }
 .spark-avg {
+  fill: none;
   stroke: var(--text-4);
   stroke-width: 1;
   stroke-dasharray: 2 2;
+  vector-effect: non-scaling-stroke;
 }
-.spark-up .spark-line {
-  stroke: var(--up);
+.spark.is-steady .spark-avg {
+  opacity: 0.35;
 }
-.spark-up .spark-area,
-.spark-up .spark-dot {
-  fill: var(--up);
+.spark-flat .spark-area {
+  opacity: 0.4;
 }
-.spark-down .spark-line {
-  stroke: var(--down);
+.spark-dot {
+  position: absolute;
+  width: var(--dot);
+  height: var(--dot);
+  margin: calc(var(--dot) / -2) 0 0 calc(var(--dot) / -2);
+  background: currentColor;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, currentColor 24%, transparent);
 }
-.spark-down .spark-area,
-.spark-down .spark-dot {
-  fill: var(--down);
+/* Offline: the trail stops where reporting stopped, with a hollow end point. */
+.spark.is-stopped .spark-dot {
+  background: var(--bg-panel);
+  box-shadow: inset 0 0 0 1.5px currentColor;
+  --dot: 5px;
 }
-.spark-flat .spark-line {
-  stroke: var(--flat);
+.spark-up {
+  color: var(--up);
 }
-.spark-flat .spark-area,
-.spark-flat .spark-dot {
-  fill: var(--flat);
+.spark-down {
+  color: var(--down);
+}
+.spark-flat {
+  color: var(--flat);
+}
+:root[data-theme='light'] .spark-line {
+  stroke-width: 1.4;
 }
 
 .c-load {
@@ -486,6 +564,11 @@ button.th:hover .sort-mark {
   flex-wrap: wrap;
   gap: 4px;
 }
+/* One line in the table; the full list is in the title tooltip. */
+.c-tags .tags {
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
 .tag {
   display: inline-flex;
   align-items: center;
@@ -531,7 +614,6 @@ button.th:hover .sort-mark {
 
 /* Offline rows read as suspended quotes. */
 .qrow.is-off .metric,
-.qrow.is-off .c-spark,
 .qrow.is-off .c-load,
 .qrow.is-off .c-traffic,
 .qrow.is-off .c-net,
@@ -541,9 +623,8 @@ button.th:hover .sort-mark {
 .qrow.is-off .node-name {
   color: var(--text-2);
 }
-.qrow.is-off .c-spark {
-  filter: grayscale(1);
-  opacity: 0.35;
+.qrow.is-off .spark {
+  color: var(--text-2);
 }
 .qrow.is-off .flag {
   filter: grayscale(0.7);
@@ -595,16 +676,40 @@ button.th:hover .sort-mark {
 
 @media (max-width: 1440px) {
   .board {
-    --gap: 9px;
+    --gap: 10px;
+  }
+}
+
+/* Laptop widths: value and Δ on one line, trail underneath at full column width. */
+@media (max-width: 1320px) {
+  .board {
+    --cols: minmax(130px, 1fr) 74px repeat(3, minmax(104px, 1.1fr)) 120px 94px 102px minmax(76px, 0.6fr) 58px;
+  }
+  .metric.has-spark {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'nums'
+      'viz';
+    row-gap: 3px;
+  }
+  .metric.has-spark .m-nums {
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: baseline;
+    gap: 6px;
+  }
+  .metric .spark {
+    --spark-h: 22px;
+    --dot: 3.5px;
   }
 }
 
 @media (max-width: 1240px) {
   .board {
-    --cols: minmax(140px, 1.5fr) 76px minmax(96px, 1fr) 84px minmax(96px, 1fr) minmax(96px, 1fr) 132px 96px 104px 62px;
+    --cols: minmax(120px, 1fr) 70px repeat(3, minmax(100px, 1.1fr)) 112px 90px 98px 56px;
   }
   .board.no-spark {
-    --cols: minmax(140px, 1.5fr) 76px minmax(96px, 1fr) minmax(96px, 1fr) minmax(96px, 1fr) 132px 96px 104px 62px;
+    --cols: minmax(140px, 1.5fr) 76px repeat(3, minmax(96px, 1fr)) 132px 96px 104px 62px;
   }
   .c-tags {
     display: none !important;
@@ -614,9 +719,8 @@ button.th:hover .sort-mark {
 @media (max-width: 1060px) {
   .board,
   .board.no-spark {
-    --cols: minmax(140px, 1.5fr) 76px minmax(92px, 1fr) minmax(92px, 1fr) minmax(92px, 1fr) 96px 104px 58px;
+    --cols: minmax(120px, 1fr) 70px repeat(3, minmax(92px, 1.1fr)) 90px 98px 56px;
   }
-  .c-spark,
   .c-load {
     display: none !important;
   }
@@ -646,6 +750,7 @@ button.th:hover .sort-mark {
     flex-direction: column;
     gap: 8px;
     padding: 8px;
+    background: var(--bg-inset);
   }
   .group-head {
     padding: 0 10px;
@@ -661,7 +766,7 @@ button.th:hover .sort-mark {
       'cpu ram disk'
       'load load load'
       'traffic net net';
-    row-gap: 10px;
+    row-gap: 8px;
     column-gap: 12px;
     padding: 10px 12px 12px;
     background: var(--bg-panel);
@@ -692,7 +797,7 @@ button.th:hover .sort-mark {
     grid-area: load;
     align-items: center;
     gap: 14px;
-    padding: 6px 8px;
+    padding: 4px 8px;
     background: var(--bg-inset);
     border-radius: var(--radius-sm);
   }
@@ -717,37 +822,43 @@ button.th:hover .sort-mark {
   .c-seen {
     grid-area: seen;
   }
-  .c-spark {
-    display: none !important;
-  }
   .m-label {
     display: inline;
     font-size: 11px;
     color: var(--text-3);
   }
-  .metric {
-    display: grid;
-    grid-template-columns: auto 1fr;
+  /* Each metric is a small tile: label and Δ on top, value, then the trail. */
+  .metric.has-spark,
+  .metric.has-meter {
+    grid-template-columns: auto minmax(0, 1fr);
     grid-template-areas:
-      'label value'
-      'bar bar';
-    gap: 4px 6px;
+      'label delta'
+      'value value'
+      'viz viz';
+    gap: 2px 4px;
+    padding: 6px 7px;
+    background: var(--bg-inset);
+    border-radius: var(--radius-sm);
+  }
+  .metric .m-nums {
+    display: contents;
   }
   .metric .m-label {
     grid-area: label;
   }
-  .metric .metric-top {
+  .metric .m-value {
     grid-area: value;
-    justify-content: flex-end;
-  }
-  .metric .meter {
-    grid-area: bar;
+    justify-self: start;
   }
   .metric .delta {
+    grid-area: delta;
+    justify-self: end;
     font-size: 10px;
   }
-  .metric .metric-top {
-    gap: 4px;
+  .metric .spark {
+    --spark-h: 24px;
+    --dot: 3.5px;
+    margin-top: 2px;
   }
   .c-traffic,
   .c-net {

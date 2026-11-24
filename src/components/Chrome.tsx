@@ -6,7 +6,9 @@ import { useEffect, useMemo, useState, type ComponentProps } from 'react'
 import type { Appearance } from '../lib/appearance'
 import { clock, dateText, finite, signed, sizeParts, utcOffset } from '../lib/format'
 import type { Bulletin, MarketSummary } from '../lib/market'
+import { dirOf } from '../lib/model'
 import { lastLatency } from '../lib/rpc'
+import { Tick } from './primitives'
 
 // Quote-board digits roll quickly so 2 s ticks never overlap.
 const FLOW_TIMING = { duration: 360, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' }
@@ -38,7 +40,7 @@ export function TopBar({ siteName, live, refreshSeconds, now, appearance, onAppe
     <header className="topbar">
       <a className="brand" href={import.meta.env.BASE_URL} aria-label={`${siteName} 首页`}>
         <span className="logomark" aria-hidden="true">
-          K<i />
+          K
         </span>
         <strong>{siteName}</strong>
         <span className="crumb">/ 节点行情</span>
@@ -59,17 +61,24 @@ export function TopBar({ siteName, live, refreshSeconds, now, appearance, onAppe
   )
 }
 
-function Flow({ value, digits = 1, suffix }: { value: number | null; digits?: number; suffix?: string }) {
+// Values that change every refresh switch digits in place and flash, like quote cells; only the
+// low-frequency node counts roll.
+function Live({ value, digits = 1, suffix }: { value: number | null; digits?: number; suffix?: string }) {
   if (!finite(value)) return <span className="dash">—</span>
-  return <NumberFlow value={value} format={{ minimumFractionDigits: digits, maximumFractionDigits: digits }} suffix={suffix} willChange />
+  return (
+    <Tick value={value} threshold={0.5}>
+      {value.toFixed(digits)}
+      {suffix}
+    </Tick>
+  )
 }
 
-function FlowSize({ bytes, rate }: { bytes: number | null; rate?: boolean }) {
-  const p = sizeParts(bytes, rate)
-  if (!p || p[0] === '<1') return <span>{p ? p.join('') : '—'}</span>
+function LiveSize({ bytes, rate }: { bytes: number | null; rate?: boolean }) {
+  const p = sizeParts(bytes, rate, true)
+  if (!p) return <span className="dash">—</span>
   return (
     <>
-      <NumberFlow value={Number(p[0])} format={{ minimumFractionDigits: Number(p[0]) >= 100 ? 1 : 2, maximumFractionDigits: Number(p[0]) >= 100 ? 1 : 2 }} willChange />
+      <Tick value={bytes} threshold={Math.max((bytes ?? 0) * 0.08, 16 * 1024)}>{p[0]}</Tick>
       <small className="unit">{p[1]}</small>
     </>
   )
@@ -77,7 +86,7 @@ function FlowSize({ bytes, rate }: { bytes: number | null; rate?: boolean }) {
 
 export function IndexStrip({ m, loading }: { m: MarketSummary; loading: boolean }) {
   const normal = Math.max(0, m.online - m.hot)
-  const dir = finite(m.cpuDelta) ? (m.cpuDelta > 0.05 ? 'up' : m.cpuDelta < -0.05 ? 'down' : 'flat') : 'flat'
+  const dir = dirOf(m.cpuDelta) ?? 'flat'
   return (
     <section className="index-strip" aria-label="全网概览">
       <div className="ix ix-breadth">
@@ -106,10 +115,11 @@ export function IndexStrip({ m, loading }: { m: MarketSummary; loading: boolean 
       <div className="ix">
         <span className="ix-label">CPU 中位数</span>
         <span className="ix-value num">
-          <Flow value={m.cpuMedian} suffix="%" />
+          <Live value={m.cpuMedian} suffix="%" />
           {finite(m.cpuDelta) && (
-            <span className={clsx('ix-delta', dir)} title="较 15 分钟前">
+            <span className={clsx('ix-delta', dir)} title="较近 1 小时全网中位数均值，单位为百分点">
               {dir === 'up' ? '▲' : dir === 'down' ? '▼' : '■'} {signed(m.cpuDelta, 1)}
+              <small>pp</small>
             </span>
           )}
         </span>
@@ -117,19 +127,19 @@ export function IndexStrip({ m, loading }: { m: MarketSummary; loading: boolean 
       <div className="ix">
         <span className="ix-label">内存占用</span>
         <span className="ix-value num">
-          <Flow value={m.memRatio} suffix="%" />
+          <Live value={m.memRatio} suffix="%" />
         </span>
       </div>
       <div className="ix">
         <span className="ix-label">总上行</span>
         <span className="ix-value num net-up">
-          <FlowSize bytes={m.up} rate />
+          <LiveSize bytes={m.up} rate />
         </span>
       </div>
       <div className="ix">
         <span className="ix-label">总下行</span>
         <span className="ix-value num net-down">
-          <FlowSize bytes={m.down} rate />
+          <LiveSize bytes={m.down} rate />
         </span>
       </div>
       <div className="ix ix-traffic">
@@ -137,9 +147,9 @@ export function IndexStrip({ m, loading }: { m: MarketSummary; loading: boolean 
         <span className="ix-value num ix-small">
           {m.traffic ? (
             <>
-              <FlowSize bytes={m.traffic.up} />
+              <LiveSize bytes={m.traffic.up} />
               <span className="ix-sep">/</span>
-              <FlowSize bytes={m.traffic.down} />
+              <LiveSize bytes={m.traffic.down} />
             </>
           ) : (
             <span className="dash">—</span>

@@ -1,6 +1,7 @@
 import clsx from 'clsx'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { finite, levelOf, sizeParts } from '../lib/format'
+import type { MetricTrail } from '../lib/model'
 
 // flag-icons SVGs as plain asset URLs (not inlined), fetched only when shown.
 const flagUrls = import.meta.glob('../../node_modules/flag-icons/flags/4x3/*.svg', {
@@ -51,7 +52,7 @@ export function Meter({ value }: { value: number | null }) {
 export function Pair({ up, down, rate = false, tickUp, tickDown }: { up: number | null | undefined; down: number | null | undefined; rate?: boolean; tickUp?: boolean; tickDown?: boolean }) {
   if (!finite(up) && !finite(down)) return <span className="pair dash">—</span>
   const one = (v: number | null | undefined, arrow: string, cls: string, flash?: boolean) => {
-    const p = sizeParts(v, rate)
+    const p = sizeParts(v, rate, true)
     const body = p ? (
       <>
         <i className="arrow">{arrow}</i>
@@ -83,29 +84,45 @@ export function Pair({ up, down, rate = false, tickUp, tickDown }: { up: number 
   )
 }
 
-/** Intraday-style CPU trail: line + soft area + dashed average, colored by direction. */
-export function Sparkline({ points, width = 84, height = 26 }: { points: { t: number; v: number }[] | undefined; width?: number; height?: number }) {
-  if (!points || points.length < 2) return <span className="spark spark-empty" style={{ width, height }} />
+const SPARK_W = 100
+const SPARK_H = 24
+
+/**
+ * Intraday-style trail on a fixed 1h axis: fading area + line + dashed mean over the sampled span + last-value dot,
+ * colored by Δ direction. Stretches to its box (size it with CSS); strokes and the dot keep their pixel size.
+ * `minSpan` (pp) keeps steady metrics flat instead of amplifying noise; `stopped` draws a hollow end for offline nodes.
+ */
+export function Sparkline({ trail, minSpan = 6, stopped = false }: { trail: MetricTrail; minSpan?: number; stopped?: boolean }) {
+  const gid = 'spk' + useId().replace(/[^a-zA-Z0-9_-]/g, '')
+  const { points, avg, dir } = trail
+  if (points.length < 2 || avg === null) return <span className="spark spark-empty" title="近 1 小时无上报数据" />
   const vs = points.map((p) => p.v)
-  const lo = Math.min(...vs)
-  const hi = Math.max(...vs)
-  const pad = Math.max(1.5, (hi - lo) * 0.15)
-  const min = Math.max(0, lo - pad)
-  const max = Math.min(100, hi + pad)
-  const t0 = points[0].t
-  const t1 = points[points.length - 1].t
-  const x = (t: number) => ((t - t0) / Math.max(1, t1 - t0)) * (width - 2) + 1
-  const y = (v: number) => height - 2 - ((v - min) / Math.max(0.001, max - min)) * (height - 4)
-  const line = points.map((p, i) => `${i ? 'L' : 'M'}${x(p.t).toFixed(1)} ${y(p.v).toFixed(1)}`).join('')
-  const avg = vs.reduce((a, b) => a + b, 0) / vs.length
-  const dir = vs[vs.length - 1] > avg ? 'up' : vs[vs.length - 1] < avg ? 'down' : 'flat'
+  const lo = Math.min(...vs, avg)
+  const hi = Math.max(...vs, avg)
+  const span = Math.max(minSpan, hi - lo) * 1.25
+  const min = Math.max(0, Math.min((lo + hi) / 2 - span / 2, 100 - span))
+  const [t0, t1] = trail.window
+  const x = (t: number) => Math.max(0, Math.min(1, (t - t0) / Math.max(1, t1 - t0))) * (SPARK_W - 5)
+  const y = (v: number) => 2 + (1 - (v - min) / span) * (SPARK_H - 4)
+  const first = points[0]
   const last = points[points.length - 1]
+  const line = points.map((p, i) => `${i ? 'L' : 'M'}${x(p.t).toFixed(2)} ${y(p.v).toFixed(2)}`).join('')
+  const ya = y(avg).toFixed(2)
   return (
-    <svg className={clsx('spark', `spark-${dir}`)} width={width} height={height} viewBox={`0 0 ${width} ${height}`} aria-hidden="true">
-      <path className="spark-area" d={`${line}L${x(t1).toFixed(1)} ${height}L${x(t0).toFixed(1)} ${height}Z`} />
-      <path className="spark-avg" d={`M0 ${y(avg).toFixed(1)}H${width}`} />
-      <path className="spark-line" d={line} />
-      <circle className="spark-dot" cx={x(last.t)} cy={y(last.v)} r="1.8" />
-    </svg>
+    <span className={clsx('spark', `spark-${dir ?? 'flat'}`, hi - lo < 1.5 && 'is-steady', stopped && 'is-stopped')} aria-hidden="true">
+      <svg viewBox={`0 0 ${SPARK_W} ${SPARK_H}`} preserveAspectRatio="none">
+        <defs>
+          <linearGradient id={gid} gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2={SPARK_H}>
+            <stop offset="0" stopColor="currentColor" stopOpacity="0.22" />
+            <stop offset="1" stopColor="currentColor" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path className="spark-axis" d={`M0 ${SPARK_H - 0.5}H${SPARK_W}`} />
+        <path className="spark-area" fill={`url(#${gid})`} d={`${line}L${x(last.t).toFixed(2)} ${SPARK_H}L${x(first.t).toFixed(2)} ${SPARK_H}Z`} />
+        <path className="spark-avg" d={`M${x(first.t).toFixed(2)} ${ya}H${x(last.t).toFixed(2)}`} />
+        <path className="spark-line" d={line} />
+      </svg>
+      <i className="spark-dot" style={{ left: `${(x(last.t) / SPARK_W) * 100}%`, top: `${(y(last.v) / SPARK_H) * 100}%` }} />
+    </span>
   )
 }

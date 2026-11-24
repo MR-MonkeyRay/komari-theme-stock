@@ -3,8 +3,9 @@ import { ChevronRight, Search } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { forwardRef, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { Link } from 'react-router'
-import { ago, duration, finite, parseTags, pct, signed, size } from '../lib/format'
-import type { Row } from '../lib/model'
+import type { Sparks } from '../lib/api'
+import { ago, duration, finite, levelOf, parseTags, pct, signed, size } from '../lib/format'
+import { metricTrail, type BoardMetric, type Row } from '../lib/model'
 import { CONTINENTS, continentName } from '../lib/region'
 import type { ThemeSettings } from '../lib/settings'
 import { Flag, Meter, Pair, Sparkline, Tick } from './primitives'
@@ -13,7 +14,7 @@ type SortKey = 'name' | 'uptime' | 'cpu' | 'ram' | 'disk' | 'load' | 'traffic' |
 type Sort = { key: SortKey; dir: 'asc' | 'desc' } | null
 
 export interface BoardExtras {
-  sparks: Map<string, { t: number; v: number }[]> | undefined
+  sparks: Sparks | undefined
   traffic: (r: Row) => { up: number; down: number } | null
   trafficMonthly: boolean
   now: number
@@ -42,13 +43,6 @@ export function Tags({ tags, max }: { tags: string; max?: number }) {
   )
 }
 
-function sparkDelta(r: Row, sparks: BoardExtras['sparks']) {
-  const s = sparks?.get(r.node.uuid)
-  if (!s || s.length < 4 || !finite(r.cpu)) return null
-  const tail = s.slice(-15)
-  return r.cpu - tail.reduce((a, p) => a + p.v, 0) / tail.length
-}
-
 function sortValue(r: Row, key: SortKey, x: BoardExtras): number | string | null {
   const st = r.online ? r.status : undefined
   switch (key) {
@@ -75,13 +69,12 @@ function sortValue(r: Row, key: SortKey, x: BoardExtras): number | string | null
   }
 }
 
-const HEAD: { key: SortKey | null; label: string; cls: string }[] = [
+const HEAD: { key: SortKey | null; label: string; cls: string; trail?: boolean }[] = [
   { key: 'name', label: '节点', cls: 'c-name' },
   { key: 'uptime', label: '状态', cls: 'c-state' },
-  { key: 'cpu', label: 'CPU', cls: 'c-cpu' },
-  { key: null, label: '分时 1h', cls: 'c-spark' },
-  { key: 'ram', label: '内存', cls: 'c-ram' },
-  { key: 'disk', label: '磁盘', cls: 'c-disk' },
+  { key: 'cpu', label: 'CPU', cls: 'c-cpu', trail: true },
+  { key: 'ram', label: '内存', cls: 'c-ram', trail: true },
+  { key: 'disk', label: '磁盘', cls: 'c-disk', trail: true },
   { key: 'load', label: '负载 1/5/15', cls: 'c-load' },
   { key: 'traffic', label: '流量 ↑/↓', cls: 'c-traffic' },
   { key: 'net', label: '网络 ↑/↓', cls: 'c-net' },
@@ -89,10 +82,35 @@ const HEAD: { key: SortKey | null; label: string; cls: string }[] = [
   { key: 'seen', label: '最后上报', cls: 'c-seen' },
 ]
 
+const METRIC_LABEL: Record<BoardMetric, string> = { cpu: 'CPU', ram: '内存', disk: '磁盘' }
+/** Disk barely moves within an hour; a wider minimum range keeps its trail visibly flat. */
+const MIN_SPAN: Record<BoardMetric, number> = { cpu: 6, ram: 6, disk: 10 }
+
+/** Value, Δ vs. the 1h mean and the 1h trail (or a usage bar when trails are off). */
+function MetricCell({ r, k, x, showSpark, title }: { r: Row; k: BoardMetric; x: BoardExtras; showSpark: boolean; title?: string }) {
+  const value = r[k]
+  const trail = showSpark ? metricTrail(r, x.sparks?.get(r.node.uuid), k, x.now) : null
+  return (
+    <span className={clsx(`c-${k}`, 'metric', trail ? 'has-spark' : 'has-meter', levelOf(value))} title={title}>
+      <span className="m-label">{METRIC_LABEL[k]}</span>
+      <span className="m-nums">
+        <b className="m-value num">
+          <Tick value={value} threshold={1}>{pct(value)}</Tick>
+        </b>
+        {trail?.dir && (
+          <span className={clsx('delta num', trail.dir)} title="较近 1 小时均值（曲线中的虚线）">
+            {signed(trail.delta!, 1)}
+            <small>pp</small>
+          </span>
+        )}
+      </span>
+      {trail ? <Sparkline trail={trail} minSpan={MIN_SPAN[k]} stopped={!r.online} /> : <Meter value={value} />}
+    </span>
+  )
+}
+
 const QuoteRow = forwardRef<HTMLAnchorElement, { r: Row; x: BoardExtras; showSpark: boolean }>(function QuoteRow({ r, x, showSpark }, ref) {
   const st = r.online ? r.status : undefined
-  const delta = sparkDelta(r, x.sparks)
-  const dDir = finite(delta) ? (delta >= 0.5 ? 'up' : delta <= -0.5 ? 'down' : 'flat') : null
   const t = x.traffic(r)
   const memText = st ? `${size(st.ram)} / ${size(st.ram_total || r.node.mem_total)}` : undefined
   const diskText = st ? `${size(st.disk)} / ${size(st.disk_total || r.node.disk_total)}` : undefined
@@ -115,37 +133,9 @@ const QuoteRow = forwardRef<HTMLAnchorElement, { r: Row; x: BoardExtras; showSpa
           </span>
           <span className="uptime num" title="系统运行时长">{duration(st?.uptime)}</span>
         </span>
-        <span className="c-cpu metric">
-          <span className="m-label">CPU</span>
-          <span className="metric-top">
-            <b className="num">
-              <Tick value={r.cpu} threshold={1}>{pct(r.cpu)}</Tick>
-            </b>
-            {dDir && <span className={clsx('delta num', dDir)} title="较近 15 分钟均值">{signed(delta!, 1)}</span>}
-          </span>
-          <Meter value={r.cpu} />
-        </span>
-        {showSpark && (
-          <span className="c-spark">
-            <Sparkline points={x.sparks?.get(r.node.uuid)} />
-          </span>
-        )}
-        <span className="c-ram metric" title={memText}>
-          <span className="m-label">内存</span>
-          <span className="metric-top">
-            <b className="num">
-              <Tick value={r.ram} threshold={1}>{pct(r.ram)}</Tick>
-            </b>
-          </span>
-          <Meter value={r.ram} />
-        </span>
-        <span className="c-disk metric" title={diskText}>
-          <span className="m-label">磁盘</span>
-          <span className="metric-top">
-            <b className="num">{pct(r.disk)}</b>
-          </span>
-          <Meter value={r.disk} />
-        </span>
+        <MetricCell r={r} k="cpu" x={x} showSpark={showSpark} />
+        <MetricCell r={r} k="ram" x={x} showSpark={showSpark} title={memText} />
+        <MetricCell r={r} k="disk" x={x} showSpark={showSpark} title={diskText} />
         <span className="c-load num">
           <span className="m-label">负载</span>
           {(['load', 'load5', 'load15'] as const).map((k, i) => (
@@ -276,10 +266,11 @@ export function QuoteBoard({ rows, settings, x, loading, searchRef }: { rows: Ro
 
       <div className={cols} ref={listRef} onKeyDown={onKeyDown}>
         <div className="qhead" role="row">
-          {HEAD.filter((h) => showSpark || h.cls !== 'c-spark').map((h) =>
+          {HEAD.map((h) =>
             h.key ? (
               <button key={h.cls} type="button" className={clsx(h.cls, 'th', sort?.key === h.key && 'is-sorted')} onClick={() => cycleSort(h.key!)} aria-sort={sort?.key === h.key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
                 {h.label}
+                {h.trail && showSpark && <small className="th-sub">1h</small>}
                 <span className="sort-mark" aria-hidden="true">
                   {sort?.key === h.key ? (sort.dir === 'asc' ? '▲' : '▼') : '⇅'}
                 </span>
@@ -327,7 +318,7 @@ export function QuoteBoard({ rows, settings, x, loading, searchRef }: { rows: Ro
                         </span>
                       )}
                       <span>
-                        <b className="good">{online.length}</b> 在线 / {g.rows.length} 台
+                        <b className={online.length ? 'good' : 'dim'}>{online.length}</b> 在线 / {g.rows.length} 台
                       </span>
                     </span>
                   </div>
@@ -346,7 +337,8 @@ export function QuoteBoard({ rows, settings, x, loading, searchRef }: { rows: Ro
         <span>{x.trafficMonthly ? '流量为自然月累计' : '流量为节点开机以来累计（指标保留期不足一个月）'} · 磁盘为受监控挂载点合计</span>
         <span className="note-credit">Powered by Komari Monitor.</span>
         <span>
-          <span className="up">▲ 上升</span> / <span className="down">▼ 下降</span> 指较近期变化，不代表健康 · B/K/M/G/T 按 1024 进位
+          {showSpark ? '曲线为近 1 小时走势，虚线为 1 小时均值；' : ''}
+          <span className="up">▲ 上升</span> / <span className="down">▼ 下降</span> 指较均值的百分点（pp）变化，不代表健康 · B/K/M/G/T 按 1024 进位
         </span>
       </div>
     </section>

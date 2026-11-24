@@ -102,8 +102,15 @@ export function useHistory(uuid: string | undefined, range: Range, refreshSecond
   })
 }
 
-/** 1h CPU trail for every node in one request, used by the board sparklines. */
-export type Sparks = Map<string, { t: number; v: number }[]>
+/** 1h CPU %, memory bytes and disk bytes for every node in one request, used by the board sparklines. */
+export type Trail = { t: number; v: number }[]
+export interface SparkSet {
+  cpu: Trail
+  mem: Trail
+  disk: Trail
+}
+export type Sparks = Map<string, SparkSet>
+const SPARK_KEYS = { 'cpu.usage': 'cpu', 'memory.used': 'mem', 'disk.used': 'disk' } as const
 
 export function useSparklines(uuids: string[], enabled: boolean) {
   return useQuery<Sparks>({
@@ -114,15 +121,16 @@ export function useSparklines(uuids: string[], enabled: boolean) {
     queryFn: async ({ signal }) => {
       const res = await rpc<MetricQueryResult>(
         'public:queryMetrics',
-        { metric_keys: ['cpu.usage'], entity_ids: uuids, hours: 1, max_points: 60, aggregation: 'avg' },
+        { metric_keys: Object.keys(SPARK_KEYS), entity_ids: uuids, hours: 1, max_points: 60, aggregation: 'avg' },
         signal,
       )
-      const out = new Map<string, { t: number; v: number }[]>()
+      const out: Sparks = new Map()
       for (const s of res.series ?? []) {
-        out.set(
-          s.entity_id,
-          (s.points ?? []).map((p) => ({ t: Date.parse(p.time), v: p.value })),
-        )
+        const field = SPARK_KEYS[s.metric_key as keyof typeof SPARK_KEYS]
+        if (!field) continue
+        let set = out.get(s.entity_id)
+        if (!set) out.set(s.entity_id, (set = { cpu: [], mem: [], disk: [] }))
+        set[field] = (s.points ?? []).filter((p) => Number.isFinite(p.value)).map((p) => ({ t: Date.parse(p.time), v: p.value }))
       }
       return out
     },

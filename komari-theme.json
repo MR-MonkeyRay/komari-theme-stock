@@ -66,12 +66,12 @@
         "type": "switch",
         "default": true,
         "name": {
-          "zh-CN": "显示 1 小时分时图",
-          "en": "Show 1h sparkline"
+          "zh-CN": "显示 1 小时走势曲线",
+          "en": "Show 1h trails"
         },
         "help": {
-          "zh-CN": "在节点列表中显示最近 1 小时 CPU 走势，所有节点合并为一次请求。",
-          "en": "Shows the last hour of CPU per node, fetched in one request."
+          "zh-CN": "在 CPU、内存、磁盘列显示最近 1 小时走势与较均值涨跌，所有节点合并为一次请求；关闭后显示占用条。",
+          "en": "Shows the last hour of CPU, memory and disk per node with change vs. the 1h mean, fetched in one request. When off, usage bars are shown."
         }
       },
       {

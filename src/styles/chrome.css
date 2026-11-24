@@ -127,15 +127,6 @@
   background: var(--brand);
   border-radius: 3px;
 }
-.logomark i {
-  position: absolute;
-  right: 4px;
-  bottom: 5px;
-  width: 3px;
-  height: 7px;
-  background: var(--bg-app);
-}
-
 .topbar-tools {
   display: flex;
   align-items: center;
@@ -251,7 +242,8 @@
 .index-strip {
   display: grid;
   grid-template-columns: minmax(220px, 1.4fr) repeat(4, minmax(130px, 1fr)) minmax(180px, 1.2fr);
-  max-width: 1680px;
+  /* Same content width as .page (1680px minus its 24px side padding). */
+  max-width: calc(1680px - 48px);
   width: calc(100% - 48px);
   margin: 12px auto 0;
   background: var(--bg-panel);
@@ -520,4 +512,12 @@
   .sb-conn .dim {
     display: none;
   }
+}
+
+.ix-delta small,
+.qb-change small {
+  margin-left: 1px;
+  font-size: 0.78em;
+  font-weight: 500;
+  opacity: 0.75;
 }

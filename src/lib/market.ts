@@ -1,3 +1,4 @@
+import type { Sparks } from './api'
 import { finite } from './format'
 import { median, type Row } from './model'
 
@@ -14,23 +15,20 @@ export interface MarketSummary {
   traffic: { up: number; down: number; monthly: boolean } | null
 }
 
-export function summarize(rows: Row[], sparks: Map<string, { t: number; v: number }[]> | undefined, traffic: MarketSummary['traffic']): MarketSummary {
+export function summarize(rows: Row[], sparks: Sparks | undefined, traffic: MarketSummary['traffic']): MarketSummary {
   const live = rows.filter((r) => r.online && r.status)
   const cpus = live.map((r) => r.cpu).filter(finite)
   const cpuMedian = median(cpus)
-  // Δ: current median vs. the median of each node's value about 15 minutes ago.
+  // Δ: current median vs. the 1h mean of the fleet median (per-bucket median across live nodes),
+  // the same basis as the board's per-node Δ.
   let cpuDelta: number | null = null
   if (sparks && cpuMedian !== null) {
-    const past = live
-      .map((r) => {
-        const s = sparks.get(r.node.uuid)
-        if (!s?.length) return null
-        const target = s[s.length - 1].t - 15 * 60_000
-        return s.reduce((best, p) => (Math.abs(p.t - target) < Math.abs(best.t - target) ? p : best)).v
-      })
-      .filter(finite)
-    const m = median(past)
-    if (m !== null) cpuDelta = cpuMedian - m
+    const buckets = new Map<number, number[]>()
+    for (const r of live) {
+      for (const p of sparks.get(r.node.uuid)?.cpu ?? []) buckets.set(p.t, [...(buckets.get(p.t) ?? []), p.v])
+    }
+    const medians = [...buckets.values()].map(median).filter(finite)
+    if (medians.length >= 4) cpuDelta = cpuMedian - medians.reduce((x, y) => x + y, 0) / medians.length
   }
   const memUsed = live.reduce((a, r) => a + (r.status!.ram ?? 0), 0)
   const memTotal = live.reduce((a, r) => a + (r.status!.ram_total || r.node.mem_total || 0), 0)
