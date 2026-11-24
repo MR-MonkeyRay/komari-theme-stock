@@ -302,7 +302,26 @@ export function NodeDetail({ rows, order, settings, traffic, monthly, now, ready
             <Dialog.Overlay asChild forceMount>
               <motion.div className="drawer-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: reduce ? 0 : 0.2 }} />
             </Dialog.Overlay>
-            <Dialog.Content asChild forceMount aria-describedby={undefined} onOpenAutoFocus={(e) => e.preventDefault()}>
+            <Dialog.Content
+              asChild
+              forceMount
+              aria-describedby={undefined}
+              // Focus the drawer itself (announced by its title), not its first button.
+              onOpenAutoFocus={(e) => {
+                e.preventDefault()
+                ;(e.currentTarget as HTMLElement | null)?.focus({ preventScroll: true })
+              }}
+              // Back on the board, focus the row of the node viewed last; paging may have left the
+              // row that opened the drawer far behind. A node not on the board (filtered out, or
+              // opened from a link) hands focus to the board's first row, not to the page body.
+              onCloseAutoFocus={(e) => {
+                const row = (lastUuid ? document.querySelector<HTMLElement>(`a.qrow[data-uuid="${CSS.escape(lastUuid)}"]`) : null) ?? document.querySelector<HTMLElement>('a.qrow')
+                if (!row) return
+                e.preventDefault()
+                row.focus({ preventScroll: true })
+                row.scrollIntoView({ block: 'nearest' })
+              }}
+            >
               <motion.div
                 className="drawer"
                 initial={{ x: reduce ? 0 : '100%', opacity: reduce ? 0 : 1 }}
