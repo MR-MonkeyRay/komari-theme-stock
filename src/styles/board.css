@@ -4,6 +4,11 @@
   overflow: clip;
 }
 
+.board-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 .search {
   display: flex;
   align-items: center;
@@ -58,6 +63,72 @@
   color: var(--text-1);
   background: var(--bg-hover);
 }
+/* Sort menu for phones, where the column headers are hidden (see SortMenu). */
+.sort-btn {
+  display: none;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+}
+.sort-btn.is-on,
+.sort-btn[data-state='open'] {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line-strong));
+}
+.sort-menu {
+  z-index: 35;
+  width: 220px;
+  max-height: calc(var(--radix-popover-content-available-height) - 8px);
+  overflow-y: auto;
+  padding: 6px;
+  background: var(--bg-panel);
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  box-shadow: var(--shadow-popover);
+  outline: none;
+  transform-origin: var(--radix-popover-content-transform-origin);
+}
+.sort-menu[data-state='open'] {
+  animation: popover-in 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.sort-menu[data-state='closed'] {
+  animation: popover-out 120ms cubic-bezier(0.4, 0, 1, 1);
+}
+.sort-list {
+  display: grid;
+}
+.sort-opt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 36px;
+  padding: 0 10px;
+  font-size: 13px;
+  text-align: left;
+  color: var(--text-2);
+  border-radius: var(--radius-sm);
+}
+.sort-opt:hover {
+  background: var(--bg-hover);
+}
+.sort-opt[data-state='checked'] {
+  font-weight: 600;
+  color: var(--accent);
+}
+.sort-dir {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+  padding: 8px 4px 2px;
+  font-size: 12px;
+  color: var(--text-3);
+  border-top: 1px solid var(--line);
+}
+
 /* The "/" hint is for reaching the box; once inside it says nothing. */
 .search:focus-within kbd {
   display: none;
@@ -769,8 +840,15 @@ div.empty p {
   .panel-head {
     flex-wrap: wrap;
   }
-  .search {
+  .board-tools {
     width: 100%;
+  }
+  .board-tools .search {
+    flex: 1;
+    width: auto;
+  }
+  .sort-btn {
+    display: inline-flex;
   }
   .search kbd {
     display: none;

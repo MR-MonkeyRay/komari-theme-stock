@@ -1,14 +1,16 @@
+import * as Popover from '@radix-ui/react-popover'
+import * as RadioGroup from '@radix-ui/react-radio-group'
 import clsx from 'clsx'
-import { ChevronRight, Search, X } from 'lucide-react'
+import { ArrowDownUp, Check, ChevronRight, Search, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
-import { forwardRef, useRef, type KeyboardEvent } from 'react'
+import { forwardRef, useId, useRef, useState, type KeyboardEvent } from 'react'
 import { Link, useLocation } from 'react-router'
 import type { Sparks } from '../lib/api'
-import { firstDir, QUICK_LABEL, SORT_LABEL, useBoardQuery, type BoardView, type SortKey } from '../lib/board'
+import { firstDir, QUICK_LABEL, SORT_LABEL, useBoardQuery, type BoardView, type Sort, type SortKey } from '../lib/board'
 import { ago, duration, finite, levelOf, parseTags, pct, signed, size } from '../lib/format'
 import { metricTrail, type BoardMetric, type Row } from '../lib/model'
 import type { ThemeSettings } from '../lib/settings'
-import { Flag, Meter, Pair, Sparkline, Tick } from './primitives'
+import { Flag, Meter, Pair, Segmented, Sparkline, Tick } from './primitives'
 
 export interface BoardExtras {
   sparks: Sparks | undefined
@@ -136,6 +138,57 @@ const QuoteRow = forwardRef<HTMLAnchorElement, { r: Row; x: BoardExtras; showSpa
   )
 })
 
+const SORT_KEYS: SortKey[] = ['cpu', 'ram', 'disk', 'load', 'net', 'traffic', 'uptime', 'seen', 'name']
+const dirText = (d: 'asc' | 'desc') => (d === 'asc' ? '升序' : '降序')
+
+/**
+ * Phones hide the column headers, so the sort lives behind a button beside the search box:
+ * pick what to order by, then the direction. Hidden on wider screens, where headers sort.
+ */
+function SortMenu({ sort, grouped, onChange }: { sort: Sort; grouped: boolean; onChange: (s: Sort) => void }) {
+  const [open, setOpen] = useState(false)
+  const dirLabel = useId()
+  return (
+    <Popover.Root open={open} onOpenChange={setOpen}>
+      <Popover.Trigger asChild>
+        <button type="button" className={clsx('tool-btn sort-btn', sort && 'is-on')} aria-label={sort ? `排序：按${SORT_LABEL[sort.key]}${dirText(sort.dir)}` : '排序'}>
+          <ArrowDownUp size={14} aria-hidden="true" />
+        </button>
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Content className="sort-menu" side="bottom" align="end" sideOffset={6} collisionPadding={12} aria-label="排序">
+          <RadioGroup.Root
+            className="sort-list"
+            value={sort?.key ?? 'none'}
+            onValueChange={(v) => {
+              onChange(v === 'none' ? null : { key: v as SortKey, dir: sort?.key === v ? sort.dir : firstDir(v as SortKey) })
+              // Back to the default order there is no direction to pick, so the menu is done.
+              if (v === 'none') setOpen(false)
+            }}
+            aria-label="排序依据"
+            loop
+          >
+            {(['none', ...SORT_KEYS] as const).map((k) => (
+              <RadioGroup.Item key={k} value={k} className="sort-opt">
+                {k === 'none' ? (grouped ? '默认（按分组）' : '默认顺序') : SORT_LABEL[k]}
+                <RadioGroup.Indicator asChild>
+                  <Check size={14} aria-hidden="true" />
+                </RadioGroup.Indicator>
+              </RadioGroup.Item>
+            ))}
+          </RadioGroup.Root>
+          {sort && (
+            <div className="sort-dir">
+              <span id={dirLabel}>方向</span>
+              <Segmented className="seg-fill" value={sort.dir} options={['desc', 'asc'] as const} format={dirText} labelledBy={dirLabel} onChange={(dir) => onChange({ ...sort, dir })} />
+            </div>
+          )}
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
+  )
+}
+
 export function QuoteBoard({ rows, view, settings, x, loading, searchRef }: { rows: Row[]; view: BoardView; settings: ThemeSettings; x: BoardExtras; loading: boolean; searchRef: React.RefObject<HTMLInputElement | null> }) {
   const [{ q: query, quick, sort }, setBoard, flushQuery] = useBoardQuery()
   const { search } = useLocation()
@@ -201,27 +254,30 @@ export function QuoteBoard({ rows, view, settings, x, loading, searchRef }: { ro
             </button>
           )}
         </div>
-        {/* The label covers icon and input only: a button inside a label is not allowed. */}
-        <div className="search">
-          <label className="search-field">
-            <Search size={14} aria-hidden="true" />
-            <input ref={searchRef} type="search" value={query} onChange={(e) => setBoard({ q: e.target.value })} onKeyDown={onSearchKey} onBlur={flushQuery} placeholder="搜索节点 / 地区 / 标签" aria-label="搜索节点、地区或标签" />
-          </label>
-          {query ? (
-            <button
-              type="button"
-              className="search-clear"
-              aria-label="清除搜索"
-              onClick={() => {
-                setBoard({ q: '' })
-                searchRef.current?.focus()
-              }}
-            >
-              <X size={13} aria-hidden="true" />
-            </button>
-          ) : (
-            <kbd className="num">/</kbd>
-          )}
+        <div className="board-tools">
+          {/* The label covers icon and input only: a button inside a label is not allowed. */}
+          <div className="search">
+            <label className="search-field">
+              <Search size={14} aria-hidden="true" />
+              <input ref={searchRef} type="search" value={query} onChange={(e) => setBoard({ q: e.target.value })} onKeyDown={onSearchKey} onBlur={flushQuery} placeholder="搜索节点 / 地区 / 标签" aria-label="搜索节点、地区或标签" />
+            </label>
+            {query ? (
+              <button
+                type="button"
+                className="search-clear"
+                aria-label="清除搜索"
+                onClick={() => {
+                  setBoard({ q: '' })
+                  searchRef.current?.focus()
+                }}
+              >
+                <X size={13} aria-hidden="true" />
+              </button>
+            ) : (
+              <kbd className="num">/</kbd>
+            )}
+          </div>
+          <SortMenu sort={sort} grouped={settings.groupBy !== 'none'} onChange={(next) => setBoard({ sort: next })} />
         </div>
       </div>
 

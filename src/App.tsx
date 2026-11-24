@@ -63,7 +63,7 @@ export default function App() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== '/' || e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
-      if (document.querySelector('.drawer, .settings-panel')) return
+      if (document.querySelector('.drawer, .settings-panel, .sort-menu')) return
       e.preventDefault()
       searchRef.current?.focus()
     }
