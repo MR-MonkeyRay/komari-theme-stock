@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useMatch, useNavigate } from 'react-router'
-import { fitRange, useAvailableRanges, useHistory, useIsAdmin } from '../../lib/api'
+import { fitRange, useAvailableRanges, useClientOps, useHistory, useIsAdmin } from '../../lib/api'
 import { buildCandles, buildVolume, inferEvents, rangeStats } from '../../lib/candles'
 import { ago, clock, finite, pct, ratio, signed, utcOffset } from '../../lib/format'
 import type { Row } from '../../lib/model'
@@ -21,6 +21,7 @@ const fmtGiB = (v: number) => v.toFixed(v >= 100 ? 1 : 2)
 
 function DetailBody({ r, rows, settings, traffic, monthly, now, onStep }: { r: Row; rows: Row[]; settings: ThemeSettings; traffic: { up: number; down: number } | null; monthly: boolean; now: number; onStep: (d: number) => void }) {
   const admin = useIsAdmin()
+  const ops = useClientOps(admin).data?.[r.node.uuid]
   const [picked, setRange] = useState<Range>(settings.defaultRange)
   const available = useAvailableRanges()
   const range = fitRange(picked, available)
@@ -173,7 +174,7 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, onStep }: { r: R
         <aside className="detail-side" aria-label="节点资料">
           <LocationPanel r={r} />
           <NetworkPanel r={r} volume={volume} traffic={traffic} monthly={monthly} />
-          <SystemPanel r={r} />
+          <SystemPanel r={r} ops={admin ? ops : undefined} />
         </aside>
       </div>
       </Suspense>

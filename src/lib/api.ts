@@ -48,6 +48,37 @@ export function useIsAdmin() {
   return useMe().data?.logged_in === true
 }
 
+/** The few fields the theme takes from `admin:listClients`. */
+export interface ClientOps {
+  ipv4: string
+  ipv6: string
+  version: string
+}
+
+const text = (v: unknown) => (typeof v === 'string' ? v : '')
+
+/**
+ * Addresses and agent versions, which Komari gives only to a logged-in session. Pass `enabled` only
+ * for one: a guest never sends the request. Each client is cut down to the fields above right
+ * here, so the agent token in the same response never reaches the cache or the page.
+ */
+export function useClientOps(enabled: boolean) {
+  return useQuery({
+    queryKey: ['admin', 'clients'],
+    enabled,
+    staleTime: 60_000,
+    retry: false,
+    queryFn: async ({ signal }) => {
+      const res = await rpc<Record<string, unknown>[] | Record<string, Record<string, unknown>>>('admin:listClients', {}, signal)
+      const out: Record<string, ClientOps> = {}
+      for (const c of Array.isArray(res) ? res : Object.values(res ?? {})) {
+        out[text(c.uuid)] = { ipv4: text(c.ipv4), ipv6: text(c.ipv6), version: text(c.version) }
+      }
+      return out
+    },
+  })
+}
+
 export function usePublicSettings() {
   return useQuery({ queryKey: ['public'], queryFn: getPublic, staleTime: 60_000 })
 }

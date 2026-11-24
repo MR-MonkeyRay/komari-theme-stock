@@ -1,6 +1,9 @@
 import clsx from 'clsx'
-import { Lock } from 'lucide-react'
-import { lazy, Suspense, type ReactNode } from 'react'
+import copy from 'copy-to-clipboard'
+import { Check, Copy, Eye, EyeOff, Lock } from 'lucide-react'
+import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
+import { create } from 'zustand'
+import type { ClientOps } from '../../lib/api'
 import type { NodeEvent, RangeStats, Volume } from '../../lib/candles'
 import { clock, dateText, duration, finite, monthDayTime, parseTime, sameDay, size } from '../../lib/format'
 import type { Row } from '../../lib/model'
@@ -152,7 +155,7 @@ export function BillingPanel({ r, now }: { r: Row; now: number }) {
   )
 }
 
-export function SystemPanel({ r }: { r: Row }) {
+export function SystemPanel({ r, ops }: { r: Row; ops?: ClientOps }) {
   const n = r.node
   const st = r.online ? r.status : undefined
   return (
@@ -205,7 +208,66 @@ export function SystemPanel({ r }: { r: Row }) {
         {n.group && <Fact k="分组">{n.group}</Fact>}
       </dl>
       {n.public_remark && <p className="remark">{n.public_remark}</p>}
+      {ops && <OpsSection ops={ops} />}
     </Panel>
+  )
+}
+
+// Addresses start masked so a screenshot of the page is safe to share; the choice holds while
+// paging between nodes and resets on reload.
+const useReveal = create<{ shown: boolean }>(() => ({ shown: false }))
+
+/** Keeps the network part: 203.0.•.• and 2001:db8:…. */
+function maskAddress(ip: string) {
+  if (ip.includes(':')) return `${ip.split(':').slice(0, 2).join(':')}:…`
+  const p = ip.split('.')
+  return p.length === 4 ? `${p[0]}.${p[1]}.•.•` : '•••'
+}
+
+function Address({ ip, label, shown }: { ip: string; label: string; shown: boolean }) {
+  const [copied, setCopied] = useState<boolean | null>(null)
+  useEffect(() => {
+    if (copied === null) return
+    const t = window.setTimeout(() => setCopied(null), 1600)
+    return () => window.clearTimeout(t)
+  }, [copied])
+  return (
+    <span className="addr">
+      <span className="num clip" title={shown ? ip : undefined}>
+        {shown ? ip : maskAddress(ip)}
+      </span>
+      <button type="button" className="copy-btn" onClick={() => copy(ip).then(setCopied)} aria-label={`复制完整 ${label} 地址`} title={copied === false ? '复制失败' : '复制完整地址'}>
+        {copied ? <Check size={12} aria-hidden="true" /> : <Copy size={12} aria-hidden="true" />}
+      </button>
+      <span className="sr-only" role="status">
+        {copied === true ? '已复制' : copied === false ? '复制失败' : ''}
+      </span>
+    </span>
+  )
+}
+
+/** Only for a logged-in viewer: what Komari's admin list adds to the public node data. */
+function OpsSection({ ops }: { ops: ClientOps }) {
+  const shown = useReveal((s) => s.shown)
+  return (
+    <div className="ops">
+      <div className="ops-head">
+        <span className="panel-lock">
+          <Lock size={11} aria-hidden="true" />
+          运维 · 仅登录可见
+        </span>
+        <button type="button" className="copy-btn" aria-pressed={shown} onClick={() => useReveal.setState({ shown: !shown })} aria-label="显示完整地址" title={shown ? '地址打码（便于截图）' : '显示完整地址'}>
+          {shown ? <EyeOff size={12} aria-hidden="true" /> : <Eye size={12} aria-hidden="true" />}
+        </button>
+      </div>
+      <dl className="facts">
+        <Fact k="IPv4">{ops.ipv4 ? <Address key={ops.ipv4} ip={ops.ipv4} label="IPv4" shown={shown} /> : '—'}</Fact>
+        <Fact k="IPv6">{ops.ipv6 ? <Address key={ops.ipv6} ip={ops.ipv6} label="IPv6" shown={shown} /> : '—'}</Fact>
+        <Fact k="Agent 版本">
+          <span className="num">{ops.version || '—'}</span>
+        </Fact>
+      </dl>
+    </div>
   )
 }
 

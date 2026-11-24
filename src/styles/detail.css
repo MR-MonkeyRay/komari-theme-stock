@@ -660,6 +660,39 @@
   }
 }
 
+/* Admin-only block at the foot of F10. */
+.ops {
+  border-top: 1px solid var(--line);
+}
+.ops-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 8px 3px 12px;
+  font-size: 11px;
+  color: var(--text-3);
+}
+.addr {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.copy-btn {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  color: var(--text-3);
+  border-radius: 4px;
+  transition: color 120ms ease, background-color 120ms ease;
+}
+.copy-btn:hover,
+.copy-btn[aria-pressed='true'] {
+  color: var(--text-1);
+  background: var(--bg-hover);
+}
 .remark {
   margin: 0;
   padding: 8px 12px;
