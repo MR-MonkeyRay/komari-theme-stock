@@ -1,7 +1,7 @@
 import clsx from 'clsx'
 import { lazy, Suspense, type ReactNode } from 'react'
 import type { NodeEvent, RangeStats, Volume } from '../../lib/candles'
-import { clock, dateText, duration, finite, parseTime, size } from '../../lib/format'
+import { clock, dateText, duration, finite, monthDayTime, parseTime, sameDay, size } from '../../lib/format'
 import type { Row } from '../../lib/model'
 import { continentName } from '../../lib/region'
 import { QUOTA } from '../../lib/thresholds'
@@ -200,15 +200,17 @@ export function SystemPanel({ r }: { r: Row }) {
   )
 }
 
-export function EventsPanel({ events }: { events: NodeEvent[] }) {
+export function EventsPanel({ events, now }: { events: NodeEvent[]; now: number }) {
+  // Dates are shown for every row as soon as one event is not from today, so the columns line up.
+  const withDate = events.some((e) => !sameDay(e.time, now))
   return (
     <Panel title="节点事件" extra="样本推断" className="events-panel">
       <div className="events-body">
         {events.length ? (
-          <ol className="events">
+          <ol className={clsx('events', withDate && 'with-date')}>
             {events.map((e, i) => (
               <li key={`${e.time}-${i}`} className={clsx('event', `ev-${e.kind}`)}>
-                <time className="num">{clock(e.time, false)}</time>
+                <time className="num" dateTime={new Date(e.time).toISOString()}>{withDate ? monthDayTime(e.time) : clock(e.time, false)}</time>
                 <b>{e.label}</b>
                 <span title={e.text}>{e.text}</span>
               </li>

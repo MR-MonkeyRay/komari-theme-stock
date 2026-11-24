@@ -57,6 +57,16 @@ export function clock(ms: number, seconds = true) {
   return `${two(d.getHours())}:${two(d.getMinutes())}${seconds ? ':' + two(d.getSeconds()) : ''}`
 }
 
+/** Month/day and time: 11/24 17:30. */
+export function monthDayTime(ms: number) {
+  const d = new Date(ms)
+  return `${two(d.getMonth() + 1)}/${two(d.getDate())} ${clock(ms, false)}`
+}
+
+export function sameDay(a: number, b: number) {
+  return new Date(a).toDateString() === new Date(b).toDateString()
+}
+
 export function dateText(ms: number) {
   const d = new Date(ms)
   return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}`

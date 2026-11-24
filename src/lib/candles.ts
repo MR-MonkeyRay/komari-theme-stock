@@ -120,6 +120,8 @@ export interface NodeEvent {
   text: string
 }
 
+const spell = (minutes: number) => (minutes >= 120 ? `${Math.round(minutes / 60)} 小时` : `${minutes} 分钟`)
+
 /** Events inferred from samples (not alerts): sustained high CPU, its recovery, memory reaching HOT.ram, report gaps. */
 export function inferEvents(cpu: Slot[], mem: Slot[], memTotalGiB: number | null, online: boolean, lastSeen: number | null): NodeEvent[] {
   const events: NodeEvent[] = []
@@ -154,9 +156,16 @@ export function inferEvents(cpu: Slot[], mem: Slot[], memTotalGiB: number | null
     const peak = mem.filter(isCandle).find((s) => (s.high / memTotalGiB) * 100 >= HOT.ram)
     if (peak) events.push({ time: peak.time * 1000, kind: 'high-mem', label: '高位', text: `内存触及 ${((peak.high / memTotalGiB) * 100).toFixed(1)}%` })
   }
-  for (let i = 1; i < cpu.length - 1; i++) {
-    const s = cpu[i]
-    if (!isCandle(s) && isCandle(cpu[i - 1])) events.push({ time: s.time * 1000, kind: 'gap', label: '缺测', text: '该区间无上报样本' })
+  // One event per run of empty buckets; a run reaching the end of the range is the offline case below.
+  for (let i = 1; i < cpu.length; i++) {
+    if (isCandle(cpu[i]) || !isCandle(cpu[i - 1])) continue
+    let j = i
+    while (j < cpu.length && !isCandle(cpu[j])) j++
+    if (j === cpu.length) break
+    const minutes = Math.max(1, Math.round((cpu[j].time - cpu[i].time) / 60))
+    const n = j - i
+    events.push({ time: cpu[i].time * 1000, kind: 'gap', label: '缺测', text: n === 1 ? `1 个区间无上报（约 ${spell(minutes)}）` : `连续 ${n} 个区间无上报（约 ${spell(minutes)}）` })
+    i = j
   }
   if (!online) events.push({ time: lastSeen ?? Date.now(), kind: 'gap', label: '离线', text: '最后上报后无实时样本' })
   return events.sort((a, b) => b.time - a.time).slice(0, 8)

@@ -159,7 +159,7 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, onStep }: { r: R
 
           {/* Bottom row under the charts; either panel may be absent (events off, no billing data). */}
           <div className="detail-bottom">
-            {settings.showEvents && <EventsPanel events={events} />}
+            {settings.showEvents && <EventsPanel events={events} now={now} />}
             <BillingPanel r={r} now={now} />
           </div>
         </div>
