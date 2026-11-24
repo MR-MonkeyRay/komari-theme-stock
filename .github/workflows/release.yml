@@ -1,0 +1,58 @@
+name: Release
+
+# Push a tag v<version> (e.g. `npm version 0.3.0 && git push --follow-tags`) to build the theme
+# and publish it as a GitHub release. The tag must match komari-theme.json / package.json.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Publish ${{ github.ref_name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Check theme manifest and tag
+        id: meta
+        run: npm run check:manifest
+
+      - name: Lint
+        run: npm run lint -- --deny-warnings
+
+      - name: Type-check, build and package
+        run: npm run package
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          ZIP: ${{ steps.meta.outputs.zip }}
+        run: |
+          # Re-running the workflow replaces the asset instead of failing on an existing release.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$ZIP" --clobber
+            exit 0
+          fi
+          prerelease=()
+          [[ "$TAG" == *-* ]] && prerelease=(--prerelease)
+          gh release create "$TAG" "$ZIP" "${prerelease[@]}" \
+            --verify-tag \
+            --title "Atlas Stock $TAG" \
+            --notes "下载 \`$(basename "$ZIP")\`，在 Komari 后台「主题管理」上传安装。" \
+            --generate-notes

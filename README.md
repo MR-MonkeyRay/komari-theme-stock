@@ -1,5 +1,7 @@
 # Atlas Stock · Komari 主题
 
+[![CI](https://github.com/MR-MonkeyRay/komari-theme-stock/actions/workflows/ci.yml/badge.svg)](https://github.com/MR-MonkeyRay/komari-theme-stock/actions/workflows/ci.yml)
+
 股票行情软件风格的 [Komari](https://github.com/komari-monitor/komari) 监控主题：首页是报价表式的节点列表，详情页用 K 线展示 CPU、内存和磁盘趋势。
 
 ![preview](preview.png)
@@ -59,6 +61,18 @@ npm run package
 - `dist/`：构建产物（`dist/index.html` 为页面模板）
 
 在 Komari 后台「主题管理」上传该压缩包即可安装。
+
+## 持续集成与发布
+
+- 推送到 `main` 或提交 PR 时，[CI](.github/workflows/ci.yml) 会在 Node 22 和 24 上依次运行 manifest 检查、lint、类型检查、构建和打包。Node 24 打出的主题 zip 可以在该次运行的 Artifacts 中下载，保留 14 天。
+- 发布新版本：
+
+  ```bash
+  npm version 0.3.0        # 同步 package.json 与 komari-theme.json，提交并打 tag v0.3.0
+  git push --follow-tags   # 推送后由 Release workflow 构建并发布 GitHub Release，附带主题 zip
+  ```
+
+  tag 必须与 `komari-theme.json` 中的版本一致，否则 [Release](.github/workflows/release.yml) 会失败。带 `-` 的 tag（如 `v0.3.0-beta.1`）发布为预发布版本。
 
 ## 主题约定
 
