@@ -73,6 +73,8 @@
   --ma20: #e6b34b;
 
   --map-dot: #2e3542;
+  /* Offline rows fade their figures to this opacity. */
+  --offline-fade: 0.5;
   --shadow-drawer: -24px 0 64px rgb(0 0 0 / 0.55);
   --shadow-popover: 0 16px 40px rgb(0 0 0 / 0.52), inset 0 1px 0 rgb(255 255 255 / 0.04);
 }
@@ -95,7 +97,7 @@
 
   --text-1: #11141a;
   --text-2: #4f5868;
-  --text-3: #768092;
+  --text-3: #636c7e;
   --text-4: #a8b0be;
 
   --brand: #b4690e;
@@ -142,6 +144,7 @@
   --ma20: #c97a10;
 
   --map-dot: #a8b3c5;
+  --offline-fade: 0.62;
   --shadow-drawer: -16px 0 48px rgb(15 23 42 / 0.18);
   --shadow-popover: 0 12px 32px rgb(15 23 42 / 0.14), 0 2px 6px rgb(15 23 42 / 0.06);
 }

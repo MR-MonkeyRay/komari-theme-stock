@@ -634,7 +634,7 @@ button.th:hover .sort-mark {
 .qrow.is-off .c-traffic,
 .qrow.is-off .c-net,
 .qrow.is-off .c-tags {
-  opacity: 0.45;
+  opacity: var(--offline-fade);
 }
 .qrow.is-off .node-name {
   color: var(--text-2);
