@@ -670,6 +670,12 @@ button.th:hover .sort-mark {
   margin: 0 0 8px;
   font-size: 18px;
 }
+.error-actions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 16px;
+}
 
 /* ---------- responsive board ---------- */
 

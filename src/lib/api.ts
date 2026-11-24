@@ -61,6 +61,8 @@ export function useLatestStatus(refreshSeconds: number) {
     queryFn: ({ signal }) => rpc<Record<string, NodeStatus>>('common:getNodesLatestStatus', {}, signal).then((r) => r ?? {}),
     refetchInterval: refreshSeconds * 1000,
     refetchIntervalInBackground: false,
+    // Polling pauses in a background tab; on return, fetch at once instead of showing 陈旧 for a period.
+    refetchOnWindowFocus: true,
     placeholderData: (prev) => prev,
   })
 }

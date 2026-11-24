@@ -8,6 +8,7 @@ import { SettingsButton } from './Settings'
 import type { Me } from '../lib/api'
 import { resolveTheme, type Appearance } from '../lib/appearance'
 import { clock, dateText, finite, sizeParts, utcOffset } from '../lib/format'
+import type { Conn } from '../lib/model'
 import type { Bulletin, MarketSummary } from '../lib/market'
 import { lastLatency } from '../lib/rpc'
 import { HOT } from '../lib/thresholds'
@@ -80,7 +81,49 @@ function AdminLink({ me, pending }: { me: Me | undefined; pending: boolean }) {
   )
 }
 
-export function TopBar({ siteName, live, refreshSeconds, me, mePending, appearance, onAppearance }: { siteName: string; live: boolean; refreshSeconds: number; me: Me | undefined; mePending: boolean; appearance: Appearance; onAppearance: (a: Appearance) => void }) {
+const CONN: Record<Conn, { badge: string; bar: string }> = {
+  connecting: { badge: '连接中', bar: '连接中' },
+  live: { badge: '实时', bar: '已连接' },
+  stale: { badge: '陈旧', bar: '数据陈旧' },
+  down: { badge: '中断', bar: '连接中断' },
+}
+
+/** Live-data badge; when the connection is down it becomes a retry button. */
+function LiveBadge({ conn, updatedAt, refreshSeconds, onRetry, retrying }: { conn: Conn; updatedAt: number; refreshSeconds: number; onRetry: () => void; retrying: boolean }) {
+  const body = (
+    <>
+      <i aria-hidden="true" />
+      <span className="market-text">{conn === 'down' && retrying ? '重试中' : CONN[conn].badge}</span>
+      {conn === 'live' && <small className="num">{refreshSeconds}s</small>}
+    </>
+  )
+  // One live region that outlasts the badge's span/button swap, so 中断 is announced too.
+  const announce = (
+    <span className="sr-only" role="status">
+      {CONN[conn].bar}
+    </span>
+  )
+  if (conn === 'down')
+    return (
+      <>
+        <button type="button" className="market is-down" onClick={onRetry} disabled={retrying} title={retrying ? '正在重试…' : '实时数据请求失败，点击立即重试'} aria-label={retrying ? '实时数据中断，正在重试' : '实时数据中断，点击重试'}>
+          {body}
+        </button>
+        {announce}
+      </>
+    )
+  const title = conn === 'live' ? `每 ${refreshSeconds} 秒刷新` : conn === 'stale' ? `数据停在 ${clock(updatedAt)}，等待刷新` : '正在获取实时数据'
+  return (
+    <>
+      <span className={clsx('market', `is-${conn}`)} title={title}>
+        {body}
+      </span>
+      {announce}
+    </>
+  )
+}
+
+export function TopBar({ siteName, conn, retrying, updatedAt, onRetry, refreshSeconds, me, mePending, appearance, onAppearance }: { siteName: string; conn: Conn; retrying: boolean; updatedAt: number; onRetry: () => void; refreshSeconds: number; me: Me | undefined; mePending: boolean; appearance: Appearance; onAppearance: (a: Appearance) => void }) {
   return (
     <header className="topbar">
       <a className="brand" href={import.meta.env.BASE_URL} aria-label={`${siteName} 首页`}>
@@ -91,11 +134,7 @@ export function TopBar({ siteName, live, refreshSeconds, me, mePending, appearan
         <span className="crumb">/ 节点监控</span>
       </a>
       <div className="topbar-tools">
-        <span className={clsx('market', live ? 'is-live' : 'is-stale')} title={live ? `每 ${refreshSeconds} 秒刷新` : '实时数据暂不可用'}>
-          <i aria-hidden="true" />
-          <span className="market-text">{live ? '实时' : '中断'}</span>
-          <small className="num">{refreshSeconds}s</small>
-        </span>
+        <LiveBadge conn={conn} updatedAt={updatedAt} refreshSeconds={refreshSeconds} onRetry={onRetry} retrying={retrying} />
         <SettingsButton />
         <ThemeToggle value={appearance} onChange={onAppearance} />
         <AdminLink me={me} pending={mePending} />
@@ -216,7 +255,7 @@ export function IndexStrip({ m, loading }: { m: MarketSummary; loading: boolean 
   )
 }
 
-export function StatusBar({ live, items, now, version }: { live: boolean; items: Bulletin[]; now: number; version?: string }) {
+export function StatusBar({ conn, retrying, onRetry, items, now, version }: { conn: Conn; retrying: boolean; onRetry: () => void; items: Bulletin[]; now: number; version?: string }) {
   const [index, setIndex] = useState(0)
   const [paused, setPaused] = useState(false)
   const list = useMemo(() => (items.length ? items : [{ id: 'calm', level: 'info' as const, text: '全部节点运行平稳' }]), [items])
@@ -229,11 +268,18 @@ export function StatusBar({ live, items, now, version }: { live: boolean; items:
   return (
     <footer className="statusbar">
       <span className="sb-status">
-        <span className={clsx('sb-conn', live ? 'is-live' : 'is-stale')} title={live ? '已连接' : '连接中断'}>
-          <i aria-hidden="true" />
-          <span className="sb-conn-text">{live ? '已连接' : '连接中断'}</span>
-          {live && finite(lastLatency) && <span className="num dim"> · {Math.round(lastLatency)}ms</span>}
-        </span>
+        {conn === 'down' ? (
+          <button type="button" className="sb-conn is-down" onClick={onRetry} disabled={retrying} title={retrying ? '正在重试…' : '点击立即重试'} aria-label={retrying ? '连接中断，正在重试' : '连接中断，点击立即重试'}>
+            <i aria-hidden="true" />
+            <span className="sb-conn-text">{CONN.down.bar} · {retrying ? '重试中…' : '重试'}</span>
+          </button>
+        ) : (
+          <span className={clsx('sb-conn', `is-${conn}`)} title={CONN[conn].bar}>
+            <i aria-hidden="true" />
+            <span className="sb-conn-text">{CONN[conn].bar}</span>
+            {conn === 'live' && finite(lastLatency) && <span className="num dim"> · {Math.round(lastLatency)}ms</span>}
+          </span>
+        )}
         <Clock now={now} />
       </span>
       <span className="sb-news" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} aria-live="polite">

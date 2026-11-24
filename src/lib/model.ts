@@ -83,6 +83,18 @@ export function metricTrail(r: Row, set: SparkSet | undefined, key: BoardMetric,
   return { points, window, avg, delta, dir: dirOf(delta, FLAT_BELOW[key]) }
 }
 
+/**
+ * Live-data state for the badges: `connecting` until the first answer, `down` after failed retries,
+ * `stale` when the last answer is older than three refresh periods (at least 6 s), else `live`.
+ */
+export type Conn = 'connecting' | 'live' | 'stale' | 'down'
+
+export function connState(q: { isSuccess: boolean; isError: boolean; dataUpdatedAt: number }, refreshSeconds: number, now: number): Conn {
+  if (q.isError) return 'down'
+  if (!q.isSuccess) return 'connecting'
+  return now - q.dataUpdatedAt > Math.max(6, refreshSeconds * 3) * 1000 ? 'stale' : 'live'
+}
+
 /** Re-renders every `ms` milliseconds; used for clocks and "x s ago" labels. */
 export function useNow(ms = 1000) {
   const [now, setNow] = useState(() => Date.now())

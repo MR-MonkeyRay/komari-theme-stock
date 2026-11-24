@@ -169,8 +169,37 @@
   background: var(--online);
   animation: heartbeat 2400ms cubic-bezier(0, 0, 0.2, 1) infinite;
 }
+.market.is-connecting i,
+.sb-conn.is-connecting i {
+  background: var(--offline);
+}
 .market.is-stale i,
 .sb-conn.is-stale i {
+  background: var(--warn);
+}
+.market.is-stale .market-text {
+  color: var(--warn);
+}
+button.market,
+button.sb-conn {
+  font: inherit;
+  cursor: pointer;
+}
+button.market:disabled,
+button.sb-conn:disabled {
+  cursor: progress;
+}
+button.market:hover {
+  border-color: var(--alert);
+}
+button.sb-conn:hover .sb-conn-text {
+  color: var(--text-1);
+}
+.market.is-down .market-text {
+  color: var(--alert);
+}
+.market.is-down i,
+.sb-conn.is-down i {
   background: var(--alert);
 }
 @keyframes heartbeat {
@@ -219,6 +248,15 @@
 .tool-btn:hover {
   color: var(--text-1);
   border-color: color-mix(in srgb, var(--accent) 45%, var(--line-strong));
+}
+.tool-btn:disabled {
+  color: var(--text-4);
+  cursor: default;
+}
+.tool-btn.is-primary {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line-strong));
+  background: var(--accent-soft);
 }
 .admin-link.is-in {
   color: var(--text-1);
@@ -868,6 +906,11 @@
     padding: 0;
     justify-content: center;
     border: 0;
+  }
+  /* Only the dot shows on phones; the retry button still needs a finger-sized target. */
+  button.market {
+    width: 28px;
+    height: 28px;
   }
   .brand strong {
     font-size: 12.5px;

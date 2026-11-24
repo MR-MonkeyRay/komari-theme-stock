@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { monthStart, useLatestStatus, useMe, useMetricDefinitions, useMonthlyTraffic, useNodes, usePublicSettings, useSparklines } from './lib/api'
 import { useAppearance } from './lib/appearance'
-import { buildRows, useNow, type Row } from './lib/model'
+import { buildRows, connState, useNow, type Row } from './lib/model'
 import { CONTINENTS } from './lib/region'
 import { useShallow } from 'zustand/react/shallow'
 import { readSiteSettings, usePrefs, type ThemeSettings } from './lib/settings'
@@ -73,18 +73,33 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  const live = status.isSuccess && !status.isError
+  const conn = connState(status, settings.refreshSeconds, now)
+  const retrying = conn === 'down' && status.isFetching
+  const refetchStatus = status.refetch
+  const retry = useCallback(() => void refetchStatus(), [refetchStatus])
   const siteName = pub.data?.sitename || 'Komari'
+  const base = import.meta.env.BASE_URL
+  const loginHref = `${base}admin/login?redirect=${encodeURIComponent(base)}`
 
   return (
     <>
-      <TopBar siteName={siteName} live={live} refreshSeconds={settings.refreshSeconds} me={me.data} mePending={me.isPending} appearance={appearance} onAppearance={setAppearance} />
+      <TopBar siteName={siteName} conn={conn} retrying={retrying} updatedAt={status.dataUpdatedAt} onRetry={retry} refreshSeconds={settings.refreshSeconds} me={me.data} mePending={me.isPending} appearance={appearance} onAppearance={setAppearance} />
       <IndexStrip m={market} loading={nodes.isLoading} />
       <main className="page">
         {nodes.isError ? (
           <section className="panel error-panel">
             <h1>无法加载节点</h1>
             <p className="dim">{(nodes.error as Error)?.message || '请检查 Komari 后端是否可访问，或站点是否开启了私有模式。'}</p>
+            <div className="error-actions">
+              <button type="button" className="tool-btn" onClick={() => void nodes.refetch()} disabled={nodes.isFetching}>
+                {nodes.isFetching ? '正在重试…' : '重试'}
+              </button>
+              {pub.data?.private_site && !me.data?.logged_in && (
+                <a className="tool-btn is-primary" href={loginHref}>
+                  登录后查看
+                </a>
+              )}
+            </div>
           </section>
         ) : (
           <QuoteBoard rows={rows} settings={settings} x={extras} loading={nodes.isLoading} searchRef={searchRef} />
@@ -96,7 +111,7 @@ export default function App() {
           </a>
         </p>
       </main>
-      <StatusBar live={live} items={bulletins(rows)} now={now} />
+      <StatusBar conn={conn} retrying={retrying} onRetry={retry} items={bulletins(rows)} now={now} />
       <NodeDetail rows={navRows} settings={settings} traffic={traffic} monthly={useMonthly} now={now} ready={nodes.isSuccess} />
     </>
   )
