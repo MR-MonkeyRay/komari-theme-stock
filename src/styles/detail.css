@@ -278,10 +278,84 @@
   gap: 10px;
   min-width: 0;
 }
-.detail-minis {
+.detail-minis,
+.detail-bottom {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+/* Events under the memory chart, billing under the disk chart; a lone panel takes the row. */
+.detail-bottom > :only-child {
+  grid-column: 1 / -1;
+}
+.detail-bottom:empty {
+  display: none;
+}
+.detail-bottom > .side-panel:only-child .facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 1px;
+}
+
+/* Desktop: the page fills the drawer height (up to a cap) with no scrolling on common screens.
+   The CPU chart takes the spare height on the left; on the right, the fact rows share it. */
+@media (min-width: 1181px) {
+  .drawer,
+  .drawer-page {
+    display: flex;
+    flex-direction: column;
+  }
+  .drawer-page,
+  .detail {
+    flex: 1 0 auto;
+  }
+  .detail {
+    padding-bottom: 12px;
+  }
+  .detail-side .world-map {
+    margin: 4px 10px;
+  }
+  .detail-grid {
+    flex: 1 0 auto;
+    grid-template-rows: 1fr;
+    align-items: stretch;
+    max-height: 1040px;
+  }
+  .chart-main {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+  }
+  .detail-grid .chart-main .kline {
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 260px;
+  }
+  .detail-grid .chart-mini .kline {
+    height: 200px;
+  }
+  .detail-side .side-panel {
+    display: flex;
+    flex-direction: column;
+  }
+  .detail-side .facts {
+    flex: 1 1 auto;
+    display: grid;
+    grid-auto-rows: minmax(26px, 1fr);
+  }
+  .detail-bottom {
+    flex: none;
+  }
+}
+/* Short desktop screens: denser fact rows so long system info still fits without scrolling. */
+@media (min-width: 1181px) and (max-height: 940px) {
+  .detail-side .fact {
+    min-height: 24px;
+    padding-block: 3px;
+  }
+  .detail-side .facts {
+    grid-auto-rows: minmax(24px, 1fr);
+  }
 }
 
 .chart-panel {
@@ -433,8 +507,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  min-height: 30px;
-  padding: 5px 12px;
+  min-height: 26px;
+  padding: 4px 12px;
   border-bottom: 1px solid var(--line-faint);
 }
 .fact:last-child {
@@ -583,10 +657,46 @@
   border-top: 1px solid var(--line);
 }
 
+.events-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 148px;
+}
+/* The list scrolls inside the panel instead of growing the row. */
+.events-body {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+}
 .events {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  column-gap: 8px;
   list-style: none;
   margin: 0;
   padding: 4px 0;
+}
+.events-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 100%;
+  min-height: 100px;
+  padding: 10px 16px;
+  text-align: center;
+}
+.events-empty p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-2);
+}
+.events-empty p.dim {
+  max-width: 520px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-3);
 }
 .event {
   display: grid;

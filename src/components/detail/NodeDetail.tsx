@@ -156,14 +156,18 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, onStep }: { r: R
               <StatBook stats={diskStats} format={fmtGiB} items={['avg', 'high']} />
             </section>
           </div>
+
+          {/* Bottom row under the charts; either panel may be absent (events off, no billing data). */}
+          <div className="detail-bottom">
+            {settings.showEvents && <EventsPanel events={events} />}
+            <BillingPanel r={r} now={now} />
+          </div>
         </div>
 
         <aside className="detail-side" aria-label="节点资料">
+          <LocationPanel r={r} />
           <NetworkPanel r={r} volume={volume} traffic={traffic} monthly={monthly} />
           <SystemPanel r={r} />
-          <BillingPanel r={r} now={now} />
-          {settings.showEvents && <EventsPanel events={events} />}
-          <LocationPanel r={r} />
         </aside>
       </div>
       </Suspense>

@@ -9,9 +9,10 @@ import { Pair, Tick } from '../primitives'
 
 const WorldMap = lazy(() => import('./WorldMap'))
 
-export function Panel({ title, extra, children, className }: { title: ReactNode; extra?: ReactNode; children: ReactNode; className?: string }) {
+/** `grow` shares spare column height between panels (roughly their row counts), so rows stay even. */
+export function Panel({ title, extra, children, className, grow }: { title: ReactNode; extra?: ReactNode; children: ReactNode; className?: string; grow?: number }) {
   return (
-    <section className={clsx('panel side-panel', className)}>
+    <section className={clsx('panel side-panel', className)} style={grow ? { flexGrow: grow } : undefined}>
       <div className="panel-head compact">
         <h3>{title}</h3>
         {extra && <span className="panel-extra">{extra}</span>}
@@ -64,7 +65,7 @@ export function NetworkPanel({ r, volume, traffic, monthly }: { r: Row; volume: 
   const used = traffic && limit > 0 ? trafficUsed(r.node.traffic_limit_type, traffic.up, traffic.down) : null
   const usedPct = used !== null ? Math.min(100, (used / limit) * 100) : null
   return (
-    <Panel title="网络" extra={<span className="legend-keys"><i className="k-up" />上行 <i className="k-down" />下行</span>}>
+    <Panel title="网络" grow={5} extra={<span className="legend-keys"><i className="k-up" />上行 <i className="k-down" />下行</span>}>
       <div className="net-now">
         <div>
           <span className="dim">当前上行</span>
@@ -145,7 +146,7 @@ export function SystemPanel({ r }: { r: Row }) {
   const n = r.node
   const st = r.online ? r.status : undefined
   return (
-    <Panel title="系统信息" extra="F10">
+    <Panel title="系统信息" extra="F10" grow={12}>
       <dl className="facts">
         <Fact k="处理器">
           <span className="clip" title={n.cpu_name}>{n.cpu_name || '—'}</span>
@@ -200,20 +201,25 @@ export function SystemPanel({ r }: { r: Row }) {
 
 export function EventsPanel({ events }: { events: NodeEvent[] }) {
   return (
-    <Panel title="节点事件" extra="样本推断">
-      {events.length ? (
-        <ol className="events">
-          {events.map((e, i) => (
-            <li key={`${e.time}-${i}`} className={clsx('event', `ev-${e.kind}`)}>
-              <time className="num">{clock(e.time, false)}</time>
-              <b>{e.label}</b>
-              <span title={e.text}>{e.text}</span>
-            </li>
-          ))}
-        </ol>
-      ) : (
-        <p className="empty small">所选范围内无异动</p>
-      )}
+    <Panel title="节点事件" extra="样本推断" className="events-panel">
+      <div className="events-body">
+        {events.length ? (
+          <ol className="events">
+            {events.map((e, i) => (
+              <li key={`${e.time}-${i}`} className={clsx('event', `ev-${e.kind}`)}>
+                <time className="num">{clock(e.time, false)}</time>
+                <b>{e.label}</b>
+                <span title={e.text}>{e.text}</span>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <div className="events-empty">
+            <p>所选范围内无异动</p>
+            <p className="dim">CPU 连续 3 个区间 ≥ 80% 记为升高，之后连续 2 个区间 &lt; 75% 记为回落；内存 ≥ 90% 记为高位；无上报样本的区间记为缺测</p>
+          </div>
+        )}
+      </div>
     </Panel>
   )
 }

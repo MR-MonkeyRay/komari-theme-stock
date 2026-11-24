@@ -5,7 +5,7 @@
     "zh-CN": "股票行情软件风格的 Komari 主题：报价表式节点列表与 K 线式资源趋势",
     "en": "A stock-terminal style theme for Komari: quote-board node list and candlestick resource charts"
   },
-  "version": "0.2.0",
+  "version": "0.3.0",
   "author": "MonkeyRay",
   "url": "https://github.com/MR-MonkeyRay/komari-theme-stock",
   "preview": "preview.png",
