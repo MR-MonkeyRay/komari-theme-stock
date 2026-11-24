@@ -1,16 +1,32 @@
 import * as RadioGroup from '@radix-ui/react-radio-group'
 import clsx from 'clsx'
-import { AreaSeries, CandlestickSeries, createChart, LineSeries, LineStyle, type IChartApi, type IPriceLine, type ISeriesApi, type MouseEventParams, type Time } from 'lightweight-charts'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { AreaSeries, CandlestickSeries, createChart, createSeriesMarkers, LineSeries, LineStyle, type IChartApi, type IPriceLine, type ISeriesApi, type ISeriesMarkersPluginApi, type MouseEventParams, type SeriesMarker, type Time } from 'lightweight-charts'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import type { ConnPoint } from '../../lib/api'
 import { cssVar, usePaletteVersion } from '../../lib/appearance'
 import { isCandle, movingAverage, volumeBars, type Candle, type Slot, type Volume } from '../../lib/candles'
 import { size } from '../../lib/format'
 import type { ChartStyle } from '../../lib/settings'
 import { asTs, baseChartOptions, chartPalette, crosshairLabel } from './chartBase'
+import { bucketAt, releaseTime, shareRange, sharedRangeFor, shareTime, useChartSync, userGesture, type SharedRange } from './chartSync'
 
 const VOL_FORMAT = { type: 'custom' as const, formatter: (v: number) => (v > 0 ? size(v, true) : '0'), minMove: 1 }
 const COUNT_FORMAT = { type: 'custom' as const, formatter: (v: number) => (v >= 10_000 ? `${(v / 1000).toFixed(0)}k` : String(Math.round(v))), minMove: 1 }
+
+/** Applies a shared window; one outside this chart's data (before its first sample) is skipped. */
+function showRange(c: IChartApi, r: SharedRange) {
+  try {
+    c.timeScale().setVisibleRange({ from: asTs(r.from), to: asTs(r.to) })
+  } catch {
+    // keep the current window
+  }
+}
+
+/** An inferred event drawn on its bucket: CPU rises and falls, memory highs. `time` in seconds. */
+export interface ChartMark {
+  time: number
+  kind: 'rise' | 'fall' | 'high-mem'
+}
 
 /** What the CPU chart's sub-pane shows: traffic as volume bars, or TCP/UDP connections. */
 export type SubPane = 'vol' | 'conn'
@@ -25,6 +41,7 @@ export interface KLineProps {
   conn?: ConnPoint[] | null
   /** Candles (K 线) or a line of bucket averages (分时). */
   look?: ChartStyle
+  marks?: ChartMark[]
   /** axis/legend formatter for candle values */
   format: (v: number) => string
   /** clamp autoscale to [0, 100] for percentages */
@@ -44,7 +61,7 @@ interface Hover {
   volume?: Volume
 }
 
-export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, look = 'candle', format, percent, ma, loading, stale, offline, label, rangeKey }: KLineProps) {
+export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, look = 'candle', marks, format, percent, ma, loading, stale, offline, label, rangeKey }: KLineProps) {
   const host = useRef<HTMLDivElement>(null)
   const chart = useRef<IChartApi | null>(null)
   const series = useRef<{
@@ -59,6 +76,9 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
     udp?: ISeriesApi<'Line'>
   } | null>(null)
   const lastLine = useRef<IPriceLine | null>(null)
+  const markers = useRef<{ candle: ISeriesMarkersPluginApi<Time>; area: ISeriesMarkersPluginApi<Time> } | null>(null)
+  const id = useId()
+  const gesture = useMemo(() => userGesture(), [])
   const palette = usePaletteVersion()
   const [hover, setHover] = useState<Hover | null>(null)
   const [cursor, setCursor] = useState<number | null>(null)
@@ -79,6 +99,11 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
   const connByTime = useMemo(() => new Map(conn?.map((c) => [c.time, c])), [conn])
   // Not hovering: the latest bucket with connection samples (its history refreshes on its own clock).
   const lastConn = useMemo(() => conn?.findLast((c) => c.tcp !== null || c.udp !== null), [conn])
+  // What following another chart's crosshair needs, kept current for the store subscription.
+  const latest = useRef({ slots, line, rangeKey })
+  useEffect(() => {
+    latest.current = { slots, line, rangeKey }
+  }, [slots, line, rangeKey])
   // The VOL pane's own legend sits at the top of that pane, which moves as the chart resizes.
   const legend = useRef<HTMLDivElement>(null)
   const [subTop, setSubTop] = useState<number | null>(null)
@@ -88,7 +113,8 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
     if (!host.current) return
     const c = createChart(host.current, baseChartOptions())
     // Per-series formatters: the chart-wide localization formatter would also hit the volume pane.
-    const valueFormat = { type: 'custom' as const, formatter: (v: number) => fmt.current(v), minMove: 0.01 }
+    // A percentage axis stays within 0–100 even where the event marks add headroom.
+    const valueFormat = { type: 'custom' as const, formatter: (v: number) => (percent && (v > 100.001 || v < -0.001) ? '' : fmt.current(v)), minMove: 0.01 }
     const candle = c.addSeries(CandlestickSeries, {
       priceFormat: valueFormat,
       // The built-in last-value label takes the (transparent) hollow body color; a custom line replaces it.
@@ -136,17 +162,63 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
     chart.current = c
     series.current = s
 
+    markers.current = { candle: createSeriesMarkers(candle, []), area: createSeriesMarkers(area, []) }
+
+    // Show a time another chart points at: the crosshair on its bucket and the legend reading it.
+    const followTime = (t: number | null) => {
+      const sr = series.current
+      if (!sr) return
+      const { slots: ss, line: ln } = latest.current
+      const k = t === null ? undefined : ss[bucketAt(ss.map((x) => x.time), t)]
+      if (t === null) {
+        c.clearCrosshairPosition()
+        setHover(null)
+      } else if (k && isCandle(k)) {
+        if (ln) c.setCrosshairPosition(k.avg, asTs(k.time), sr.area)
+        else c.setCrosshairPosition(k.close, asTs(k.time), sr.candle)
+        setHover({ time: k.time, candle: k })
+      } else {
+        // No sample here (a gap, or before this chart's data): the legend says so at that time.
+        c.clearCrosshairPosition()
+        setHover({ time: k?.time ?? t, candle: null })
+      }
+    }
+
+    // Only the user's moves arrive here (moves from code fire nothing), and they are shared.
     const onMove = (p: MouseEventParams) => {
+      // A pointer that only entered (the chart slid under it) points at nothing: show the shared
+      // time as before, and leave it to whoever set it.
+      if (!gesture.pointed()) return followTime(useChartSync.getState().time)
       if (p.time === undefined) {
         setHover(null)
+        releaseTime(id)
         return
       }
       const t = p.time as number
       setHover({ time: t, candle: byTime.current.get(t) ?? null })
+      shareTime(id, t)
     }
     c.subscribeCrosshairMove(onMove)
+    const onWindow = () => {
+      const r = c.timeScale().getVisibleRange()
+      if (gesture.active() && r) shareRange(id, { from: r.from as number, to: r.to as number, key: latest.current.rangeKey })
+    }
+    c.timeScale().subscribeVisibleTimeRangeChange(onWindow)
+
+    // Follow the other charts: the crosshair on the same bucket, and the same time window on the
+    // same data.
+    const unfollow = useChartSync.subscribe((st, prev) => {
+      if (st.time !== prev.time && st.timeFrom !== id) followTime(st.time)
+      if (st.range !== prev.range && st.range) {
+        const r = sharedRangeFor(id, latest.current.rangeKey)
+        if (r) showRange(c, r)
+      }
+    })
     return () => {
+      unfollow()
+      c.timeScale().unsubscribeVisibleTimeRangeChange(onWindow)
       c.unsubscribeCrosshairMove(onMove)
+      markers.current = null
       c.remove()
       chart.current = null
       series.current = null
@@ -185,6 +257,25 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
     // In 分时 the gold MA20 plays the stock chart's average line; MA5 would only crowd it.
     s.ma5?.applyOptions({ visible: !line && !window.matchMedia('(max-width: 640px)').matches })
   }, [line])
+
+  // Event marks on the visible series: ▲ over a rise, ▼ under a fall, a dot over a memory high.
+  useEffect(() => {
+    const m = markers.current
+    if (!m) return
+    const known = new Set(candles.map((c) => c.time))
+    const list: SeriesMarker<Time>[] = (marks ?? [])
+      .filter((e) => known.has(e.time))
+      .sort((a, b) => a.time - b.time)
+      .map((e) =>
+        e.kind === 'rise'
+          ? { time: asTs(e.time), position: 'aboveBar', shape: 'arrowUp', color: cssVar('--up'), size: 0.7 }
+          : e.kind === 'fall'
+            ? { time: asTs(e.time), position: 'belowBar', shape: 'arrowDown', color: cssVar('--down'), size: 0.7 }
+            : { time: asTs(e.time), position: 'aboveBar', shape: 'circle', color: cssVar('--warn'), size: 0.6 },
+      )
+    m.candle.setMarkers(line ? [] : list)
+    m.area.setMarkers(line ? list : [])
+  }, [marks, candles, line, palette])
 
   // Sub-pane view.
   useEffect(() => {
@@ -272,6 +363,9 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
     // the viewport, not the chart width: the narrower side-by-side desktop charts keep the full range.
     if (window.matchMedia('(max-width: 640px)').matches && slots.length > 48) c.timeScale().setVisibleLogicalRange({ from: slots.length - 48, to: slots.length + 1 })
     else c.timeScale().fitContent()
+    // Another chart was zoomed on this data before it arrived here: join it.
+    const shared = sharedRangeFor(id, rangeKey)
+    if (shared) showRange(c, shared)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rangeKey, slots.length > 0])
 
@@ -287,11 +381,13 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
     else chart.current.setCrosshairPosition(c.close, asTs(c.time), series.current.candle)
     // Moving the crosshair from code fires no crosshair event: update the legend here.
     setHover({ time: c.time, candle: c })
+    shareTime(id, c.time)
   }
   const onBlur = () => {
     setCursor(null)
     setHover(null)
     chart.current?.clearCrosshairPosition()
+    releaseTime(id)
   }
 
   // Hovering a bucket without samples says so, instead of showing the latest candle.
@@ -370,6 +466,14 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
         aria-label={line ? `${label}分时图，每个时段的均值连成折线；按左右方向键逐个查看时段` : `${label} K 线图，空心为区间上升、实心为区间下降；按左右方向键逐个查看区间`}
         onKeyDown={onKey}
         onBlur={onBlur}
+        // Capture: these must be known before the chart handles the same event.
+        onPointerDownCapture={gesture.onPointerDown}
+        onPointerMoveCapture={gesture.onPointerMove}
+        onWheel={gesture.onWheel}
+        onPointerLeave={() => {
+          gesture.onPointerLeave()
+          releaseTime(id)
+        }}
       />
       {volume && subTop !== null && candles.length > 0 && (
         <div className="kline-sublegend num" style={{ top: subTop }}>

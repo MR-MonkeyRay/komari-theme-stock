@@ -11,11 +11,13 @@ import type { Row } from '../../lib/model'
 import { usePrefs, type ChartStyle, type Range, type ThemeSettings } from '../../lib/settings'
 import { Flag, Segmented, Tick } from '../primitives'
 import { AdminPanel, EventsPanel, LocationPanel, NetworkPanel, StatBook, SystemPanel } from './Panels'
+import { resetSync } from './chartSync'
 import { PingPanel, type PingPick } from './PingPanel'
 
 // lightweight-charts is only needed once a detail drawer opens.
 const KLineChart = lazy(() => import('./KLineChart'))
 type SubPane = import('./KLineChart').SubPane
+type ChartMark = import('./KLineChart').ChartMark
 
 const GIB = 1024 ** 3
 const LOOKS: ChartStyle[] = ['candle', 'line']
@@ -62,6 +64,12 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange,
   const memTotal = (st?.ram_total || r.node.mem_total) / GIB || null
   const diskTotal = (st?.disk_total || r.node.disk_total) / GIB || null
   const events = useMemo(() => inferEvents(cpu, mem, memTotal, r.online, r.lastSeen), [cpu, mem, memTotal, r.online, r.lastSeen])
+  // The events also mark their buckets: CPU rises and falls on the CPU chart, highs on memory.
+  const marks = useMemo(() => {
+    const on = settings.showEvents ? events : []
+    const of = (kinds: ChartMark['kind'][]) => on.flatMap((e) => (kinds.includes(e.kind as ChartMark['kind']) ? [{ time: e.time / 1000, kind: e.kind as ChartMark['kind'] }] : []))
+    return { cpu: of(['rise', 'fall']), mem: of(['high-mem']) }
+  }, [events, settings.showEvents])
 
   const price = r.cpu ?? cpuStats?.close ?? null
   const open = cpuStats?.open ?? null
@@ -73,6 +81,8 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange,
   const loading = history.isFetching && !h
   // Charts refit when data for a new range (or node) arrives, not when the range is clicked.
   const dataKey = `${uuid}-${h?.range}`
+  // A shared crosshair or zoom belongs to the data it was made on.
+  useEffect(() => resetSync(), [dataKey])
 
   // Paging to another node keeps the banner, the panels and the chart instances; only the content
   // under the banner gives a short fade so the change of node registers.
@@ -169,7 +179,7 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange,
                 <Segmented className="range-tabs" value={range} options={available.ranges} onChange={onRange} label="时间范围" />
               </div>
             </div>
-            <KLineChart look={settings.chartStyle} slots={cpu} volume={volume} sub={sub} onSub={onSub} conn={conn} format={fmtPct} percent ma loading={loading} stale={stale} offline={!r.online} label="CPU 使用率" rangeKey={dataKey} />
+            <KLineChart look={settings.chartStyle} marks={marks.cpu} slots={cpu} volume={volume} sub={sub} onSub={onSub} conn={conn} format={fmtPct} percent ma loading={loading} stale={stale} offline={!r.online} label="CPU 使用率" rangeKey={dataKey} />
           </section>
 
           <PingPanel uuid={uuid} range={range} refreshSeconds={settings.refreshSeconds} offline={!r.online} pick={ping} onPick={onPing} />
@@ -186,7 +196,7 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange,
                   <RangeNote stats={memStats} />
                 </span>
               </div>
-              <KLineChart look={settings.chartStyle} slots={mem} format={fmtGiB} loading={loading} stale={stale} offline={!r.online} label="内存已用" rangeKey={dataKey} />
+              <KLineChart look={settings.chartStyle} marks={marks.mem} slots={mem} format={fmtGiB} loading={loading} stale={stale} offline={!r.online} label="内存已用" rangeKey={dataKey} />
             </section>
             <section className="panel chart-panel chart-mini">
               <div className="panel-head compact">

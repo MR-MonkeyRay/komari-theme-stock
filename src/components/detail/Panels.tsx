@@ -12,6 +12,7 @@ import { continentName } from '../../lib/region'
 import { QUOTA } from '../../lib/thresholds'
 import { Tags } from '../QuoteBoard'
 import { Pair, Tick } from '../primitives'
+import { shareTime } from './chartSync'
 
 const WorldMap = lazy(() => import('./WorldMap'))
 
@@ -324,7 +325,8 @@ export function EventsPanel({ events, now }: { events: NodeEvent[]; now: number 
         <div className="events-body">
           <ol className={clsx('events', withDate && 'with-date')}>
             {events.map((e, i) => (
-              <li key={`${e.time}-${i}`} className={clsx('event', `ev-${e.kind}`)}>
+              // Pointing at an event puts every chart's crosshair on its time.
+              <li key={`${e.time}-${i}`} className={clsx('event', `ev-${e.kind}`)} onPointerEnter={() => shareTime('events', e.time / 1000)} onPointerLeave={() => shareTime('events', null)}>
                 <time className="num" dateTime={new Date(e.time).toISOString()}>
                   {withDate ? monthDayTime(e.time) : clock(e.time, false)}
                 </time>

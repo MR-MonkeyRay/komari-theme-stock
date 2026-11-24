@@ -1088,6 +1088,10 @@
 .events.with-date .event {
   grid-template-columns: 78px 34px minmax(0, 1fr);
 }
+/* Pointing at an event moves the charts' crosshairs to it; the row shows it is the one. */
+.event:hover {
+  background: var(--bg-hover);
+}
 .event time {
   color: var(--text-3);
 }

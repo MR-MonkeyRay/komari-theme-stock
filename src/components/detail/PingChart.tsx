@@ -17,10 +17,11 @@ import {
   type Time,
   type WhitespaceData,
 } from 'lightweight-charts'
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { cssVar, usePaletteVersion } from '../../lib/appearance'
 import { lossText, ms, type PingLineData } from '../../lib/ping'
 import { asTs, baseChartOptions, chartPalette, crosshairLabel } from './chartBase'
+import { bucketAt, releaseTime, shareRange, sharedRangeFor, shareTime, useChartSync, userGesture, type SharedRange } from './chartSync'
 
 // --- min–max band -------------------------------------------------------------------------------
 // The spread of latency inside each bucket, drawn as one translucent shape per unbroken run so a
@@ -103,6 +104,31 @@ class BandView implements ICustomSeriesPaneView<Time, BandData, CustomSeriesOpti
 // --- chart --------------------------------------------------------------------------------------
 
 const slotColor = (slot: number) => cssVar(`--ping-${slot + 1}`)
+
+/**
+ * The crosshair on bucket `i`: on the shown line with a value there (the chosen one, else the first),
+ * or, where every probe was lost, on the loss bar, so the time is still marked.
+ */
+function crosshairAt(c: IChartApi, lineMap: Map<string, ISeriesApi<'Line'>>, lossBars: ISeriesApi<'Histogram'> | null, lines: PingLineData[], selected: string | null, i: number) {
+  const t = lines[0]?.points[i]?.time
+  if (t === undefined) return c.clearCrosshairPosition()
+  const shown = selected !== null ? lines.filter((l) => l.id === selected) : lines
+  const withValue = shown.find((l) => l.points[i]?.avg != null)
+  const s = withValue && lineMap.get(withValue.id)
+  if (withValue && s) return c.setCrosshairPosition(withValue.points[i].avg!, asTs(t), s)
+  const worst = Math.max(0, ...shown.map((l) => l.points[i]?.loss ?? 0))
+  if (worst > 0 && lossBars) return c.setCrosshairPosition(worst * 100, asTs(t), lossBars)
+  c.clearCrosshairPosition()
+}
+
+/** Applies a shared window; one outside this chart's data (before ping retention) is skipped. */
+function showRange(c: IChartApi, r: SharedRange) {
+  try {
+    c.timeScale().setVisibleRange({ from: asTs(r.from), to: asTs(r.to) })
+  } catch {
+    // keep the current window
+  }
+}
 // Milliseconds on the axis: whole steps as whole numbers, tenths only where a flat, fast line gets
 // ticks that close (54.2, 54.4). The margin kept for the loss bars reaches down to zero and below,
 // where a label would read as a loss figure.
@@ -144,8 +170,15 @@ export default function PingChart({ lines, selected, loading, stale, offline, ra
   useEffect(() => {
     report.current = onHover
   }, [onHover])
+  const id = useId()
+  const gesture = useMemo(() => userGesture(), [])
 
   const times = useMemo(() => lines[0]?.points.map((p) => p.time) ?? [], [lines])
+  // What following another chart's crosshair needs, kept current for the store subscription.
+  const latest = useRef({ lines, times, selected, rangeKey })
+  useEffect(() => {
+    latest.current = { lines, times, selected, rangeKey }
+  }, [lines, times, selected, rangeKey])
   const hasData = useMemo(() => lines.some((l) => l.points.some((p) => p.avg !== null || p.loss !== null)), [lines])
   const ids = lines.map((l) => l.id).join(',')
 
@@ -166,13 +199,48 @@ export default function PingChart({ lines, selected, loading, stale, offline, ra
     c.priceScale('loss').applyOptions({ visible: false, scaleMargins: { top: 0.8, bottom: 0 } })
     chart.current = c
     const lineMap = series.current
+    // Show a time another chart points at: the crosshair on its bucket, the readings at it.
+    const followTime = (time: number | null) => {
+      const { lines: ls, times: ts, selected: sel } = latest.current
+      const i = time === null ? -1 : bucketAt(ts, time)
+      // Outside this chart's buckets (ping keeps less history) the legend still shows the time.
+      const t = i < 0 ? time : ts[i]
+      setHover(t)
+      report.current?.(t)
+      if (i < 0) c.clearCrosshairPosition()
+      else crosshairAt(c, lineMap, loss.current, ls, sel, i)
+    }
+
+    // Only the user's moves arrive here (moves from code fire nothing), and they are shared.
     const onMove = (p: MouseEventParams) => {
+      // A pointer that only entered (the chart slid under it) points at nothing: show the shared
+      // time as before, and leave it to whoever set it.
+      if (!gesture.pointed()) return followTime(useChartSync.getState().time)
       const t = p.time === undefined ? null : (p.time as number)
       setHover(t)
       report.current?.(t)
+      if (t === null) releaseTime(id)
+      else shareTime(id, t)
     }
     c.subscribeCrosshairMove(onMove)
+    const onWindow = () => {
+      const r = c.timeScale().getVisibleRange()
+      if (gesture.active() && r) shareRange(id, { from: r.from as number, to: r.to as number, key: latest.current.rangeKey })
+    }
+    c.timeScale().subscribeVisibleTimeRangeChange(onWindow)
+
+    // Follow the other charts: the crosshair on the same bucket, and the same time window on the
+    // same data.
+    const unfollow = useChartSync.subscribe((st, prev) => {
+      if (st.time !== prev.time && st.timeFrom !== id) followTime(st.time)
+      if (st.range !== prev.range && st.range) {
+        const r = sharedRangeFor(id, latest.current.rangeKey)
+        if (r) showRange(c, r)
+      }
+    })
     return () => {
+      unfollow()
+      c.timeScale().unsubscribeVisibleTimeRangeChange(onWindow)
       c.unsubscribeCrosshairMove(onMove)
       c.remove()
       chart.current = null
@@ -180,7 +248,7 @@ export default function PingChart({ lines, selected, loading, stale, offline, ra
       loss.current = null
       lineMap.clear()
     }
-  }, [])
+  }, [id, gesture])
 
   // One line per task; a node with other tasks gets its own set.
   useEffect(() => {
@@ -235,6 +303,9 @@ export default function PingChart({ lines, selected, loading, stale, offline, ra
     // On phones, the latest ~48 buckets, as the CPU chart opens (the ranges share their buckets).
     if (window.matchMedia('(max-width: 640px)').matches && times.length > 48) c.timeScale().setVisibleLogicalRange({ from: times.length - 48, to: times.length + 1 })
     else c.timeScale().fitContent()
+    // Another chart was zoomed on this data before it arrived here: join it.
+    const shared = sharedRangeFor(id, rangeKey)
+    if (shared) showRange(c, shared)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rangeKey, times.length > 0])
 
@@ -248,17 +319,15 @@ export default function PingChart({ lines, selected, loading, stale, offline, ra
     setCursor(i)
     setHover(times[i])
     report.current?.(times[i])
-    const target = (selected !== null ? lines.find((l) => l.id === selected) : undefined) ?? lines.find((l) => l.points[i]?.avg !== null)
-    const s = target && series.current.get(target.id)
-    const v = target?.points[i]?.avg
-    if (s && v !== null && v !== undefined) chart.current.setCrosshairPosition(v, asTs(times[i]), s)
-    else chart.current.clearCrosshairPosition()
+    shareTime(id, times[i])
+    crosshairAt(chart.current, series.current, loss.current, lines, selected, i)
   }
   const onBlur = () => {
     setCursor(null)
     setHover(null)
     report.current?.(null)
     chart.current?.clearCrosshairPosition()
+    releaseTime(id)
   }
 
   const one = selected !== null ? lines.find((l) => l.id === selected) : undefined
@@ -318,6 +387,14 @@ export default function PingChart({ lines, selected, loading, stale, offline, ra
         aria-label={`网络延迟折线图${one ? `，${one.name}` : `，${lines.map((l) => l.name).join('、')}`}；按左右方向键逐个查看时段`}
         onKeyDown={onKey}
         onBlur={onBlur}
+        // Capture: these must be known before the chart handles the same event.
+        onPointerDownCapture={gesture.onPointerDown}
+        onPointerMoveCapture={gesture.onPointerMove}
+        onWheel={gesture.onWheel}
+        onPointerLeave={() => {
+          gesture.onPointerLeave()
+          releaseTime(id)
+        }}
       />
       {loading && !hasData && <div className="kline-skeleton skeleton" aria-hidden="true" />}
       {offline && <span className="kline-watermark">离线 · 历史快照</span>}
