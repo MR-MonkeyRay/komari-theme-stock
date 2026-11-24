@@ -189,17 +189,17 @@ export function NodeDetail({ rows, settings, traffic, monthly, now, ready }: { r
 
   const close = useCallback(() => {
     if ((location.state as { fromBoard?: boolean } | null)?.fromBoard) navigate(-1)
-    else navigate('/', { replace: true })
-  }, [location.state, navigate])
+    else navigate({ pathname: '/', search: location.search }, { replace: true })
+  }, [location.state, location.search, navigate])
 
   const step = useCallback(
     (d: number) => {
       if (!rows.length || !r) return
       const i = rows.findIndex((x) => x.node.uuid === r.node.uuid)
       const next = rows[(i + d + rows.length) % rows.length]
-      navigate(`/instance/${next.node.uuid}`, { replace: true, state: location.state })
+      navigate({ pathname: `/instance/${next.node.uuid}`, search: location.search }, { replace: true, state: location.state })
     },
-    [rows, r, navigate, location.state],
+    [rows, r, navigate, location.state, location.search],
   )
 
   useEffect(() => {

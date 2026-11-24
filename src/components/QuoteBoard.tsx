@@ -1,17 +1,15 @@
 import clsx from 'clsx'
 import { ChevronRight, Search } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
-import { forwardRef, useMemo, useRef, useState, type KeyboardEvent } from 'react'
-import { Link } from 'react-router'
+import { forwardRef, useMemo, useRef, type KeyboardEvent } from 'react'
+import { Link, useLocation } from 'react-router'
 import type { Sparks } from '../lib/api'
+import { firstDir, useBoardQuery, type SortKey } from '../lib/board'
 import { ago, duration, finite, levelOf, parseTags, pct, signed, size } from '../lib/format'
 import { metricTrail, type BoardMetric, type Row } from '../lib/model'
 import { CONTINENTS, continentName } from '../lib/region'
 import type { ThemeSettings } from '../lib/settings'
 import { Flag, Meter, Pair, Sparkline, Tick } from './primitives'
-
-type SortKey = 'name' | 'uptime' | 'cpu' | 'ram' | 'disk' | 'load' | 'traffic' | 'net' | 'seen'
-type Sort = { key: SortKey; dir: 'asc' | 'desc' } | null
 
 export interface BoardExtras {
   sparks: Sparks | undefined
@@ -109,14 +107,14 @@ function MetricCell({ r, k, x, showSpark, title }: { r: Row; k: BoardMetric; x: 
   )
 }
 
-const QuoteRow = forwardRef<HTMLAnchorElement, { r: Row; x: BoardExtras; showSpark: boolean }>(function QuoteRow({ r, x, showSpark }, ref) {
+const QuoteRow = forwardRef<HTMLAnchorElement, { r: Row; x: BoardExtras; showSpark: boolean; search: string }>(function QuoteRow({ r, x, showSpark, search }, ref) {
   const st = r.online ? r.status : undefined
   const t = x.traffic(r)
   const memText = st ? `${size(st.ram)} / ${size(st.ram_total || r.node.mem_total)}` : undefined
   const diskText = st ? `${size(st.disk)} / ${size(st.disk_total || r.node.disk_total)}` : undefined
   return (
     <motion.div layout="position" transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }} className="row-wrap">
-      <Link ref={ref} to={`/instance/${r.node.uuid}`} state={{ fromBoard: true }} className={clsx('qrow', !r.online && 'is-off')} data-uuid={r.node.uuid} aria-label={`${r.node.name} ${r.region.name} ${r.online ? '在线' : '离线'}，查看详情`}>
+      <Link ref={ref} to={{ pathname: `/instance/${r.node.uuid}`, search }} state={{ fromBoard: true }} className={clsx('qrow', !r.online && 'is-off')} data-uuid={r.node.uuid} aria-label={`${r.node.name} ${r.region.name} ${r.online ? '在线' : '离线'}，查看详情`}>
         <span className="c-name">
           <Flag code={r.region.code} title={r.region.name} />
           <span className="name-stack">
@@ -186,13 +184,14 @@ function groupRows(rows: Row[], by: ThemeSettings['groupBy']): Group[] {
 }
 
 export function QuoteBoard({ rows, settings, x, loading, searchRef }: { rows: Row[]; settings: ThemeSettings; x: BoardExtras; loading: boolean; searchRef: React.RefObject<HTMLInputElement | null> }) {
-  const [query, setQuery] = useState('')
-  const [filter, setFilter] = useState('all')
-  const [sort, setSort] = useState<Sort>(null)
+  const [{ q: query, group: groupParam, sort }, setBoard, flushQuery] = useBoardQuery()
+  const { search } = useLocation()
   const listRef = useRef<HTMLDivElement>(null)
   const showSpark = settings.showSparkline
 
   const allGroups = useMemo(() => groupRows(rows, settings.groupBy), [rows, settings.groupBy])
+  // A tab from an old link that no longer exists (or grouping switched off) shows everything.
+  const filter = settings.groupBy !== 'none' && allGroups.some((g) => g.key === groupParam) ? groupParam : 'all'
   const q = query.trim().toLowerCase()
   const visible = useMemo(() => {
     const match = (r: Row) =>
@@ -220,8 +219,9 @@ export function QuoteBoard({ rows, settings, x, loading, searchRef }: { rows: Ro
 
   const count = visible.reduce((a, g) => a + g.rows.length, 0)
 
+  // First click: the natural direction; second: reversed; third: back to the grouped board.
   const cycleSort = (key: SortKey) =>
-    setSort((s) => (s?.key !== key ? { key, dir: key === 'name' ? 'asc' : 'desc' } : s.dir === (key === 'name' ? 'asc' : 'desc') ? { key, dir: key === 'name' ? 'desc' : 'asc' } : null))
+    setBoard({ sort: sort?.key !== key ? { key, dir: firstDir(key) } : sort.dir === firstDir(key) ? { key, dir: firstDir(key) === 'asc' ? 'desc' : 'asc' } : null })
 
   // ↑/↓ moves between rows like a quote list; Enter follows the link.
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -247,7 +247,7 @@ export function QuoteBoard({ rows, settings, x, loading, searchRef }: { rows: Ro
         </div>
         <label className="search">
           <Search size={14} aria-hidden="true" />
-          <input ref={searchRef} type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜索节点 / 地区 / 标签" aria-label="搜索节点、地区或标签" />
+          <input ref={searchRef} type="search" value={query} onChange={(e) => setBoard({ q: e.target.value })} onBlur={flushQuery} placeholder="搜索节点 / 地区 / 标签" aria-label="搜索节点、地区或标签" />
           <kbd className="num">/</kbd>
         </label>
       </div>
@@ -255,7 +255,7 @@ export function QuoteBoard({ rows, settings, x, loading, searchRef }: { rows: Ro
       {settings.groupBy !== 'none' && allGroups.length > 1 && (
         <div className="tabs" role="tablist" aria-label="按分组筛选">
           {[{ key: 'all', label: '全部', n: rows.length }, ...allGroups.map((g) => ({ key: g.key, label: g.label, n: g.rows.length }))].map((t) => (
-            <button key={t.key} type="button" role="tab" aria-selected={filter === t.key} className="tab" onClick={() => setFilter(t.key)}>
+            <button key={t.key} type="button" role="tab" aria-selected={filter === t.key} className="tab" onClick={() => setBoard({ group: t.key })}>
               {filter === t.key && <motion.span layoutId="tab-pill" className="tab-pill" transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }} />}
               <span className="tab-text">{t.label}</span>
               <span className="tab-n num">{t.n}</span>
@@ -295,7 +295,7 @@ export function QuoteBoard({ rows, settings, x, loading, searchRef }: { rows: Ro
           <div className="group-body">
             <AnimatePresence initial={false}>
               {flat.map((r) => (
-                <QuoteRow key={r.node.uuid} r={r} x={x} showSpark={showSpark} />
+                <QuoteRow key={r.node.uuid} r={r} x={x} showSpark={showSpark} search={search} />
               ))}
             </AnimatePresence>
           </div>
@@ -325,7 +325,7 @@ export function QuoteBoard({ rows, settings, x, loading, searchRef }: { rows: Ro
                 )}
                 <div className="group-body">
                   {g.rows.map((r) => (
-                    <QuoteRow key={r.node.uuid} r={r} x={x} showSpark={showSpark} />
+                    <QuoteRow key={r.node.uuid} r={r} x={x} showSpark={showSpark} search={search} />
                   ))}
                 </div>
               </section>
