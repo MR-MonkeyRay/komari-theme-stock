@@ -188,12 +188,14 @@ export function IndexStrip({ m, loading }: { m: MarketSummary; loading: boolean 
       <div className="ix">
         <span className="ix-label">总上行</span>
         <span className="ix-value num net-up">
+          <span aria-hidden="true">↑</span>
           <LiveSize bytes={m.up} rate />
         </span>
       </div>
       <div className="ix">
         <span className="ix-label">总下行</span>
         <span className="ix-value num net-down">
+          <span aria-hidden="true">↓</span>
           <LiveSize bytes={m.down} rate />
         </span>
       </div>
