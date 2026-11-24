@@ -1,0 +1,26 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Dependencies & build output
+node_modules
+dist
+dist-ssr
+release
+*.local
+*.tsbuildinfo
+
+# Local scratch data (design drafts, dev server data, renders)
+temp/
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.sw?
