@@ -21,6 +21,23 @@ async function getPublic(): Promise<PublicSettings> {
   return json.data
 }
 
+/** Current viewer; Komari answers with a `Guest` placeholder when nobody is logged in. */
+export interface Me {
+  logged_in: boolean
+  username: string
+}
+
+export function useMe() {
+  return useQuery<Me>({
+    queryKey: ['me'],
+    queryFn: ({ signal }) => rpc<Me>('public:getMe', {}, signal),
+    staleTime: 60_000,
+    // Logging in happens in the admin pages; pick it up when the viewer comes back.
+    refetchOnWindowFocus: true,
+    retry: 1,
+  })
+}
+
 export function usePublicSettings() {
   return useQuery({ queryKey: ['public'], queryFn: getPublic, staleTime: 60_000 })
 }

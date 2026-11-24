@@ -269,7 +269,7 @@ export function QuoteBoard({ rows, settings, x, loading, searchRef }: { rows: Ro
           {HEAD.map((h) =>
             h.key ? (
               <button key={h.cls} type="button" className={clsx(h.cls, 'th', sort?.key === h.key && 'is-sorted')} onClick={() => cycleSort(h.key!)} aria-sort={sort?.key === h.key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
-                {h.label}
+                {h.key === 'traffic' ? `${x.trafficMonthly ? '月流量' : '累计流量'} ↑/↓` : h.label}
                 {h.trail && showSpark && <small className="th-sub">1h</small>}
                 <span className="sort-mark" aria-hidden="true">
                   {sort?.key === h.key ? (sort.dir === 'asc' ? '▲' : '▼') : '⇅'}
@@ -332,14 +332,6 @@ export function QuoteBoard({ rows, settings, x, loading, searchRef }: { rows: Ro
             )
           })
         )}
-      </div>
-      <div className="board-note">
-        <span>{x.trafficMonthly ? '流量为自然月累计' : '流量为节点开机以来累计（指标保留期不足一个月）'} · 磁盘为受监控挂载点合计</span>
-        <span className="note-credit">Powered by Komari Monitor.</span>
-        <span>
-          {showSpark ? '曲线为近 1 小时走势，虚线为 1 小时均值；' : ''}
-          <span className="up">▲ 上升</span> / <span className="down">▼ 下降</span> 指较均值的百分点（pp）变化，不代表健康 · B/K/M/G/T 按 1024 进位
-        </span>
       </div>
     </section>
   )

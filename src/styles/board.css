@@ -642,27 +642,6 @@ button.th:hover .sort-mark {
   font-size: 12px;
 }
 
-.board-note {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  padding: 8px 14px;
-  font-size: 11px;
-  color: var(--text-3);
-  border-top: 1px solid var(--line);
-}
-
-.note-credit {
-  display: none;
-}
-@media (max-width: 720px) {
-  .note-credit {
-    display: inline;
-    order: 3;
-  }
-}
-
 .error-panel {
   padding: 32px;
   text-align: center;
@@ -871,9 +850,5 @@ button.th:hover .sort-mark {
   .c-traffic .pair-line,
   .c-net .pair-line {
     font-size: 13px;
-  }
-  .board-note {
-    flex-direction: column;
-    gap: 4px;
   }
 }

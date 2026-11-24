@@ -27,6 +27,8 @@ function call(req: RpcRequest) {
       return publicSettings
     case 'public:getPublicPingTasks':
       return []
+    case 'public:getMe':
+      return { username: 'Guest', logged_in: false }
     case 'common:getVersion':
     case 'public:getVersion':
       return { version: '1.6.2', hash: 'mock' }

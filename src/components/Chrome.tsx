@@ -1,8 +1,10 @@
 import NumberFlowBase from '@number-flow/react'
 import clsx from 'clsx'
-import { Monitor, Moon, Sun } from 'lucide-react'
+import { LogIn, Monitor, Moon, ShieldCheck, Sun } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useMemo, useState, type ComponentProps } from 'react'
+import { useLocation } from 'react-router'
+import type { Me } from '../lib/api'
 import { resolveTheme, type Appearance } from '../lib/appearance'
 import { clock, dateText, finite, signed, sizeParts, utcOffset } from '../lib/format'
 import type { Bulletin, MarketSummary } from '../lib/market'
@@ -38,7 +40,7 @@ export function ThemeToggle({ value, onChange }: { value: Appearance; onChange: 
   const next = nextAppearance(value)
   const hint = `配色：${label}${value === 'system' ? '（跟随系统）' : ''}，点击切换为${MODES[next].label}`
   return (
-    <button type="button" className="theme-toggle" onClick={() => onChange(nextAppearance(value))} title={hint} aria-label={hint}>
+    <button type="button" className="tool-btn theme-toggle" onClick={() => onChange(nextAppearance(value))} title={hint} aria-label={hint}>
       <span className="theme-toggle-icon" aria-hidden="true">
         <AnimatePresence initial={false}>
           <motion.span
@@ -52,12 +54,32 @@ export function ThemeToggle({ value, onChange }: { value: Appearance; onChange: 
           </motion.span>
         </AnimatePresence>
       </span>
-      <span className="theme-toggle-label">{label}</span>
+      <span className="tool-btn-label">{label}</span>
     </button>
   )
 }
 
-export function TopBar({ siteName, live, refreshSeconds, now, appearance, onAppearance }: { siteName: string; live: boolean; refreshSeconds: number; now: number; appearance: Appearance; onAppearance: (a: Appearance) => void }) {
+/**
+ * Admin entry, as in Komari's default theme: logged out, it opens the login page and returns here
+ * afterwards; logged in, it shows the username and opens the dashboard.
+ */
+function AdminLink({ me, pending }: { me: Me | undefined; pending: boolean }) {
+  const location = useLocation()
+  const base = import.meta.env.BASE_URL
+  const here = `${base.replace(/\/$/, '')}${location.pathname}${location.search}`
+  const loggedIn = me?.logged_in === true
+  const href = loggedIn ? `${base}admin/dashboard` : `${base}admin/login?redirect=${encodeURIComponent(here)}`
+  const hint = loggedIn ? `已登录：${me.username}，进入管理后台` : '登录管理后台'
+  const Icon = loggedIn ? ShieldCheck : LogIn
+  return (
+    <a className={clsx('tool-btn admin-link', loggedIn && 'is-in', pending && 'is-pending')} href={href} title={hint} aria-label={hint}>
+      <Icon size={14} strokeWidth={2} aria-hidden="true" />
+      <span className="tool-btn-label">{loggedIn ? me.username : '登录'}</span>
+    </a>
+  )
+}
+
+export function TopBar({ siteName, live, refreshSeconds, me, mePending, appearance, onAppearance }: { siteName: string; live: boolean; refreshSeconds: number; me: Me | undefined; mePending: boolean; appearance: Appearance; onAppearance: (a: Appearance) => void }) {
   return (
     <header className="topbar">
       <a className="brand" href={import.meta.env.BASE_URL} aria-label={`${siteName} 首页`}>
@@ -73,13 +95,22 @@ export function TopBar({ siteName, live, refreshSeconds, now, appearance, onAppe
           <span className="market-text">{live ? '实时' : '中断'}</span>
           <small className="num">{refreshSeconds}s</small>
         </span>
-        <span className="clock num" aria-label="当前时间">
-          <span className="clock-date">{dateText(now)} </span>
-          <b>{clock(now)}</b> <small>{utcOffset(now)}</small>
-        </span>
         <ThemeToggle value={appearance} onChange={onAppearance} />
+        <AdminLink me={me} pending={mePending} />
       </div>
     </header>
+  )
+}
+
+/** Local date and time in the browser's own time zone (nothing is fixed in the page). */
+function Clock({ now }: { now: number }) {
+  const zone = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, [])
+  const offset = utcOffset(now)
+  return (
+    <span className="clock num" title={`浏览器时区：${zone ? `${zone}，` : ''}${offset}`}>
+      <span className="clock-date">{dateText(now)} </span>
+      <b>{clock(now)}</b> <small>{offset}</small>
+    </span>
   )
 }
 
@@ -182,7 +213,7 @@ export function IndexStrip({ m, loading }: { m: MarketSummary; loading: boolean 
   )
 }
 
-export function StatusBar({ live, items, version }: { live: boolean; items: Bulletin[]; version?: string }) {
+export function StatusBar({ live, items, now, version }: { live: boolean; items: Bulletin[]; now: number; version?: string }) {
   const [index, setIndex] = useState(0)
   const [paused, setPaused] = useState(false)
   const list = useMemo(() => (items.length ? items : [{ id: 'calm', level: 'info' as const, text: '全部节点运行平稳' }]), [items])
@@ -194,10 +225,13 @@ export function StatusBar({ live, items, version }: { live: boolean; items: Bull
   const current = list[index % list.length]
   return (
     <footer className="statusbar">
-      <span className={clsx('sb-conn', live ? 'is-live' : 'is-stale')}>
-        <i aria-hidden="true" />
-        {live ? '已连接' : '连接中断'}
-        {live && finite(lastLatency) && <span className="num dim"> · {Math.round(lastLatency)}ms</span>}
+      <span className="sb-status">
+        <span className={clsx('sb-conn', live ? 'is-live' : 'is-stale')} title={live ? '已连接' : '连接中断'}>
+          <i aria-hidden="true" />
+          <span className="sb-conn-text">{live ? '已连接' : '连接中断'}</span>
+          {live && finite(lastLatency) && <span className="num dim"> · {Math.round(lastLatency)}ms</span>}
+        </span>
+        <Clock now={now} />
       </span>
       <span className="sb-news" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} aria-live="polite">
         <span className="sb-news-tag">异动</span>

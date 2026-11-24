@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
-import { monthStart, useLatestStatus, useMetricDefinitions, useMonthlyTraffic, useNodes, usePublicSettings, useSparklines } from './lib/api'
+import { monthStart, useLatestStatus, useMe, useMetricDefinitions, useMonthlyTraffic, useNodes, usePublicSettings, useSparklines } from './lib/api'
 import { useAppearance } from './lib/appearance'
 import { buildRows, useNow, type Row } from './lib/model'
 import { CONTINENTS } from './lib/region'
@@ -17,6 +17,7 @@ export default function App() {
   const status = useLatestStatus(settings.refreshSeconds)
   const defs = useMetricDefinitions()
   const now = useNow(1000)
+  const me = useMe()
   const searchRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -74,7 +75,7 @@ export default function App() {
 
   return (
     <>
-      <TopBar siteName={siteName} live={live} refreshSeconds={settings.refreshSeconds} now={now} appearance={appearance} onAppearance={setAppearance} />
+      <TopBar siteName={siteName} live={live} refreshSeconds={settings.refreshSeconds} me={me.data} mePending={me.isPending} appearance={appearance} onAppearance={setAppearance} />
       <IndexStrip m={market} loading={nodes.isLoading} />
       <main className="page">
         {nodes.isError ? (
@@ -85,8 +86,14 @@ export default function App() {
         ) : (
           <QuoteBoard rows={rows} settings={settings} x={extras} loading={nodes.isLoading} searchRef={searchRef} />
         )}
+        {/* Phones have no room in the status bar for the credit Komari requires. */}
+        <p className="page-credit">
+          <a href="https://github.com/komari-monitor/komari" target="_blank" rel="noreferrer">
+            Powered by Komari Monitor.
+          </a>
+        </p>
       </main>
-      <StatusBar live={live} items={bulletins(rows)} />
+      <StatusBar live={live} items={bulletins(rows)} now={now} />
       <NodeDetail rows={navRows} settings={settings} traffic={traffic} monthly={useMonthly} now={now} ready={nodes.isSuccess} />
     </>
   )
