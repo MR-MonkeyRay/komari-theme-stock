@@ -64,7 +64,7 @@ npm run package
 
 ## 持续集成与发布
 
-[CI](.github/workflows/ci.yml) 在每次推送和 PR 时运行 lint、类型检查、构建和打包，打出的主题 zip 可在该次运行的 Artifacts 中下载（保留 14 天）。
+[CI](.github/workflows/ci.yml) 在每次推送和 PR 时运行 lint、类型检查、构建和打包，打出的主题 zip 可在该次运行的 Artifacts 中下载（GitHub 会在外面再套一层 zip，保留 14 天）。
 
 发布以 `komari-theme.json` 中的 `version` 为准：推送到 `main` 时，如果该版本还没有对应的 GitHub Release，流水线会自动创建 tag `v<version>` 和 Release，附件只有主题 zip。版本号没变时只构建和测试，不发布。
 

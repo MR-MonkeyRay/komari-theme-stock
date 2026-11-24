@@ -22,7 +22,7 @@ jobs:
     timeout-minutes: 15
     outputs:
       version: ${{ steps.meta.outputs.version }}
-      package: ${{ steps.meta.outputs.package }}
+      name: ${{ steps.meta.outputs.name }}
     steps:
       - uses: actions/checkout@v7
 
@@ -45,13 +45,15 @@ jobs:
           short=$(jq -r .short komari-theme.json)
           version=$(jq -r .version komari-theme.json)
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "package=$short-$version.zip" >> "$GITHUB_OUTPUT"
+          echo "name=$short-$version" >> "$GITHUB_OUTPUT"
 
+      # Default artifact archiving wraps the theme ZIP; download-artifact unwraps it back to the
+      # original file. (An unarchived .zip would be extracted on download, losing the package.)
       - name: Upload theme package
         uses: actions/upload-artifact@v7
         with:
-          path: release/${{ steps.meta.outputs.package }}
-          archive: false
+          name: ${{ steps.meta.outputs.name }}
+          path: release/${{ steps.meta.outputs.name }}.zip
           if-no-files-found: error
           retention-days: 14
 
@@ -70,7 +72,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
       TAG: v${{ needs.build.outputs.version }}
-      PACKAGE: ${{ needs.build.outputs.package }}
+      PACKAGE: ${{ needs.build.outputs.name }}.zip
     steps:
       - name: Check whether this version is released
         id: check
@@ -86,8 +88,10 @@ jobs:
         if: steps.check.outputs.publish == 'true'
         uses: actions/download-artifact@v8
         with:
-          name: ${{ env.PACKAGE }}
+          name: ${{ needs.build.outputs.name }}
 
       - name: Publish release
         if: steps.check.outputs.publish == 'true'
-        run: gh release create "$TAG" "$PACKAGE" --target "$GITHUB_SHA" --title "$TAG" --generate-notes
+        run: |
+          test -f "$PACKAGE"
+          gh release create "$TAG" "$PACKAGE" --target "$GITHUB_SHA" --title "$TAG" --generate-notes
