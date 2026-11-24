@@ -11,6 +11,7 @@ import type { Row } from '../../lib/model'
 import type { Range, ThemeSettings } from '../../lib/settings'
 import { Flag, Segmented, Tick } from '../primitives'
 import { BillingPanel, EventsPanel, LocationPanel, NetworkPanel, StatBook, SystemPanel } from './Panels'
+import { PingPanel, type PingPick } from './PingPanel'
 
 // lightweight-charts is only needed once a detail drawer opens.
 const KLineChart = lazy(() => import('./KLineChart'))
@@ -19,7 +20,7 @@ const GIB = 1024 ** 3
 const fmtPct = (v: number) => `${v.toFixed(1)}%`
 const fmtGiB = (v: number) => v.toFixed(v >= 100 ? 1 : 2)
 
-function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange, onStep }: { r: Row; rows: Row[]; settings: ThemeSettings; traffic: { up: number; down: number } | null; monthly: boolean; now: number; picked: Range; onRange: (r: Range) => void; onStep: (d: number) => void }) {
+function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange, ping, onPing, onStep }: { r: Row; rows: Row[]; settings: ThemeSettings; traffic: { up: number; down: number } | null; monthly: boolean; now: number; picked: Range; onRange: (r: Range) => void; ping: PingPick | null; onPing: (p: PingPick | null) => void; onStep: (d: number) => void }) {
   const admin = useIsAdmin()
   const ops = useClientOps(admin).data?.[r.node.uuid]
   const leadDays = useExpiryLeadDays(admin)
@@ -148,6 +149,8 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange,
             <KLineChart slots={cpu} volume={volume} format={fmtPct} percent ma loading={loading} offline={!r.online} label="CPU 使用率" rangeKey={`${uuid}-${range}`} />
           </section>
 
+          <PingPanel uuid={uuid} range={range} refreshSeconds={settings.refreshSeconds} offline={!r.online} pick={ping} onPick={onPing} />
+
           <div className="detail-minis">
             <section className="panel chart-panel chart-mini">
               <div className="panel-head compact">
@@ -206,9 +209,11 @@ export function NodeDetail({ rows, order, settings, traffic, monthly, now, ready
   const [lastUuid, setLastUuid] = useState(uuid)
   if (uuid && uuid !== lastUuid) setLastUuid(uuid)
   const r = rows.find((x) => x.node.uuid === (uuid ?? lastUuid))
-  // The picked range holds while paging between nodes and resets when the drawer closes.
+  // The picked range and ping carrier hold while paging between nodes and reset when the drawer closes.
   const [picked, setPicked] = useState<Range | null>(null)
+  const [ping, setPing] = useState<PingPick | null>(null)
   if (!open && picked !== null) setPicked(null)
+  if (!open && ping !== null) setPing(null)
 
   const close = useCallback(() => {
     if ((location.state as { fromBoard?: boolean } | null)?.fromBoard) navigate(-1)
@@ -273,7 +278,7 @@ export function NodeDetail({ rows, order, settings, traffic, monthly, now, ready
               >
                 {r ? (
                   <div className="drawer-page">
-                    <DetailBody r={r} rows={nav} settings={settings} traffic={traffic(r)} monthly={monthly} now={now} picked={picked ?? settings.defaultRange} onRange={setPicked} onStep={step} />
+                    <DetailBody r={r} rows={nav} settings={settings} traffic={traffic(r)} monthly={monthly} now={now} picked={picked ?? settings.defaultRange} onRange={setPicked} ping={ping} onPing={setPing} onStep={step} />
                   </div>
                 ) : (
                   <div className="detail-missing">

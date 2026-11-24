@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
-import { useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import { rpc, rpcBatch } from './rpc'
 import type { Range } from './settings'
-import type { Aggregation, MetricDefinition, MetricQueryResult, NodeInfo, NodeStatus, PublicSettings } from './types'
+import type { Aggregation, MetricDefinition, MetricQueryResult, NodeInfo, NodeStatus, PingTask, PingTaskStats, PublicSettings } from './types'
 
 export const RANGE_SPEC: Record<Range, { hours: number; points: number }> = {
   '1h': { hours: 1, points: 60 },
@@ -201,6 +201,112 @@ export function useHistory(uuid: string | undefined, range: Range, refreshSecond
         end: Date.parse(first.end),
         agg: Object.fromEntries(aggs.map((a, i) => [a, toMap(results[i])])) as Record<Aggregation, SeriesMap>,
       }
+    },
+  })
+}
+
+/**
+ * Ping tasks that probe this node, in Komari's order, and each task's place in the site's whole list
+ * (`place`, by id), so a task keeps its color on nodes that run only some of the tasks.
+ */
+export function usePingTasks(uuid: string | undefined) {
+  const all = useQuery({
+    queryKey: ['ping-tasks'],
+    queryFn: async ({ signal }) => {
+      const res = await rpc<PingTask[] | null>('public:getPublicPingTasks', {}, signal)
+      return (res ?? []).slice().sort((a, b) => a.weight - b.weight || a.id - b.id)
+    },
+    staleTime: 5 * 60_000,
+  })
+  const tasks = useMemo(() => (uuid ? (all.data ?? []).filter((t) => t.clients?.includes(uuid)) : []), [all.data, uuid])
+  const place = useMemo(() => new Map((all.data ?? []).map((t, i) => [String(t.id), i])), [all.data])
+  return { tasks, place, ready: all.isSuccess }
+}
+
+/** Per task: time (ms) -> value. Lost minutes arrive as latency -1 and stay that way here. */
+export interface PingLine {
+  avg: Map<number, number>
+  min: Map<number, number>
+  max: Map<number, number>
+  /** 0–1 share of probes lost in the bucket. */
+  loss: Map<number, number>
+}
+export interface PingHistory {
+  interval: number
+  start: number
+  end: number
+  /** Keyed by task id. */
+  lines: Map<string, PingLine>
+  /** Komari keeps ping records for its own period; data never starts before this (ms). */
+  retainedFrom: number | null
+}
+
+/**
+ * Latency and loss for one node over the same range and bucket count as the CPU chart, so the time
+ * axes line up. avg drives the lines; min/max give the single-carrier band.
+ */
+export function usePingHistory(uuid: string | undefined, range: Range, refreshSeconds: number, enabled: boolean) {
+  const spec = RANGE_SPEC[range]
+  const defs = useMetricDefinitions()
+  const retention = defs.data?.find((d) => d.name === 'ping.latency_ms')?.retention_days ?? null
+  // Derived on read, not cached with the data: the definitions may arrive after the history.
+  const withRetention = useCallback(
+    (d: Omit<PingHistory, 'retainedFrom'>): PingHistory => ({ ...d, retainedFrom: retention !== null && retention * 24 < spec.hours ? d.end - retention * 86400_000 : null }),
+    [retention, spec.hours],
+  )
+  return useQuery<Omit<PingHistory, 'retainedFrom'>, Error, PingHistory>({
+    queryKey: ['ping', uuid, range],
+    enabled: enabled && !!uuid,
+    // While another range of the same node loads, keep its lines (dimmed); never another node's.
+    placeholderData: (prev, prevQuery) => (prevQuery?.queryKey[1] === uuid ? prev : undefined),
+    refetchInterval: Math.max(30, refreshSeconds * 10) * 1000,
+    select: withRetention,
+    queryFn: async ({ signal }) => {
+      const params = { metric_keys: ['ping.latency_ms', 'ping.loss'], entity_id: uuid, hours: spec.hours, max_points: spec.points }
+      const aggs: Aggregation[] = ['avg', 'min', 'max']
+      const results = await rpcBatch<MetricQueryResult[]>(
+        aggs.map((aggregation) => ({ method: 'public:queryMetrics', params: { ...params, aggregation } })),
+        signal,
+      )
+      const lines = new Map<string, PingLine>()
+      const line = (id: string) => {
+        let l = lines.get(id)
+        if (!l) lines.set(id, (l = { avg: new Map(), min: new Map(), max: new Map(), loss: new Map() }))
+        return l
+      }
+      results.forEach((res, k) => {
+        for (const s of res.series ?? []) {
+          const id = s.tags?.task_id
+          if (!id) continue
+          const isLoss = s.metric_key === 'ping.loss'
+          if (isLoss && aggs[k] !== 'avg') continue
+          const target = isLoss ? line(id).loss : line(id)[aggs[k] as 'avg' | 'min' | 'max']
+          for (const p of s.points ?? []) target.set(Date.parse(p.time), p.value)
+        }
+      })
+      const first = results[0]
+      const end = Date.parse(first.end)
+      return {
+        interval: first.series?.find((s) => s.interval_seconds)?.interval_seconds ?? (spec.hours * 3600) / spec.points,
+        start: Date.parse(first.start),
+        end,
+        lines,
+      }
+    },
+  })
+}
+
+/** Latest/mean/min/max/σ/loss per task over the range, from raw records. Keyed by task id. */
+export function usePingStats(uuid: string | undefined, range: Range, refreshSeconds: number, enabled: boolean) {
+  const hours = RANGE_SPEC[range].hours
+  return useQuery<Map<string, PingTaskStats>>({
+    queryKey: ['ping-stats', uuid, range],
+    enabled: enabled && !!uuid,
+    placeholderData: (prev, prevQuery) => (prevQuery?.queryKey[1] === uuid ? prev : undefined),
+    refetchInterval: Math.max(30, refreshSeconds * 10) * 1000,
+    queryFn: async ({ signal }) => {
+      const res = await rpc<{ stats: PingTaskStats[] | null }>('public:getPingMetricStats', { uuid, hours }, signal)
+      return new Map((res?.stats ?? []).map((s) => [String(s.task_id), s]))
     },
   })
 }

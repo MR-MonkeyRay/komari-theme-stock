@@ -74,7 +74,35 @@ export interface MetricSeries {
   entity_id: string
   interval_seconds: number
   retention_days?: number
+  /** Ping series carry the task they belong to. */
+  tags?: Record<string, string> | null
   points: MetricPoint[] | null
+}
+
+/** A Komari ping task as the public API lists it (no target address for guests). */
+export interface PingTask {
+  id: number
+  name: string
+  weight: number
+  type: string
+  interval: number
+  clients: string[] | null
+}
+
+/** One task's figures from `public:getPingMetricStats`, over raw records. */
+export interface PingTaskStats {
+  task_id: string
+  name: string
+  total: number
+  valid: number
+  /** Percent of probes lost. */
+  loss: number
+  min: number
+  max: number
+  avg: number
+  latest: number
+  /** Komari also sends p50/p99, but they are the mean and mean + σ, so they are not used. */
+  stddev: number
 }
 
 export interface MetricQueryResult {

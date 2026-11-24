@@ -72,6 +72,16 @@
   --chart-cross-bg: #2a303c;
   --ma5: rgb(230 233 239 / 0.72);
   --ma20: #e6b34b;
+  /* Ping lines, by task order: cobalt / rose / ochre for the usual three carriers (validated for
+     every pair under color-vision deficiency), then teal / violet / orange (adjacent pairs).
+     Red and green stay with rises and falls. Loss bars are neutral: their height is the signal. */
+  --ping-1: #4d8dff;
+  --ping-2: #d55181;
+  --ping-3: #ad8c22;
+  --ping-4: #1aa3b0;
+  --ping-5: #8f6ff0;
+  --ping-6: #d9692a;
+  --ping-loss: rgb(132 141 158 / 0.5);
 
   --map-dot: #2e3542;
   /* Offline rows fade their figures to this opacity. */
@@ -143,6 +153,13 @@
   --chart-cross-bg: #1e2430;
   --ma5: rgb(55 65 81 / 0.75);
   --ma20: #c97a10;
+  --ping-1: #2563eb;
+  --ping-2: #c2417a;
+  --ping-3: #9a7400;
+  --ping-4: #00899c;
+  --ping-5: #7c5ce8;
+  --ping-6: #c4561a;
+  --ping-loss: rgb(99 108 126 / 0.4);
 
   --map-dot: #a8b3c5;
   --offline-fade: 0.62;

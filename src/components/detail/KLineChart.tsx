@@ -1,39 +1,10 @@
 import clsx from 'clsx'
-import {
-  CandlestickSeries,
-  ColorType,
-  createChart,
-  CrosshairMode,
-  HistogramSeries,
-  LineSeries,
-  LineStyle,
-  TickMarkType,
-  type IChartApi,
-  type IPriceLine,
-  type ISeriesApi,
-  type MouseEventParams,
-  type Time,
-  type UTCTimestamp,
-} from 'lightweight-charts'
+import { CandlestickSeries, createChart, HistogramSeries, LineSeries, LineStyle, type IChartApi, type IPriceLine, type ISeriesApi, type MouseEventParams, type Time } from 'lightweight-charts'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { cssVar, usePaletteVersion } from '../../lib/appearance'
 import { isCandle, movingAverage, type Candle, type Slot, type Volume } from '../../lib/candles'
 import { size } from '../../lib/format'
-
-const two = (n: number) => String(n).padStart(2, '0')
-const asTs = (t: number) => t as UTCTimestamp
-
-function localLabel(time: Time, type?: TickMarkType) {
-  const d = new Date((time as number) * 1000)
-  if (type === TickMarkType.Year) return String(d.getFullYear())
-  if (type === TickMarkType.Month || type === TickMarkType.DayOfMonth) return `${d.getMonth() + 1}/${d.getDate()}`
-  return `${two(d.getHours())}:${two(d.getMinutes())}`
-}
-
-function crosshairLabel(time: Time) {
-  const d = new Date((time as number) * 1000)
-  return `${d.getMonth() + 1}/${d.getDate()} ${two(d.getHours())}:${two(d.getMinutes())}`
-}
+import { asTs, baseChartOptions, chartPalette, crosshairLabel } from './chartBase'
 
 export interface KLineProps {
   slots: Slot[]
@@ -80,16 +51,7 @@ export default function KLineChart({ slots, volume, format, percent, ma, loading
   // Create once; series are added according to the props that never change per instance.
   useEffect(() => {
     if (!host.current) return
-    const c = createChart(host.current, {
-      autoSize: true,
-      layout: { attributionLogo: false, fontFamily: cssVar('--font-mono'), fontSize: 11, panes: { enableResize: false } },
-      crosshair: { mode: CrosshairMode.Normal },
-      rightPriceScale: { minimumWidth: 68, scaleMargins: { top: 0.12, bottom: 0.08 } },
-      timeScale: { timeVisible: true, secondsVisible: false, rightOffset: 2, fixLeftEdge: true, fixRightEdge: true, lockVisibleTimeRangeOnResize: true, tickMarkFormatter: localLabel },
-      localization: { timeFormatter: crosshairLabel },
-      handleScroll: { mouseWheel: false, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
-      handleScale: { mouseWheel: true, pinch: true, axisPressedMouseMove: false },
-    })
+    const c = createChart(host.current, baseChartOptions())
     // Per-series formatters: the chart-wide localization formatter would also hit the volume pane.
     const valueFormat = { type: 'custom' as const, formatter: (v: number) => fmt.current(v), minMove: 0.01 }
     const candle = c.addSeries(CandlestickSeries, {
@@ -153,16 +115,7 @@ export default function KLineChart({ slots, volume, format, percent, ma, loading
     if (!c || !s) return
     const up = cssVar('--up')
     const down = cssVar('--down')
-    c.applyOptions({
-      layout: { background: { type: ColorType.Solid, color: cssVar('--bg-chart') }, textColor: cssVar('--chart-axis'), panes: { separatorColor: cssVar('--chart-grid-strong'), separatorHoverColor: cssVar('--chart-grid-strong') } },
-      grid: { vertLines: { color: cssVar('--chart-grid') }, horzLines: { color: cssVar('--chart-grid') } },
-      crosshair: {
-        vertLine: { color: cssVar('--chart-cross'), labelBackgroundColor: cssVar('--chart-cross-bg'), style: LineStyle.Dashed, width: 1 },
-        horzLine: { color: cssVar('--chart-cross'), labelBackgroundColor: cssVar('--chart-cross-bg'), style: LineStyle.Dashed, width: 1 },
-      },
-      rightPriceScale: { borderColor: cssVar('--chart-grid-strong') },
-      timeScale: { borderColor: cssVar('--chart-grid-strong') },
-    })
+    c.applyOptions(chartPalette())
     // Rising candles are hollow (outline only), falling candles are solid.
     s.candle.applyOptions({ upColor: cssVar('--bg-chart'), borderUpColor: up, wickUpColor: up, downColor: down, borderDownColor: down, wickDownColor: down })
     s.ma5?.applyOptions({ color: cssVar('--ma5') })

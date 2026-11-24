@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Plugin } from 'vite'
-import { adminSettings, latestStatus, listClients, metricDefinitions, nodesInformation, publicSettings, queryMetrics } from './fixture.ts'
+import { adminSettings, latestStatus, listClients, metricDefinitions, nodesInformation, pingStats, pingTasks, publicSettings, queryMetrics } from './fixture.ts'
 
 // `vite --mode mock` serves the Komari public API from the offline fixture
 // instead of proxying to a backend. Never included in production builds.
@@ -41,7 +41,9 @@ function call(req: RpcRequest, admin: boolean) {
     case 'public:getPublicSettings':
       return publicSettings
     case 'public:getPublicPingTasks':
-      return []
+      return pingTasks(admin)
+    case 'public:getPingMetricStats':
+      return pingStats(p, admin)
     case 'public:getMe':
       return admin ? ME_ADMIN : ME_GUEST
     case 'common:getVersion':
