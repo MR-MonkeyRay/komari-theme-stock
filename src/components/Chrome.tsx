@@ -46,10 +46,10 @@ export function ThemeToggle({ value, onChange }: { value: Appearance; onChange: 
         <AnimatePresence initial={false}>
           <motion.span
             key={value}
-            initial={{ opacity: 0, rotate: -90, scale: 0.6 }}
+            initial={{ opacity: 0, rotate: -45, scale: 0.8 }}
             animate={{ opacity: 1, rotate: 0, scale: 1 }}
-            exit={{ opacity: 0, rotate: 90, scale: 0.6 }}
-            transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+            exit={{ opacity: 0, rotate: 45, scale: 0.8 }}
+            transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
           >
             <Icon size={14} strokeWidth={2} />
           </motion.span>

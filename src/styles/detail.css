@@ -630,6 +630,9 @@
   fill: var(--brand);
   opacity: 0.25;
 }
+.pin-halo.is-off {
+  fill: var(--offline);
+}
 .pin-on {
   fill: var(--brand);
 }

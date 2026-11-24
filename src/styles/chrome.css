@@ -160,8 +160,8 @@
   border-radius: 50%;
   background: var(--online);
 }
-.market.is-live i::after,
-.sb-conn.is-live i::after {
+/* Only the top-bar badge pulses; the status-bar light stays steady so two dots do not beat at once. */
+.market.is-live i::after {
   content: '';
   position: absolute;
   inset: 0;
