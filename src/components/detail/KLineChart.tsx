@@ -1,14 +1,27 @@
+import * as RadioGroup from '@radix-ui/react-radio-group'
 import clsx from 'clsx'
 import { CandlestickSeries, createChart, LineSeries, LineStyle, type IChartApi, type IPriceLine, type ISeriesApi, type MouseEventParams, type Time } from 'lightweight-charts'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import type { ConnPoint } from '../../lib/api'
 import { cssVar, usePaletteVersion } from '../../lib/appearance'
 import { isCandle, movingAverage, volumeBars, type Candle, type Slot, type Volume } from '../../lib/candles'
 import { size } from '../../lib/format'
 import { asTs, baseChartOptions, chartPalette, crosshairLabel } from './chartBase'
 
+const VOL_FORMAT = { type: 'custom' as const, formatter: (v: number) => (v > 0 ? size(v, true) : '0'), minMove: 1 }
+const COUNT_FORMAT = { type: 'custom' as const, formatter: (v: number) => (v >= 10_000 ? `${(v / 1000).toFixed(0)}k` : String(Math.round(v))), minMove: 1 }
+
+/** What the CPU chart's sub-pane shows: traffic as volume bars, or TCP/UDP connections. */
+export type SubPane = 'vol' | 'conn'
+
 export interface KLineProps {
   slots: Slot[]
   volume?: Volume[]
+  /** With `volume`: the sub-pane view, its switch, and connection data for the 连接 view (undefined
+   *  while it loads, null when it could not be fetched). */
+  sub?: SubPane
+  onSub?: (s: SubPane) => void
+  conn?: ConnPoint[] | null
   /** axis/legend formatter for candle values */
   format: (v: number) => string
   /** clamp autoscale to [0, 100] for percentages */
@@ -28,7 +41,7 @@ interface Hover {
   volume?: Volume
 }
 
-export default function KLineChart({ slots, volume, format, percent, ma, loading, stale, offline, label, rangeKey }: KLineProps) {
+export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, format, percent, ma, loading, stale, offline, label, rangeKey }: KLineProps) {
   const host = useRef<HTMLDivElement>(null)
   const chart = useRef<IChartApi | null>(null)
   const series = useRef<{
@@ -38,6 +51,8 @@ export default function KLineChart({ slots, volume, format, percent, ma, loading
     vol?: ISeriesApi<'Candlestick'>
     volMa5?: ISeriesApi<'Line'>
     volMa10?: ISeriesApi<'Line'>
+    tcp?: ISeriesApi<'Line'>
+    udp?: ISeriesApi<'Line'>
   } | null>(null)
   const lastLine = useRef<IPriceLine | null>(null)
   const palette = usePaletteVersion()
@@ -51,6 +66,9 @@ export default function KLineChart({ slots, volume, format, percent, ma, loading
   const candles = useMemo(() => slots.filter(isCandle), [slots])
   const bars = useMemo(() => (volume ? volumeBars(volume, candles) : []), [volume, candles])
   const barByTime = useMemo(() => new Map(bars.map((b) => [b.time, b])), [bars])
+  const connByTime = useMemo(() => new Map(conn?.map((c) => [c.time, c])), [conn])
+  // Not hovering: the latest bucket with connection samples (its history refreshes on its own clock).
+  const lastConn = useMemo(() => conn?.findLast((c) => c.tcp !== null || c.udp !== null), [conn])
   // The VOL pane's own legend sits at the top of that pane, which moves as the chart resizes.
   const legend = useRef<HTMLDivElement>(null)
   const [subTop, setSubTop] = useState<number | null>(null)
@@ -85,11 +103,18 @@ export default function KLineChart({ slots, volume, format, percent, ma, loading
       // VOL: throughput bars from zero, hollow under a rising candle and solid under a falling one,
       // drawn with the candle series itself (open 0 → close v rises, v → 0 falls) so they match the
       // candles above exactly.
-      const volFormat = { type: 'custom' as const, formatter: (v: number) => (v > 0 ? size(v, true) : '0'), minMove: 1 }
+      const volFormat = VOL_FORMAT
       s.vol = c.addSeries(CandlestickSeries, { priceFormat: volFormat, wickVisible: false, priceLineVisible: false, lastValueVisible: false }, 1)
       const avgLine = { lineWidth: 1 as const, priceFormat: volFormat, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false }
       s.volMa5 = c.addSeries(LineSeries, { ...avgLine, visible: !window.matchMedia('(max-width: 640px)').matches }, 1)
       s.volMa10 = c.addSeries(LineSeries, avgLine, 1)
+      // 连接 view: TCP and UDP counts as two indicator lines on a scale from zero.
+      const connLine = { lineWidth: 1 as const, priceFormat: COUNT_FORMAT, priceLineVisible: false, lastValueVisible: false, visible: false, autoscaleInfoProvider: (base: () => { priceRange: { minValue: number; maxValue: number } } | null) => {
+        const r = base()
+        return r && { ...r, priceRange: { minValue: 0, maxValue: r.priceRange.maxValue } }
+      } }
+      s.tcp = c.addSeries(LineSeries, { ...connLine, lineWidth: 2 }, 1)
+      s.udp = c.addSeries(LineSeries, connLine, 1)
       // Headroom at the top of the pane for its legend.
       s.vol.priceScale().applyOptions({ scaleMargins: { top: 0.3, bottom: 0 } })
       c.panes()[0].setStretchFactor(0.76)
@@ -135,7 +160,28 @@ export default function KLineChart({ slots, volume, format, percent, ma, loading
     s.vol?.applyOptions({ upColor: cssVar('--vol-up-fill'), borderUpColor: cssVar('--vol-up-stroke'), downColor: volDown, borderDownColor: volDown })
     s.volMa5?.applyOptions({ color: cssVar('--ma5') })
     s.volMa10?.applyOptions({ color: cssVar('--ma20') })
+    s.tcp?.applyOptions({ color: cssVar('--conn-tcp') })
+    s.udp?.applyOptions({ color: cssVar('--conn-udp') })
   }, [palette])
+
+  // Sub-pane view.
+  useEffect(() => {
+    const s = series.current
+    if (!s?.vol) return
+    const vol = sub === 'vol'
+    // The pane's axis labels take the first series' format, which is the (hidden) volume bars.
+    for (const x of [s.vol, s.volMa5, s.volMa10]) x?.applyOptions({ visible: vol && (x !== s.volMa5 || !window.matchMedia('(max-width: 640px)').matches), priceFormat: vol ? VOL_FORMAT : COUNT_FORMAT })
+    s.tcp?.applyOptions({ visible: !vol })
+    s.udp?.applyOptions({ visible: !vol })
+  }, [sub])
+
+  useEffect(() => {
+    const s = series.current
+    if (!s?.tcp || !s.udp) return
+    const line = (k: 'tcp' | 'udp') => (conn ?? []).map((c) => (c[k] === null ? { time: asTs(c.time) } : { time: asTs(c.time), value: c[k]! }))
+    s.tcp.setData(line('tcp'))
+    s.udp.setData(line('udp'))
+  }, [conn])
 
   // Data.
   useEffect(() => {
@@ -222,6 +268,7 @@ export default function KLineChart({ slots, volume, format, percent, ma, loading
   const shown = gap ? null : (hover?.candle ?? candles[candles.length - 1] ?? null)
   const shownTime = hover?.time ?? shown?.time
   const bar = shownTime !== undefined ? barByTime.get(shownTime) : undefined
+  const cn = hover ? connByTime.get(hover.time) : lastConn
   const chg = shown ? shown.close - shown.open : 0
   const dir = chg > 0 ? 'up' : chg < 0 ? 'down' : 'flat'
 
@@ -275,7 +322,32 @@ export default function KLineChart({ slots, volume, format, percent, ma, loading
         onBlur={onBlur}
       />
       {volume && subTop !== null && candles.length > 0 && (
-        <div className="kline-sublegend num" style={{ top: subTop }} aria-hidden="true">
+        <div className="kline-sublegend num" style={{ top: subTop }}>
+          {onSub && (
+            <RadioGroup.Root className="sub-switch" value={sub} onValueChange={(v) => onSub(v as SubPane)} orientation="horizontal" loop aria-label="副图">
+              <RadioGroup.Item value="vol">网速</RadioGroup.Item>
+              <RadioGroup.Item value="conn">连接</RadioGroup.Item>
+            </RadioGroup.Root>
+          )}
+          {sub === 'conn' ? (
+            <span className="sub-read" aria-hidden="true">
+              {cn && (cn.tcp !== null || cn.udp !== null) ? (
+                <>
+                  <span className="lg-tag">CONN</span>
+                  <b>{Math.round((cn.tcp ?? 0) + (cn.udp ?? 0))}</b>
+                  <span className="lg-tcp">
+                    TCP <b>{cn.tcp === null ? '—' : Math.round(cn.tcp)}</b>
+                  </span>
+                  <span className="lg-udp">
+                    UDP <b>{cn.udp === null ? '—' : Math.round(cn.udp)}</b>
+                  </span>
+                </>
+              ) : (
+                <span className="dim">{conn ? '无连接数样本' : conn === null ? '连接数获取失败' : '加载中…'}</span>
+              )}
+            </span>
+          ) : (
+          <span className="sub-read" aria-hidden="true">
           <span className="lg-tag">VOL</span>
           {bar ? (
             <>
@@ -298,6 +370,8 @@ export default function KLineChart({ slots, volume, format, percent, ma, loading
             </>
           ) : (
             <span className="dim">无流量样本</span>
+          )}
+          </span>
           )}
         </div>
       )}

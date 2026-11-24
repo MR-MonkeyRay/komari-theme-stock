@@ -74,7 +74,7 @@ function lastSeen(i: number) {
   return s.cpu === null ? START - s.age * 1000 : Date.now() - (s.age % 3) * 1000
 }
 
-type MetricKey = 'cpu.usage' | 'memory.used' | 'disk.used' | 'net.in.rate' | 'net.out.rate' | 'traffic.up' | 'traffic.down' | 'load.average'
+type MetricKey = 'cpu.usage' | 'memory.used' | 'disk.used' | 'net.in.rate' | 'net.out.rate' | 'traffic.up' | 'traffic.down' | 'load.average' | 'connections.tcp' | 'connections.udp'
 
 function value(i: number, key: MetricKey, ms: number): number {
   const s = specs[i]
@@ -107,6 +107,11 @@ function value(i: number, key: MetricKey, ms: number): number {
     }
     case 'load.average':
       return Math.max(0, s.load[0] * (1 + 0.2 * smoothNoise(i + 51, m / 3)))
+    case 'connections.tcp':
+      // Follows the traffic loosely, with the odd burst of short-lived connections.
+      return Math.round((80 + i * 13) * (1 + 0.25 * w(150, 3) + 0.2 * smoothNoise(i + 61, m / 6)) + Math.max(0, smoothNoise(i + 67, m / 29)) ** 4 * 900)
+    case 'connections.udp':
+      return Math.round((6 + i) * (1 + 0.3 * smoothNoise(i + 71, m / 10)))
   }
 }
 
@@ -414,6 +419,8 @@ export function metricDefinitions() {
     ['traffic.up', 'gauge', 'bytes'],
     ['traffic.down', 'gauge', 'bytes'],
     ['load.average', 'gauge', ''],
+    ['connections.tcp', 'gauge', 'count'],
+    ['connections.udp', 'gauge', 'count'],
     ['ping.latency_ms', 'gauge', 'ms'],
     ['ping.loss', 'gauge', 'ratio'],
   ]

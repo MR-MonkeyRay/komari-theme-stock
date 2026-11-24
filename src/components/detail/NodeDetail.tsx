@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useMatch, useNavigate } from 'react-router'
-import { fitRange, useAvailableRanges, useClientOps, useExpiryLeadDays, useHistory, useIsAdmin } from '../../lib/api'
+import { fitRange, useAvailableRanges, useClientOps, useConnHistory, useExpiryLeadDays, useHistory, useIsAdmin } from '../../lib/api'
 import { buildCandles, buildVolume, inferEvents, rangeStats } from '../../lib/candles'
 import { ago, clock, finite, pct, ratio, signed, utcOffset } from '../../lib/format'
 import type { Row } from '../../lib/model'
@@ -15,12 +15,13 @@ import { PingPanel, type PingPick } from './PingPanel'
 
 // lightweight-charts is only needed once a detail drawer opens.
 const KLineChart = lazy(() => import('./KLineChart'))
+type SubPane = import('./KLineChart').SubPane
 
 const GIB = 1024 ** 3
 const fmtPct = (v: number) => `${v.toFixed(1)}%`
 const fmtGiB = (v: number) => v.toFixed(v >= 100 ? 1 : 2)
 
-function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange, ping, onPing, onStep }: { r: Row; rows: Row[]; settings: ThemeSettings; traffic: { up: number; down: number } | null; monthly: boolean; now: number; picked: Range; onRange: (r: Range) => void; ping: PingPick | null; onPing: (p: PingPick | null) => void; onStep: (d: number) => void }) {
+function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange, ping, onPing, sub, onSub, onStep }: { r: Row; rows: Row[]; settings: ThemeSettings; traffic: { up: number; down: number } | null; monthly: boolean; now: number; picked: Range; onRange: (r: Range) => void; ping: PingPick | null; onPing: (p: PingPick | null) => void; sub: SubPane; onSub: (s: SubPane) => void; onStep: (d: number) => void }) {
   const admin = useIsAdmin()
   const ops = useClientOps(admin).data?.[r.node.uuid]
   const leadDays = useExpiryLeadDays(admin)
@@ -37,6 +38,10 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange,
   const mem = useMemo(() => (h ? buildCandles(h, 'memory.used', uuid, GIB) : []), [h, uuid])
   const disk = useMemo(() => (h ? buildCandles(h, 'disk.used', uuid, GIB) : []), [h, uuid])
   const volume = useMemo(() => (h ? buildVolume(h, uuid) : []), [h, uuid])
+  // Connection history only while the sub-pane shows it, and only for the range the candles show:
+  // the previous range's points (kept while the new one loads) would stretch the time axis.
+  const connQuery = useConnHistory(uuid, range, settings.refreshSeconds, sub === 'conn')
+  const conn = connQuery.data && connQuery.data.range === h?.range ? connQuery.data.points : connQuery.isError ? null : undefined
   const cpuStats = useMemo(() => rangeStats(cpu), [cpu])
   const memStats = useMemo(() => rangeStats(mem), [mem])
   const diskStats = useMemo(() => rangeStats(disk), [disk])
@@ -141,7 +146,7 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange,
           <section className="panel chart-panel chart-main">
             <div className="panel-head compact">
               <h3>
-                CPU 使用率 <small>K 线 · 量：网络流量</small>
+                CPU 使用率 <small>K 线 · 副图：{sub === 'vol' ? '网络流量' : '连接数'}</small>
               </h3>
               <div className="chart-tools">
                 <span className="chart-now num">
@@ -150,7 +155,7 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange,
                 <Segmented className="range-tabs" value={range} options={available.ranges} onChange={onRange} label="时间范围" />
               </div>
             </div>
-            <KLineChart slots={cpu} volume={volume} format={fmtPct} percent ma loading={loading} stale={stale} offline={!r.online} label="CPU 使用率" rangeKey={dataKey} />
+            <KLineChart slots={cpu} volume={volume} sub={sub} onSub={onSub} conn={conn} format={fmtPct} percent ma loading={loading} stale={stale} offline={!r.online} label="CPU 使用率" rangeKey={dataKey} />
           </section>
 
           <PingPanel uuid={uuid} range={range} refreshSeconds={settings.refreshSeconds} offline={!r.online} pick={ping} onPick={onPing} />
@@ -216,8 +221,10 @@ export function NodeDetail({ rows, order, settings, traffic, monthly, now, ready
   // The picked range and ping carrier hold while paging between nodes and reset when the drawer closes.
   const [picked, setPicked] = useState<Range | null>(null)
   const [ping, setPing] = useState<PingPick | null>(null)
+  const [sub, setSub] = useState<SubPane>('vol')
   if (!open && picked !== null) setPicked(null)
   if (!open && ping !== null) setPing(null)
+  if (!open && sub !== 'vol') setSub('vol')
 
   const close = useCallback(() => {
     if ((location.state as { fromBoard?: boolean } | null)?.fromBoard) navigate(-1)
@@ -282,7 +289,7 @@ export function NodeDetail({ rows, order, settings, traffic, monthly, now, ready
               >
                 {r ? (
                   <div className="drawer-page">
-                    <DetailBody r={r} rows={nav} settings={settings} traffic={traffic(r)} monthly={monthly} now={now} picked={picked ?? settings.defaultRange} onRange={setPicked} ping={ping} onPing={setPing} onStep={step} />
+                    <DetailBody r={r} rows={nav} settings={settings} traffic={traffic(r)} monthly={monthly} now={now} picked={picked ?? settings.defaultRange} onRange={setPicked} ping={ping} onPing={setPing} sub={sub} onSub={setSub} onStep={step} />
                   </div>
                 ) : (
                   <div className="detail-missing">

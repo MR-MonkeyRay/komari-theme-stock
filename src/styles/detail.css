@@ -588,6 +588,38 @@
 .kline-sublegend i {
   font-style: normal;
 }
+.sub-read {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+/* The view switch is the only part of the pane legend that takes the pointer. */
+.sub-switch {
+  display: inline-flex;
+  gap: 2px;
+  margin-left: -4px;
+  pointer-events: auto;
+}
+.sub-switch button {
+  padding: 1px 4px;
+  font-size: 11px;
+  color: var(--text-3);
+  border-radius: var(--radius-sm);
+}
+.sub-switch button:hover {
+  color: var(--text-1);
+}
+.sub-switch button[aria-checked='true'] {
+  color: var(--text-1);
+  background: var(--bg-hover);
+  box-shadow: inset 0 -1px 0 var(--accent);
+}
+.lg-tcp b {
+  color: var(--conn-tcp);
+}
+.lg-udp b {
+  color: var(--conn-udp);
+}
 .lg-tag {
   color: var(--text-2);
 }

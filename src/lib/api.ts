@@ -209,6 +209,35 @@ export function useHistory(uuid: string | undefined, range: Range, refreshSecond
   })
 }
 
+/** Average TCP and UDP connections per bucket, on the CPU chart's range and buckets. */
+export interface ConnPoint {
+  time: number
+  tcp: number | null
+  udp: number | null
+}
+
+/** Connection counts for the CPU chart's sub-pane; fetched only while that view is on. */
+export function useConnHistory(uuid: string | undefined, range: Range, refreshSeconds: number, enabled: boolean) {
+  const spec = RANGE_SPEC[range]
+  return useQuery<{ range: Range; points: ConnPoint[] }>({
+    queryKey: ['connections', uuid, range],
+    enabled: enabled && !!uuid,
+    placeholderData: (prev, prevQuery) => (prevQuery?.queryKey[1] === uuid ? prev : undefined),
+    refetchInterval: Math.max(30, refreshSeconds * 10) * 1000,
+    queryFn: async ({ signal }) => {
+      const res = await rpc<MetricQueryResult>('public:queryMetrics', { metric_keys: ['connections.tcp', 'connections.udp'], entity_id: uuid, hours: spec.hours, max_points: spec.points, aggregation: 'avg' }, signal)
+      const tcp = new Map<number, number>()
+      const udp = new Map<number, number>()
+      for (const s of res.series ?? []) {
+        const into = s.metric_key === 'connections.tcp' ? tcp : s.metric_key === 'connections.udp' ? udp : null
+        for (const p of s.points ?? []) into?.set(Date.parse(p.time) / 1000, p.value)
+      }
+      const times = [...new Set([...tcp.keys(), ...udp.keys()])].sort((a, b) => a - b)
+      return { range, points: times.map((time) => ({ time, tcp: tcp.get(time) ?? null, udp: udp.get(time) ?? null })) }
+    },
+  })
+}
+
 /**
  * Ping tasks that probe this node, in Komari's order, and each task's place in the site's whole list
  * (`place`, by id), so a task keeps its color on nodes that run only some of the tasks.
