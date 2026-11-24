@@ -172,12 +172,9 @@ input {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
-  .tick-up {
-    animation: none;
-    color: var(--up);
-  }
+  /* No flash at all: a color change would stick until the next move and hide the value's own color. */
+  .tick-up,
   .tick-down {
     animation: none;
-    color: var(--down);
   }
 }
