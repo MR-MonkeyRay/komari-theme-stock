@@ -252,7 +252,7 @@ export function QuoteBoard({ rows, settings, x, loading, searchRef }: { rows: Ro
       <div className="panel-head">
         <div className="panel-title">
           <span className="slot num">01</span>
-          <h1 id="board-title">节点行情</h1>
+          <h1 id="board-title">全部节点</h1>
           <span className="count num">{count} 台</span>
         </div>
         <label className="search">
@@ -344,6 +344,7 @@ export function QuoteBoard({ rows, settings, x, loading, searchRef }: { rows: Ro
       </div>
       <div className="board-note">
         <span>{x.trafficMonthly ? '流量为自然月累计' : '流量为节点开机以来累计（指标保留期不足一个月）'} · 磁盘为受监控挂载点合计</span>
+        <span className="note-credit">Powered by Komari Monitor.</span>
         <span>
           <span className="up">▲ 上升</span> / <span className="down">▼ 下降</span> 指较近期变化，不代表健康 · B/K/M/G/T 按 1024 进位
         </span>

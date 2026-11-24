@@ -134,12 +134,6 @@
   width: 3px;
   height: 7px;
   background: var(--bg-app);
-  animation: caret 1.2s steps(1) infinite;
-}
-@keyframes caret {
-  50% {
-    opacity: 0;
-  }
 }
 
 .topbar-tools {
@@ -291,7 +285,8 @@
   font-size: 19px;
   font-weight: 700;
   letter-spacing: -0.02em;
-  line-height: 1.1;
+  line-height: 1.25;
+  --number-flow-mask-height: 0.1em;
   white-space: nowrap;
 }
 .ix-value .unit {
@@ -410,6 +405,18 @@
 .sb-news-item.is-bad {
   color: var(--alert);
 }
+.sb-hints {
+  margin-right: 14px;
+  font-size: 10.5px;
+  color: var(--text-3);
+}
+.sb-hints kbd {
+  padding: 0 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+}
 .sb-powered a {
   color: var(--text-3);
 }
@@ -420,6 +427,9 @@
 /* ---------- responsive chrome ---------- */
 
 @media (max-width: 1180px) {
+  .sb-hints {
+    display: none;
+  }
   .index-strip {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -448,7 +458,10 @@
     display: none;
   }
   .market {
-    padding: 0 7px;
+    width: 14px;
+    padding: 0;
+    justify-content: center;
+    border: 0;
   }
   .brand strong {
     font-size: 12.5px;
@@ -460,33 +473,50 @@
   .index-strip {
     width: calc(100% - 16px);
     margin-top: 8px;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .ix {
-    min-height: 52px;
-    padding: 6px 10px;
+    min-height: 44px;
+    padding: 5px 8px;
+    gap: 1px;
   }
-  .ix:nth-child(odd) {
-    border-left: 0;
-  }
-  .ix:nth-child(4) {
-    border-left: 1px solid var(--line);
-  }
-  .ix:nth-child(n + 3) {
-    border-top: 1px solid var(--line);
+  .ix-label {
+    font-size: 10px;
   }
   .ix-value {
-    font-size: 16px;
+    font-size: 14.5px;
+    gap: 4px;
+  }
+  .ix-value .unit {
+    font-size: 10px;
   }
   .ix-small {
-    font-size: 13px;
+    font-size: 11px;
+    gap: 2px;
+    letter-spacing: -0.03em;
+  }
+  .ix-small .unit {
+    margin-left: 0;
+  }
+  .ix-delta {
+    font-size: 10px;
   }
   .statusbar {
     padding: 0 10px;
     gap: 10px;
   }
+  .statusbar {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .sb-news {
+    justify-content: flex-start;
+  }
+  .sb-news-item {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  /* The footer credit moves into the board note on phones. */
   .sb-news-count,
-  .sb-powered .dim,
+  .sb-powered,
   .sb-conn .dim {
     display: none;
   }

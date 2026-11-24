@@ -9,6 +9,7 @@ import {
   LineStyle,
   TickMarkType,
   type IChartApi,
+  type IPriceLine,
   type ISeriesApi,
   type MouseEventParams,
   type Time,
@@ -64,6 +65,7 @@ export default function KLineChart({ slots, volume, format, percent, ma, loading
     up?: ISeriesApi<'Histogram'>
     down?: ISeriesApi<'Histogram'>
   } | null>(null)
+  const lastLine = useRef<IPriceLine | null>(null)
   const palette = usePaletteVersion()
   const [hover, setHover] = useState<Hover | null>(null)
   const [cursor, setCursor] = useState<number | null>(null)
@@ -82,7 +84,7 @@ export default function KLineChart({ slots, volume, format, percent, ma, loading
       autoSize: true,
       layout: { attributionLogo: false, fontFamily: cssVar('--font-mono'), fontSize: 11, panes: { enableResize: false } },
       crosshair: { mode: CrosshairMode.Normal },
-      rightPriceScale: { minimumWidth: 64, scaleMargins: { top: 0.08, bottom: 0.06 } },
+      rightPriceScale: { minimumWidth: 68, scaleMargins: { top: 0.12, bottom: 0.08 } },
       timeScale: { timeVisible: true, secondsVisible: false, rightOffset: 2, fixLeftEdge: true, fixRightEdge: true, lockVisibleTimeRangeOnResize: true, tickMarkFormatter: localLabel },
       localization: { timeFormatter: crosshairLabel },
       handleScroll: { mouseWheel: false, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
@@ -92,7 +94,9 @@ export default function KLineChart({ slots, volume, format, percent, ma, loading
     const valueFormat = { type: 'custom' as const, formatter: (v: number) => fmt.current(v), minMove: 0.01 }
     const candle = c.addSeries(CandlestickSeries, {
       priceFormat: valueFormat,
-      priceLineStyle: LineStyle.Dotted,
+      // The built-in last-value label takes the (transparent) hollow body color; a custom line replaces it.
+      lastValueVisible: false,
+      priceLineVisible: false,
       autoscaleInfoProvider: percent
         ? (original: () => { priceRange: { minValue: number; maxValue: number } } | null) => {
             const r = original()
@@ -109,12 +113,16 @@ export default function KLineChart({ slots, volume, format, percent, ma, loading
       s.ma20 = c.addSeries(LineSeries, line)
     }
     if (volume) {
-      const opts = { priceFormat: { type: 'custom' as const, formatter: (v: number) => size(Math.abs(v), true), minMove: 1 }, priceLineVisible: false, lastValueVisible: false }
+      // Mirrored volume: upload above zero, download below.
+      const volFormat = (v: number) => (v > 0 ? '↑' + size(v, true) : v < 0 ? '↓' + size(-v, true) : '0')
+      const opts = { priceFormat: { type: 'custom' as const, formatter: volFormat, minMove: 1 }, priceLineVisible: false, lastValueVisible: false }
       s.up = c.addSeries(HistogramSeries, opts, 1)
       s.down = c.addSeries(HistogramSeries, opts, 1)
-      c.panes()[0].setStretchFactor(0.76)
-      c.panes()[1].setStretchFactor(0.24)
+      s.up.priceScale().applyOptions({ scaleMargins: { top: 0.1, bottom: 0.1 } })
+      c.panes()[0].setStretchFactor(0.8)
+      c.panes()[1].setStretchFactor(0.2)
     }
+    if (!volume) c.applyOptions({ rightPriceScale: { scaleMargins: { top: 0.14, bottom: 0.12 } } })
     chart.current = c
     series.current = s
 
@@ -133,6 +141,7 @@ export default function KLineChart({ slots, volume, format, percent, ma, loading
       c.remove()
       chart.current = null
       series.current = null
+      lastLine.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -155,7 +164,7 @@ export default function KLineChart({ slots, volume, format, percent, ma, loading
       timeScale: { borderColor: cssVar('--chart-grid-strong') },
     })
     // Rising candles are hollow (outline only), falling candles are solid.
-    s.candle.applyOptions({ upColor: 'rgba(0,0,0,0)', borderUpColor: up, wickUpColor: up, downColor: down, borderDownColor: down, wickDownColor: down })
+    s.candle.applyOptions({ upColor: cssVar('--bg-chart'), borderUpColor: up, wickUpColor: up, downColor: down, borderDownColor: down, wickDownColor: down })
     s.ma5?.applyOptions({ color: cssVar('--ma5') })
     s.ma20?.applyOptions({ color: cssVar('--ma20') })
     s.up?.applyOptions({ color: cssVar('--net-up-bar') })
@@ -166,6 +175,17 @@ export default function KLineChart({ slots, volume, format, percent, ma, loading
   useEffect(() => {
     const s = series.current
     if (!s) return
+    const last = candles[candles.length - 1]
+    if (lastLine.current) s.candle.removePriceLine(lastLine.current)
+    lastLine.current = last
+      ? s.candle.createPriceLine({
+          price: last.close,
+          color: cssVar(last.close > last.open ? '--up' : last.close < last.open ? '--down' : '--flat'),
+          lineWidth: 1,
+          lineStyle: LineStyle.Dotted,
+          axisLabelVisible: true,
+        })
+      : null
     s.candle.setData(slots.map((x) => (isCandle(x) ? { time: asTs(x.time), open: x.open, high: x.high, low: x.low, close: x.close } : { time: asTs(x.time) })))
     if (s.ma5 && s.ma20) {
       const conv = (arr: { time: number; value?: number }[]) => arr.map((p) => (p.value === undefined ? { time: asTs(p.time) } : { time: asTs(p.time), value: p.value }))
@@ -176,11 +196,15 @@ export default function KLineChart({ slots, volume, format, percent, ma, loading
       s.up.setData(volume.map((v) => ({ time: asTs(v.time), value: v.up })))
       s.down.setData(volume.map((v) => ({ time: asTs(v.time), value: -v.down })))
     }
-  }, [slots, volume])
+  }, [slots, candles, volume, palette])
 
   // Fit when the range changes (not on every refresh, so a zoomed view stays put).
   useEffect(() => {
-    if (slots.length) chart.current?.timeScale().fitContent()
+    const c = chart.current
+    if (!c || !slots.length) return
+    // Phone-width charts open on the latest ~48 buckets so candle bodies stay readable.
+    if ((host.current?.clientWidth ?? 1000) < 640 && slots.length > 48) c.timeScale().setVisibleLogicalRange({ from: slots.length - 48, to: slots.length + 1 })
+    else c.timeScale().fitContent()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rangeKey, slots.length > 0])
 

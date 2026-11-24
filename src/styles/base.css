@@ -134,7 +134,6 @@ input {
 @keyframes tick-up {
   12% {
     background-color: var(--up-soft);
-    color: var(--up);
   }
   100% {
     background-color: transparent;
@@ -143,7 +142,6 @@ input {
 @keyframes tick-down {
   12% {
     background-color: var(--down-soft);
-    color: var(--down);
   }
   100% {
     background-color: transparent;

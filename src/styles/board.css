@@ -158,7 +158,11 @@ button.th:hover {
 }
 .sort-mark {
   font-size: 9px;
-  opacity: 0.4;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+button.th:hover .sort-mark {
+  opacity: 0.55;
 }
 .th.is-sorted .sort-mark {
   opacity: 1;
@@ -217,7 +221,7 @@ button.th:hover {
 
 .qrow {
   position: relative;
-  min-height: 58px;
+  min-height: 52px;
   border-bottom: 1px solid var(--line-faint);
   transition: background-color 120ms ease-in;
 }
@@ -428,6 +432,7 @@ button.th:hover {
   gap: 1px;
 }
 .load-cell small {
+  display: none;
   font-size: 9.5px;
   color: var(--text-3);
 }
@@ -536,6 +541,10 @@ button.th:hover {
 .qrow.is-off .node-name {
   color: var(--text-2);
 }
+.qrow.is-off .c-spark {
+  filter: grayscale(1);
+  opacity: 0.35;
+}
 .qrow.is-off .flag {
   filter: grayscale(0.7);
   opacity: 0.7;
@@ -561,6 +570,16 @@ button.th:hover {
   font-size: 11px;
   color: var(--text-3);
   border-top: 1px solid var(--line);
+}
+
+.note-credit {
+  display: none;
+}
+@media (max-width: 720px) {
+  .note-credit {
+    display: inline;
+    order: 3;
+  }
 }
 
 .error-panel {
@@ -617,6 +636,7 @@ button.th:hover {
     flex-wrap: nowrap;
     overflow-x: auto;
     scrollbar-width: none;
+    mask-image: linear-gradient(to right, #000 86%, transparent);
   }
   .qhead {
     display: none;
@@ -681,6 +701,9 @@ button.th:hover {
     align-items: baseline;
     gap: 4px;
   }
+  .c-load .load-cell small {
+    display: inline;
+  }
   .c-traffic {
     grid-area: traffic;
   }
@@ -721,7 +744,10 @@ button.th:hover {
     grid-area: bar;
   }
   .metric .delta {
-    display: none;
+    font-size: 10px;
+  }
+  .metric .metric-top {
+    gap: 4px;
   }
   .c-traffic,
   .c-net {

@@ -24,7 +24,7 @@
 
   --text-1: #eef0f4;
   --text-2: #9aa1ae;
-  --text-3: #6c7483;
+  --text-3: #848d9e;
   --text-4: #444a56;
 
   --brand: #f5b041;
@@ -52,9 +52,9 @@
   --meter-track: #1a1f28;
 
   --net-up: #38bdf8;
-  --net-up-bar: rgb(56 189 248 / 0.78);
+  --net-up-bar: rgb(56 189 248 / 0.46);
   --net-down: #f59e0b;
-  --net-down-bar: rgb(245 158 11 / 0.72);
+  --net-down-bar: rgb(245 158 11 / 0.44);
 
   --chart-grid: #171b23;
   --chart-grid-strong: #262b37;
@@ -62,7 +62,7 @@
   --chart-cross: #8b94a5;
   --chart-cross-bg: #2a303c;
   --ma5: rgb(230 233 239 / 0.72);
-  --ma20: #e879f9;
+  --ma20: #e6b34b;
 
   --map-dot: #2e3542;
   --shadow-drawer: -24px 0 64px rgb(0 0 0 / 0.55);
@@ -114,19 +114,19 @@
   --meter-track: #e6eaf0;
 
   --net-up: #0284c7;
-  --net-up-bar: rgb(2 132 199 / 0.7);
+  --net-up-bar: rgb(2 132 199 / 0.5);
   --net-down: #c2610c;
-  --net-down-bar: rgb(229 142 26 / 0.7);
+  --net-down-bar: rgb(229 142 26 / 0.5);
 
-  --chart-grid: #eef1f6;
+  --chart-grid: #e2e7f0;
   --chart-grid-strong: #d6dde7;
   --chart-axis: #687286;
   --chart-cross: #64748b;
   --chart-cross-bg: #1e2430;
   --ma5: rgb(55 65 81 / 0.75);
-  --ma20: #c026d3;
+  --ma20: #c97a10;
 
-  --map-dot: #cdd4df;
+  --map-dot: #a8b3c5;
   --shadow-drawer: -16px 0 48px rgb(15 23 42 / 0.18);
 }
 

@@ -1,12 +1,18 @@
-import NumberFlow from '@number-flow/react'
+import NumberFlowBase from '@number-flow/react'
 import clsx from 'clsx'
 import { Monitor, Moon, Sun } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ComponentProps } from 'react'
 import type { Appearance } from '../lib/appearance'
 import { clock, dateText, finite, signed, sizeParts, utcOffset } from '../lib/format'
 import type { Bulletin, MarketSummary } from '../lib/market'
 import { lastLatency } from '../lib/rpc'
+
+// Quote-board digits roll quickly so 2 s ticks never overlap.
+const FLOW_TIMING = { duration: 360, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' }
+function NumberFlow(props: ComponentProps<typeof NumberFlowBase>) {
+  return <NumberFlowBase transformTiming={FLOW_TIMING} spinTiming={FLOW_TIMING} opacityTiming={{ duration: 200, easing: 'ease-out' }} {...props} />
+}
 
 export function ThemeSwitch({ value, onChange }: { value: Appearance; onChange: (a: Appearance) => void }) {
   const items: { key: Appearance; label: string; icon: typeof Sun }[] = [
@@ -180,6 +186,9 @@ export function StatusBar({ live, items, version }: { live: boolean; items: Bull
         {list.length > 1 && <span className="num dim sb-news-count">{(index % list.length) + 1}/{list.length}</span>}
       </span>
       <span className="sb-powered">
+        <span className="sb-hints">
+          <kbd>↑↓</kbd> 选行 · <kbd>Enter</kbd> 详情 · <kbd>/</kbd> 搜索 · <kbd>[ ]</kbd> 翻节点
+        </span>
         <a href="https://github.com/komari-monitor/komari" target="_blank" rel="noreferrer">
           Powered by Komari Monitor.
         </a>
