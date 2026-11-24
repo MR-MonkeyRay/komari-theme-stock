@@ -3,7 +3,8 @@ import { monthStart, useLatestStatus, useMe, useMetricDefinitions, useMonthlyTra
 import { useAppearance } from './lib/appearance'
 import { buildRows, useNow, type Row } from './lib/model'
 import { CONTINENTS } from './lib/region'
-import { readSettings } from './lib/settings'
+import { useShallow } from 'zustand/react/shallow'
+import { readSiteSettings, usePrefs, type ThemeSettings } from './lib/settings'
 import { IndexStrip, StatusBar, TopBar } from './components/Chrome'
 import { bulletins, summarize } from './lib/market'
 import { QuoteBoard, type BoardExtras } from './components/QuoteBoard'
@@ -12,7 +13,9 @@ import { NodeDetail } from './components/detail/NodeDetail'
 export default function App() {
   const [appearance, setAppearance] = useAppearance()
   const pub = usePublicSettings()
-  const settings = useMemo(() => readSettings(pub.data), [pub.data])
+  const site = useMemo(() => readSiteSettings(pub.data), [pub.data])
+  const prefs = usePrefs(useShallow(({ redUp, showSparkline, refreshSeconds, defaultRange, showEvents }) => ({ redUp, showSparkline, refreshSeconds, defaultRange, showEvents })))
+  const settings: ThemeSettings = useMemo(() => ({ ...site, ...prefs }), [site, prefs])
   const nodes = useNodes()
   const status = useLatestStatus(settings.refreshSeconds)
   const defs = useMetricDefinitions()
@@ -62,7 +65,7 @@ export default function App() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== '/' || e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
-      if (document.querySelector('.drawer')) return
+      if (document.querySelector('.drawer, .settings-panel')) return
       e.preventDefault()
       searchRef.current?.focus()
     }

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { useMemo } from 'react'
 import { rpc, rpcBatch } from './rpc'
 import type { Range } from './settings'
 import type { Aggregation, MetricDefinition, MetricQueryResult, NodeInfo, NodeStatus, PublicSettings } from './types'
@@ -70,6 +71,22 @@ export function useMetricDefinitions() {
     queryFn: ({ signal }) => rpc<MetricDefinition[]>('public:listMetricDefinitions', {}, signal).then((r) => r ?? []),
     staleTime: 10 * 60_000,
   })
+}
+
+/**
+ * History ranges this site keeps enough data for (by `cpu.usage` retention; up to 24h is always
+ * offered). `ready` is false until the metric definitions have loaded.
+ */
+export function useAvailableRanges() {
+  const defs = useMetricDefinitions()
+  const retention = defs.data?.find((d) => d.name === 'cpu.usage')?.retention_days ?? 1
+  const ranges = useMemo(() => (Object.keys(RANGE_SPEC) as Range[]).filter((k) => RANGE_SPEC[k].hours <= Math.max(24, retention * 24)), [retention])
+  return { ranges, ready: defs.isSuccess }
+}
+
+/** Range to show for a preferred one: itself when available, else the longest available. */
+export function fitRange(preferred: Range, { ranges, ready }: ReturnType<typeof useAvailableRanges>) {
+  return !ready || ranges.includes(preferred) ? preferred : ranges[ranges.length - 1]
 }
 
 /** Point maps keyed by `${metric}|${entity}` -> time(ms) -> value. */

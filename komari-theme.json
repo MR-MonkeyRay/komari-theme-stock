@@ -17,34 +17,6 @@
     },
     "data": [
       {
-        "type": "title",
-        "name": {
-          "zh-CN": "外观",
-          "en": "Appearance"
-        }
-      },
-      {
-        "key": "colorConvention",
-        "type": "select",
-        "options": "红涨绿跌,绿涨红跌",
-        "default": "红涨绿跌",
-        "name": {
-          "zh-CN": "涨跌配色",
-          "en": "Rise/fall colors"
-        },
-        "help": {
-          "zh-CN": "K 线、分时图和数值闪烁的配色习惯。红涨绿跌为 A 股习惯，绿涨红跌为欧美习惯。高负载告警始终为红色。",
-          "en": "Color convention for candles, sparklines and tick flashes. High-load warnings stay red."
-        }
-      },
-      {
-        "type": "title",
-        "name": {
-          "zh-CN": "首页",
-          "en": "Home"
-        }
-      },
-      {
         "key": "groupBy",
         "type": "select",
         "options": "大洲,后台分组,不分组",
@@ -54,64 +26,8 @@
           "en": "Group nodes by"
         },
         "help": {
-          "zh-CN": "大洲按节点地区自动归类；后台分组使用节点设置中的「分组」字段。",
-          "en": "Continent is derived from the node region; group uses the node's group field."
-        }
-      },
-      {
-        "key": "showSparkline",
-        "type": "switch",
-        "default": true,
-        "name": {
-          "zh-CN": "显示 1 小时走势曲线",
-          "en": "Show 1h trails"
-        },
-        "help": {
-          "zh-CN": "在 CPU、内存、磁盘列显示最近 1 小时走势与较均值涨跌，所有节点合并为一次请求；关闭后显示占用条。",
-          "en": "Shows the last hour of CPU, memory and disk per node with change vs. the 1h mean, fetched in one request. When off, usage bars are shown."
-        }
-      },
-      {
-        "key": "refreshSeconds",
-        "type": "number",
-        "default": 2,
-        "name": {
-          "zh-CN": "实时刷新间隔（秒）",
-          "en": "Live refresh interval (s)"
-        },
-        "help": {
-          "zh-CN": "1 到 60 秒，默认 2 秒。",
-          "en": "1–60 seconds, default 2."
-        }
-      },
-      {
-        "type": "title",
-        "name": {
-          "zh-CN": "详情",
-          "en": "Details"
-        }
-      },
-      {
-        "key": "defaultRange",
-        "type": "select",
-        "options": "24h,6h,1h",
-        "default": "24h",
-        "name": {
-          "zh-CN": "默认时间范围",
-          "en": "Default range"
-        }
-      },
-      {
-        "key": "showEvents",
-        "type": "switch",
-        "default": true,
-        "name": {
-          "zh-CN": "显示节点事件",
-          "en": "Show node events"
-        },
-        "help": {
-          "zh-CN": "由历史样本推断的升高、回落和缺测，不是系统告警。",
-          "en": "Inferred from samples; not system alerts."
+          "zh-CN": "首页报价表的板块划分。大洲按节点地区自动归类；后台分组使用节点设置中的「分组」字段；不分组则平铺。涨跌配色、走势曲线、刷新间隔等展示偏好由访客在首页「设置」中自行调整。",
+          "en": "How the home board is split into sections. Continent groups nodes by region; Admin group uses each node's Group field; None lists them flat. Display preferences such as up/down colors, trails and refresh rate are set by each visitor from the Settings button on the home page."
         }
       }
     ]

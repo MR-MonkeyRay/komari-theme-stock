@@ -1,46 +1,81 @@
+import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 import type { PublicSettings } from './types'
 
-// Mirrors the managed `configuration` in komari-theme.json. Komari returns the
-// saved values under `theme_settings` in /api/public; missing keys use these defaults.
-
 export type Range = '1h' | '6h' | '24h' | '3d' | '7d'
+export const RANGES: Range[] = ['1h', '6h', '24h', '3d', '7d']
+export const REFRESH_OPTIONS = [1, 2, 5, 10, 30] as const
 
-export interface ThemeSettings {
-  /** true: red means rising (A-share convention); false: green means rising. */
-  redUp: boolean
+// ---- Site settings: the managed `configuration` in komari-theme.json, saved by the admin and
+// returned under `theme_settings` in /api/public. Only what needs the backend lives there.
+
+export interface SiteSettings {
   groupBy: 'continent' | 'group' | 'none'
-  showSparkline: boolean
-  defaultRange: Range
-  refreshSeconds: number
-  showEvents: boolean
 }
 
-export const defaultSettings: ThemeSettings = {
-  redUp: true,
-  groupBy: 'continent',
-  showSparkline: true,
-  defaultRange: '24h',
-  refreshSeconds: 2,
-  showEvents: true,
-}
-
-const groupOptions: Record<string, ThemeSettings['groupBy']> = {
+const groupOptions: Record<string, SiteSettings['groupBy']> = {
   大洲: 'continent',
   后台分组: 'group',
   不分组: 'none',
 }
 
-export function readSettings(pub: PublicSettings | undefined): ThemeSettings {
+export function readSiteSettings(pub: PublicSettings | undefined): SiteSettings {
   const raw = (pub?.theme_settings ?? {}) as Record<string, unknown>
-  const pick = <T>(key: string, fallback: T, valid: (v: unknown) => boolean) => (valid(raw[key]) ? (raw[key] as T) : fallback)
-  const refresh = Number(raw.refreshSeconds)
-  const range = String(raw.defaultRange ?? '')
-  return {
-    redUp: raw.colorConvention !== '绿涨红跌',
-    groupBy: groupOptions[String(raw.groupBy)] ?? defaultSettings.groupBy,
-    showSparkline: pick('showSparkline', defaultSettings.showSparkline, (v) => typeof v === 'boolean'),
-    defaultRange: (['1h', '6h', '24h'] as const).includes(range as never) ? (range as Range) : defaultSettings.defaultRange,
-    refreshSeconds: Number.isFinite(refresh) && refresh >= 1 ? Math.min(60, refresh) : defaultSettings.refreshSeconds,
-    showEvents: pick('showEvents', defaultSettings.showEvents, (v) => typeof v === 'boolean'),
-  }
+  return { groupBy: groupOptions[String(raw.groupBy)] ?? 'continent' }
+}
+
+// ---- Visitor preferences: chosen on the page, kept in this browser only.
+
+export interface Prefs {
+  /** true: red means rising (A-share convention); false: green means rising. */
+  redUp: boolean
+  showSparkline: boolean
+  refreshSeconds: number
+  defaultRange: Range
+  showEvents: boolean
+}
+
+export const defaultPrefs: Prefs = {
+  redUp: true,
+  showSparkline: true,
+  refreshSeconds: 2,
+  defaultRange: '24h',
+  showEvents: true,
+}
+
+export type ThemeSettings = SiteSettings & Prefs
+
+/** Keeps only valid stored values, so a hand-edited or outdated entry falls back to defaults. */
+function sanitize(raw: unknown): Partial<Prefs> {
+  const s = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
+  const out: Partial<Prefs> = {}
+  for (const key of ['redUp', 'showSparkline', 'showEvents'] as const) if (typeof s[key] === 'boolean') out[key] = s[key]
+  if (REFRESH_OPTIONS.includes(s.refreshSeconds as never)) out.refreshSeconds = s.refreshSeconds as number
+  if (RANGES.includes(s.defaultRange as never)) out.defaultRange = s.defaultRange as Range
+  return out
+}
+
+interface PrefsStore extends Prefs {
+  update: (p: Partial<Prefs>) => void
+  reset: () => void
+}
+
+export const usePrefs = create<PrefsStore>()(
+  persist(
+    (set) => ({
+      ...defaultPrefs,
+      update: (p) => set(p),
+      reset: () => set(defaultPrefs),
+    }),
+    {
+      name: 'komari-theme-stock.prefs',
+      version: 1,
+      partialize: ({ redUp, showSparkline, refreshSeconds, defaultRange, showEvents }) => ({ redUp, showSparkline, refreshSeconds, defaultRange, showEvents }),
+      merge: (stored, current) => ({ ...current, ...sanitize(stored) }),
+    },
+  ),
+)
+
+export function isDefaultPrefs(p: Prefs) {
+  return (Object.keys(defaultPrefs) as (keyof Prefs)[]).every((k) => p[k] === defaultPrefs[k])
 }

@@ -4,12 +4,12 @@ import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useMatch, useNavigate } from 'react-router'
-import { RANGE_SPEC, useHistory, useMetricDefinitions } from '../../lib/api'
+import { fitRange, useAvailableRanges, useHistory } from '../../lib/api'
 import { buildCandles, buildVolume, inferEvents, rangeStats } from '../../lib/candles'
 import { ago, clock, finite, pct, ratio, signed, utcOffset } from '../../lib/format'
 import type { Row } from '../../lib/model'
 import type { Range, ThemeSettings } from '../../lib/settings'
-import { Flag, Tick } from '../primitives'
+import { Flag, Segmented, Tick } from '../primitives'
 import { BillingPanel, EventsPanel, LocationPanel, NetworkPanel, StatBook, SystemPanel } from './Panels'
 
 // lightweight-charts is only needed once a detail drawer opens.
@@ -19,24 +19,10 @@ const GIB = 1024 ** 3
 const fmtPct = (v: number) => `${v.toFixed(1)}%`
 const fmtGiB = (v: number) => v.toFixed(v >= 100 ? 1 : 2)
 
-function RangeTabs({ value, options, onChange }: { value: Range; options: Range[]; onChange: (r: Range) => void }) {
-  return (
-    <div className="seg range-tabs" role="radiogroup" aria-label="时间范围">
-      {options.map((r) => (
-        <button key={r} type="button" role="radio" aria-checked={value === r} onClick={() => onChange(r)}>
-          {value === r && <motion.span layoutId="range-pill" className="seg-pill" transition={{ duration: 0.2, ease: [0.2, 0, 0, 1] }} />}
-          <span className="seg-label num">{r}</span>
-        </button>
-      ))}
-    </div>
-  )
-}
-
 function DetailBody({ r, rows, settings, traffic, monthly, now, onStep }: { r: Row; rows: Row[]; settings: ThemeSettings; traffic: { up: number; down: number } | null; monthly: boolean; now: number; onStep: (d: number) => void }) {
-  const [range, setRange] = useState<Range>(settings.defaultRange)
-  const defs = useMetricDefinitions()
-  const retention = defs.data?.find((d) => d.name === 'cpu.usage')?.retention_days ?? 1
-  const ranges = (Object.keys(RANGE_SPEC) as Range[]).filter((k) => RANGE_SPEC[k].hours <= Math.max(24, retention * 24))
+  const [picked, setRange] = useState<Range>(settings.defaultRange)
+  const available = useAvailableRanges()
+  const range = fitRange(picked, available)
   const history = useHistory(r.node.uuid, range, settings.refreshSeconds)
   const h = history.data
   const uuid = r.node.uuid
@@ -136,7 +122,7 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, onStep }: { r: R
                 <span className="chart-now num">
                   覆盖 <b>{cpuStats ? `${Math.round(cpuStats.coverage * 100)}%` : '—'}</b>
                 </span>
-                <RangeTabs value={range} options={ranges} onChange={setRange} />
+                <Segmented className="range-tabs" value={range} options={available.ranges} onChange={setRange} label="时间范围" />
               </div>
             </div>
             <KLineChart slots={cpu} volume={volume} format={fmtPct} percent ma loading={loading} offline={!r.online} label="CPU 使用率" rangeKey={`${uuid}-${range}`} />

@@ -1,4 +1,6 @@
+import * as RadioGroup from '@radix-ui/react-radio-group'
 import clsx from 'clsx'
+import { motion } from 'motion/react'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { finite, levelOf, sizeParts } from '../lib/format'
 import type { MetricTrail } from '../lib/model'
@@ -124,5 +126,23 @@ export function Sparkline({ trail, minSpan = 6, stopped = false }: { trail: Metr
       </svg>
       <i className="spark-dot" style={{ left: `${(x(last.t) / SPARK_W) * 100}%`, top: `${(y(last.v) / SPARK_H) * 100}%` }} />
     </span>
+  )
+}
+
+/**
+ * Single-choice segmented control (Radix radio group: arrow keys move and select); the active
+ * pill slides between options.
+ */
+export function Segmented<T extends string>({ value, options, onChange, label, labelledBy, format, className }: { value: T; options: readonly T[]; onChange: (v: T) => void; label?: string; labelledBy?: string; format?: (v: T) => ReactNode; className?: string }) {
+  const pill = useId()
+  return (
+    <RadioGroup.Root className={clsx('seg', className)} value={value} onValueChange={(v) => onChange(v as T)} orientation="horizontal" loop aria-label={label} aria-labelledby={labelledBy}>
+      {options.map((o) => (
+        <RadioGroup.Item key={o} value={o}>
+          {value === o && <motion.span layoutId={pill} className="seg-pill" transition={{ duration: 0.2, ease: [0.2, 0, 0, 1] }} />}
+          <span className="seg-label num">{format ? format(o) : o}</span>
+        </RadioGroup.Item>
+      ))}
+    </RadioGroup.Root>
   )
 }

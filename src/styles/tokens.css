@@ -66,6 +66,7 @@
 
   --map-dot: #2e3542;
   --shadow-drawer: -24px 0 64px rgb(0 0 0 / 0.55);
+  --shadow-popover: 0 16px 40px rgb(0 0 0 / 0.52), inset 0 1px 0 rgb(255 255 255 / 0.04);
 }
 
 :root[data-theme='light'] {
@@ -128,6 +129,7 @@
 
   --map-dot: #a8b3c5;
   --shadow-drawer: -16px 0 48px rgb(15 23 42 / 0.18);
+  --shadow-popover: 0 12px 32px rgb(15 23 42 / 0.14), 0 2px 6px rgb(15 23 42 / 0.06);
 }
 
 :root {

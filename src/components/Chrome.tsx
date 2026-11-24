@@ -4,6 +4,7 @@ import { LogIn, Monitor, Moon, ShieldCheck, Sun } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useMemo, useState, type ComponentProps } from 'react'
 import { useLocation } from 'react-router'
+import { SettingsButton } from './Settings'
 import type { Me } from '../lib/api'
 import { resolveTheme, type Appearance } from '../lib/appearance'
 import { clock, dateText, finite, signed, sizeParts, utcOffset } from '../lib/format'
@@ -95,6 +96,7 @@ export function TopBar({ siteName, live, refreshSeconds, me, mePending, appearan
           <span className="market-text">{live ? '实时' : '中断'}</span>
           <small className="num">{refreshSeconds}s</small>
         </span>
+        <SettingsButton />
         <ThemeToggle value={appearance} onChange={onAppearance} />
         <AdminLink me={me} pending={mePending} />
       </div>
