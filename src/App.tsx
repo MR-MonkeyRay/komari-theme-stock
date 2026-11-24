@@ -58,8 +58,8 @@ export default function App() {
   const market = useMemo(() => {
     const totals = rows.map(traffic).filter((t): t is { up: number; down: number } => !!t)
     const sum = totals.length ? { up: totals.reduce((a, t) => a + t.up, 0), down: totals.reduce((a, t) => a + t.down, 0), monthly: useMonthly } : null
-    return summarize(rows, sparks.data, sum)
-  }, [rows, sparks.data, traffic, useMonthly])
+    return summarize(rows, sum)
+  }, [rows, traffic, useMonthly])
 
   // "/" focuses search from anywhere outside inputs.
   useEffect(() => {

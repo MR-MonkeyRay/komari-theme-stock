@@ -340,11 +340,6 @@
   color: var(--text-4);
   font-weight: 400;
 }
-.ix-delta {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0;
-}
 .good {
   color: var(--online);
 }
@@ -910,9 +905,6 @@
   .ix-small .unit {
     margin-left: 0;
   }
-  .ix-delta {
-    font-size: 10px;
-  }
   .statusbar {
     padding: 0 10px;
     gap: 10px;
@@ -948,7 +940,6 @@
   }
 }
 
-.ix-delta small,
 .qb-change small {
   margin-left: 1px;
   font-size: 0.78em;

@@ -83,13 +83,6 @@ export function metricTrail(r: Row, set: SparkSet | undefined, key: BoardMetric,
   return { points, window, avg, delta, dir: dirOf(delta, FLAT_BELOW[key]) }
 }
 
-export function median(values: number[]) {
-  if (!values.length) return null
-  const s = [...values].sort((a, b) => a - b)
-  const m = Math.floor(s.length / 2)
-  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2
-}
-
 /** Re-renders every `ms` milliseconds; used for clocks and "x s ago" labels. */
 export function useNow(ms = 1000) {
   const [now, setNow] = useState(() => Date.now())

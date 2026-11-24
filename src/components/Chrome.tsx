@@ -7,9 +7,8 @@ import { useLocation } from 'react-router'
 import { SettingsButton } from './Settings'
 import type { Me } from '../lib/api'
 import { resolveTheme, type Appearance } from '../lib/appearance'
-import { clock, dateText, finite, signed, sizeParts, utcOffset } from '../lib/format'
+import { clock, dateText, finite, sizeParts, utcOffset } from '../lib/format'
 import type { Bulletin, MarketSummary } from '../lib/market'
-import { dirOf } from '../lib/model'
 import { lastLatency } from '../lib/rpc'
 import { Tick } from './primitives'
 
@@ -140,8 +139,8 @@ function LiveSize({ bytes, rate }: { bytes: number | null; rate?: boolean }) {
 }
 
 export function IndexStrip({ m, loading }: { m: MarketSummary; loading: boolean }) {
-  const normal = Math.max(0, m.online - m.hot)
-  const dir = dirOf(m.cpuDelta) ?? 'flat'
+  const hot = m.hot ?? 0
+  const normal = Math.max(0, m.online - hot)
   return (
     <section className="index-strip" aria-label="全网概览">
       <div className="ix ix-breadth">
@@ -163,19 +162,18 @@ export function IndexStrip({ m, loading }: { m: MarketSummary; loading: boolean 
         </span>
         <span className="breadth" aria-hidden="true">
           <i className="b-normal" style={{ flexGrow: normal }} />
-          <i className="b-hot" style={{ flexGrow: m.hot }} />
+          <i className="b-hot" style={{ flexGrow: hot }} />
           <i className="b-off" style={{ flexGrow: m.offline }} />
         </span>
       </div>
-      <div className="ix">
-        <span className="ix-label">CPU 中位数</span>
+      <div className="ix" title="在线节点：CPU ≥ 80% 或内存 ≥ 90%">
+        <span className="ix-label">高负载节点</span>
         <span className="ix-value num">
-          <Live value={m.cpuMedian} suffix="%" />
-          {finite(m.cpuDelta) && (
-            <span className={clsx('ix-delta', dir)} title="较近 1 小时全网中位数均值，单位为百分点">
-              {dir === 'up' ? '▲' : dir === 'down' ? '▼' : '■'} {signed(m.cpuDelta, 1)}
-              <small>pp</small>
-            </span>
+          {m.hot === null ? <span className="dash">—</span> : (
+            <>
+              <span className={clsx(hot > 0 && 'warn')}><NumberFlow value={hot} /></span>
+              <small className="unit">台</small>
+            </>
           )}
         </span>
       </div>
