@@ -202,8 +202,9 @@ export default function KLineChart({ slots, volume, format, percent, ma, loading
   useEffect(() => {
     const c = chart.current
     if (!c || !slots.length) return
-    // Phone-width charts open on the latest ~48 buckets so candle bodies stay readable.
-    if ((host.current?.clientWidth ?? 1000) < 640 && slots.length > 48) c.timeScale().setVisibleLogicalRange({ from: slots.length - 48, to: slots.length + 1 })
+    // On phones, charts open on the latest ~48 buckets so candle bodies stay readable. This keys off
+    // the viewport, not the chart width: the narrower side-by-side desktop charts keep the full range.
+    if (window.matchMedia('(max-width: 640px)').matches && slots.length > 48) c.timeScale().setVisibleLogicalRange({ from: slots.length - 48, to: slots.length + 1 })
     else c.timeScale().fitContent()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rangeKey, slots.length > 0])
