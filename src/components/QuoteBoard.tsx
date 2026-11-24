@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { ChevronRight, Search } from 'lucide-react'
+import { ChevronRight, Search, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { forwardRef, useRef, type KeyboardEvent } from 'react'
 import { Link, useLocation } from 'react-router'
@@ -161,6 +161,23 @@ export function QuoteBoard({ rows, view, settings, x, loading, searchRef }: { ro
     e.preventDefault()
   }
 
+  // In the search box: Esc clears and leaves, ↓ steps into the list (the first matching row).
+  const onSearchKey = (e: KeyboardEvent<HTMLInputElement>) => {
+    // Keys pressed while an IME is composing belong to the IME (Esc cancels the candidate).
+    if (e.nativeEvent.isComposing) return
+    if (e.key === 'Escape') {
+      setBoard({ q: '' })
+      e.currentTarget.blur()
+      e.preventDefault()
+    } else if (e.key === 'ArrowDown') {
+      const first = listRef.current?.querySelector<HTMLAnchorElement>('a.qrow')
+      if (!first) return
+      first.focus()
+      first.scrollIntoView({ block: 'nearest' })
+      e.preventDefault()
+    }
+  }
+
   const cols = clsx('board', !showSpark && 'no-spark')
 
   return (
@@ -171,11 +188,28 @@ export function QuoteBoard({ rows, view, settings, x, loading, searchRef }: { ro
           <h1 id="board-title">全部节点</h1>
           <span className="count num">{count} 台</span>
         </div>
-        <label className="search">
-          <Search size={14} aria-hidden="true" />
-          <input ref={searchRef} type="search" value={query} onChange={(e) => setBoard({ q: e.target.value })} onBlur={flushQuery} placeholder="搜索节点 / 地区 / 标签" aria-label="搜索节点、地区或标签" />
-          <kbd className="num">/</kbd>
-        </label>
+        {/* The label covers icon and input only: a button inside a label is not allowed. */}
+        <div className="search">
+          <label className="search-field">
+            <Search size={14} aria-hidden="true" />
+            <input ref={searchRef} type="search" value={query} onChange={(e) => setBoard({ q: e.target.value })} onKeyDown={onSearchKey} onBlur={flushQuery} placeholder="搜索节点 / 地区 / 标签" aria-label="搜索节点、地区或标签" />
+          </label>
+          {query ? (
+            <button
+              type="button"
+              className="search-clear"
+              aria-label="清除搜索"
+              onClick={() => {
+                setBoard({ q: '' })
+                searchRef.current?.focus()
+              }}
+            >
+              <X size={13} aria-hidden="true" />
+            </button>
+          ) : (
+            <kbd className="num">/</kbd>
+          )}
+        </div>
       </div>
 
       {settings.groupBy !== 'none' && allGroups.length > 1 && (
@@ -216,7 +250,16 @@ export function QuoteBoard({ rows, view, settings, x, loading, searchRef }: { ro
             ))}
           </div>
         ) : count === 0 ? (
-          <p className="empty">{rows.length ? '没有匹配的节点' : '暂无公开节点'}</p>
+          rows.length ? (
+            <div className="empty">
+              <p>没有匹配的节点</p>
+              <button type="button" className="tool-btn" onClick={() => setBoard({ q: '', group: 'all' })}>
+                清除筛选
+              </button>
+            </div>
+          ) : (
+            <p className="empty">暂无公开节点</p>
+          )
         ) : flat ? (
           <div className="group-body">
             <AnimatePresence initial={false}>

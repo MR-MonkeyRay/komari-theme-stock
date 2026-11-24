@@ -17,6 +17,15 @@
   border-radius: var(--radius);
   transition: border-color 150ms ease, box-shadow 150ms ease;
 }
+.search-field {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  height: 100%;
+  cursor: text;
+}
 .search:focus-within {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
@@ -35,7 +44,23 @@
   color: var(--text-3);
 }
 .search input::-webkit-search-cancel-button {
-  filter: grayscale(1);
+  appearance: none;
+}
+.search-clear {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  color: var(--text-3);
+  border-radius: 3px;
+}
+.search-clear:hover {
+  color: var(--text-1);
+  background: var(--bg-hover);
+}
+/* The "/" hint is for reaching the box; once inside it says nothing. */
+.search:focus-within kbd {
+  display: none;
 }
 .search kbd {
   display: inline-grid;
@@ -656,6 +681,15 @@ button.th:hover .sort-mark {
   padding: 40px 12px;
   text-align: center;
   color: var(--text-3);
+}
+div.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+div.empty p {
+  margin: 0;
 }
 .empty.small {
   padding: 14px 12px;

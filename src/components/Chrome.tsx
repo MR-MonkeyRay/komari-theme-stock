@@ -322,7 +322,7 @@ export function StatusBar({ conn, retrying, onRetry, items, now, version }: { co
       </span>
       <span className="sb-powered">
         <span className="sb-hints">
-          <kbd>↑↓</kbd> 选行 · <kbd>Enter</kbd> 详情 · <kbd>/</kbd> 搜索 · <kbd>[ ]</kbd> 翻节点
+          <kbd>/</kbd> 搜索 · <kbd>↓</kbd> 进入列表 · <kbd>↑↓</kbd> 选行 · <kbd>Enter</kbd> 详情 · <kbd>[ ]</kbd> 详情内翻页
         </span>
         <a href="https://github.com/komari-monitor/komari" target="_blank" rel="noreferrer">
           Powered by Komari Monitor.
