@@ -545,15 +545,31 @@ button.th:hover .sort-mark {
 .pair-down .arrow {
   color: var(--net-down);
 }
-.c-net .pair-up {
-  color: var(--net-up);
+/* Home board: color encodes the size unit; direction is read from the neutral arrows. */
+.pair.by-unit .arrow {
+  color: var(--text-3);
 }
-.c-net .pair-down {
-  color: var(--net-down);
-}
-.c-net .pair-line small {
+.pair.by-unit .pair-line small {
   color: inherit;
-  opacity: 0.7;
+  opacity: 0.72;
+}
+.pair-line.unit-b {
+  color: var(--unit-b);
+}
+.pair-line.unit-k {
+  color: var(--unit-k);
+}
+.pair-line.unit-m {
+  color: var(--unit-m);
+}
+.pair-line.unit-g {
+  color: var(--unit-g);
+}
+.pair-line.unit-t {
+  color: var(--unit-t);
+}
+.pair-line.unit-p {
+  color: var(--unit-p);
 }
 .pair.dash {
   display: block;

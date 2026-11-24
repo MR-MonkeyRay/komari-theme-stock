@@ -147,11 +147,11 @@ const QuoteRow = forwardRef<HTMLAnchorElement, { r: Row; x: BoardExtras; showSpa
         </span>
         <span className="c-traffic">
           <span className="m-label">{x.trafficMonthly ? '月流量' : '累计流量'}</span>
-          <Pair up={t?.up} down={t?.down} />
+          <Pair up={t?.up} down={t?.down} byUnit />
         </span>
         <span className="c-net">
           <span className="m-label">网络</span>
-          <Pair up={st?.net_out} down={st?.net_in} rate tickUp tickDown />
+          <Pair up={st?.net_out} down={st?.net_in} rate tickUp tickDown byUnit />
         </span>
         <span className="c-tags">
           <Tags tags={r.node.tags} max={2} />

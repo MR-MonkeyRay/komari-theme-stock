@@ -55,6 +55,14 @@
   --net-up-bar: rgb(56 189 248 / 0.46);
   --net-down: #f59e0b;
   --net-down-bar: rgb(245 158 11 / 0.44);
+  /* Size units on the home board's traffic and network columns, more salient as they grow
+     (terminal white / cyan / yellow / magenta; red and green stay reserved for moves and alerts). */
+  --unit-b: var(--text-3);
+  --unit-k: #dfe3ea;
+  --unit-m: #2dd4e6;
+  --unit-g: #e5d24a;
+  --unit-t: #e27bf2;
+  --unit-p: #a99bfa;
 
   --chart-grid: #171b23;
   --chart-grid-strong: #262b37;
@@ -118,6 +126,12 @@
   --net-up-bar: rgb(2 132 199 / 0.5);
   --net-down: #c2610c;
   --net-down-bar: rgb(229 142 26 / 0.5);
+  --unit-b: #626c7e;
+  --unit-k: #1f2430;
+  --unit-m: #0b7285;
+  --unit-g: #8a6a00;
+  --unit-t: #a3239f;
+  --unit-p: #6741d9;
 
   --chart-grid: #e2e7f0;
   --chart-grid-strong: #d6dde7;

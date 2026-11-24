@@ -50,8 +50,11 @@ export function Meter({ value }: { value: number | null }) {
   )
 }
 
-/** Up/down pair: ↑1.62M/s ↓2.41M/s, units muted. */
-export function Pair({ up, down, rate = false, tickUp, tickDown }: { up: number | null | undefined; down: number | null | undefined; rate?: boolean; tickUp?: boolean; tickDown?: boolean }) {
+/**
+ * Up/down pair: ↑1.62M/s ↓2.41M/s, units muted. `byUnit` colors each value by its size unit
+ * (B/K/M/G/T) instead of by direction.
+ */
+export function Pair({ up, down, rate = false, tickUp, tickDown, byUnit = false }: { up: number | null | undefined; down: number | null | undefined; rate?: boolean; tickUp?: boolean; tickDown?: boolean; byUnit?: boolean }) {
   if (!finite(up) && !finite(down)) return <span className="pair dash">—</span>
   const one = (v: number | null | undefined, arrow: string, cls: string, flash?: boolean) => {
     const p = sizeParts(v, rate, true)
@@ -67,7 +70,7 @@ export function Pair({ up, down, rate = false, tickUp, tickDown }: { up: number 
       </>
     )
     return (
-      <b className={clsx('pair-line', cls)}>
+      <b className={clsx('pair-line', cls, byUnit && p && `unit-${p[1][0].toLowerCase()}`)}>
         {flash && finite(v) ? (
           <Tick value={v} threshold={Math.max(v * 0.1, 8 * 1024)}>
             {body}
@@ -79,7 +82,7 @@ export function Pair({ up, down, rate = false, tickUp, tickDown }: { up: number 
     )
   }
   return (
-    <span className="pair num">
+    <span className={clsx('pair num', byUnit && 'by-unit')}>
       {one(up, '↑', 'pair-up', tickUp)}
       {one(down, '↓', 'pair-down', tickDown)}
     </span>
