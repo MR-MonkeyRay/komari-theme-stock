@@ -20,7 +20,7 @@ import {
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { cssVar, usePaletteVersion } from '../../lib/appearance'
 import { lossText, ms, type PingLineData } from '../../lib/ping'
-import { asTs, baseChartOptions, chartPalette, crosshairLabel } from './chartBase'
+import { asTs, baseChartOptions, breakAtGaps, chartPalette, crosshairLabel, HIDE_LINE } from './chartBase'
 import { bucketAt, releaseTime, shareRange, sharedRangeFor, shareTime, useChartSync, userGesture, type SharedRange } from './chartSync'
 
 // --- min–max band -------------------------------------------------------------------------------
@@ -280,7 +280,7 @@ export default function PingChart({ lines, selected, loading, stale, offline, ra
       if (!s) continue
       const on = selected === null || selected === l.id
       s.applyOptions({ visible: on, color: slotColor(l.slot), lastValueVisible: on && selected !== null })
-      s.setData(l.points.map((p) => (p.avg === null ? { time: asTs(p.time) } : { time: asTs(p.time), value: p.avg })))
+      s.setData(breakAtGaps(l.points.map((p) => (p.avg === null ? { time: asTs(p.time) } : { time: asTs(p.time), value: p.avg })), HIDE_LINE))
     }
     const one = selected !== null ? lines.find((l) => l.id === selected) : undefined
     band.current.applyOptions({ visible: !!one, color: one ? slotColor(one.slot) : '#888' })

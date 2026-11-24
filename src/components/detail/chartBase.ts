@@ -18,6 +18,29 @@ export function crosshairLabel(time: Time) {
   return `${d.getMonth() + 1}/${d.getDate()} ${two(d.getHours())}:${two(d.getMinutes())}`
 }
 
+/**
+ * Keeps the gaps in a line. lightweight-charts joins a line (and an area's fill) across whitespace,
+ * and draws the segment out of a point in that point's style, so the last point before each gap
+ * takes `hide`: transparent colors.
+ */
+export function breakAtGaps<P extends { time: UTCTimestamp; value?: number }>(points: P[], hide: typeof HIDE_LINE | typeof HIDE_AREA): P[] {
+  return points.map((p, i) => (p.value !== undefined && i + 1 < points.length && points[i + 1].value === undefined ? { ...p, ...hide } : p))
+}
+export const HIDE_LINE = { color: 'transparent' }
+
+/**
+ * A series laid on a bucket grid (seconds), with whitespace at each grid time that has no value, so a
+ * source that simply skips missing buckets still shows its gaps.
+ */
+export function onGrid(grid: number[], values: Map<number, number | null | undefined>) {
+  const times = [...new Set([...grid, ...values.keys()])].sort((a, b) => a - b)
+  return times.map((t) => {
+    const v = values.get(t)
+    return v === null || v === undefined ? { time: asTs(t) } : { time: asTs(t), value: v }
+  })
+}
+export const HIDE_AREA = { lineColor: 'transparent', topColor: 'transparent', bottomColor: 'transparent' }
+
 /** Options every detail chart is created with; colors come from `chartPalette`. */
 export function baseChartOptions(): DeepPartial<ChartOptions> {
   return {

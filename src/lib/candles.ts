@@ -90,7 +90,10 @@ export function volumeBars(volume: Volume[], candles: Candle[], line = false): V
     const to = line ? c.avg : c.close
     return from === null || from === undefined || to === from ? 'flat' : to > from ? 'up' : 'down'
   }
-  return volume.map((v) => {
+  // The averages start over after a gap, like the price MAs: a bucket hours apart is no neighbor.
+  const step = Math.min(...volume.slice(1).map((v, i) => v.time - volume[i].time))
+  return volume.map((v, i) => {
+    if (i > 0 && v.time - volume[i - 1].time > step * 1.5) totals.length = 0
     const total = v.up + v.down
     totals.push(total)
     return { ...v, total, dir: direction(byTime.get(v.time)), ma5: avg(5), ma10: avg(10) }

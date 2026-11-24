@@ -7,7 +7,7 @@ import { cssVar, usePaletteVersion } from '../../lib/appearance'
 import { isCandle, movingAverage, volumeBars, type Candle, type Slot, type Volume } from '../../lib/candles'
 import { size } from '../../lib/format'
 import type { ChartStyle } from '../../lib/settings'
-import { asTs, baseChartOptions, chartPalette, crosshairLabel } from './chartBase'
+import { asTs, baseChartOptions, breakAtGaps, chartPalette, crosshairLabel, HIDE_AREA, HIDE_LINE, onGrid } from './chartBase'
 import { bucketAt, releaseTime, shareRange, sharedRangeFor, shareTime, useChartSync, userGesture, type SharedRange } from './chartSync'
 
 const VOL_FORMAT = { type: 'custom' as const, formatter: (v: number) => (v > 0 ? size(v, true) : '0'), minMove: 1 }
@@ -291,10 +291,12 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
   useEffect(() => {
     const s = series.current
     if (!s?.tcp || !s.udp) return
-    const line = (k: 'tcp' | 'udp') => (conn ?? []).map((c) => (c[k] === null ? { time: asTs(c.time) } : { time: asTs(c.time), value: c[k]! }))
+    // On the candles' bucket grid: the connection history skips buckets without samples.
+    const grid = slots.map((x) => x.time)
+    const line = (k: 'tcp' | 'udp') => breakAtGaps(onGrid(grid, new Map((conn ?? []).map((c) => [c.time, c[k]]))), HIDE_LINE)
     s.tcp.setData(line('tcp'))
     s.udp.setData(line('udp'))
-  }, [conn])
+  }, [conn, slots])
 
   // Data.
   useEffect(() => {
@@ -312,9 +314,9 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
         })
       : null
     s.candle.setData(slots.map((x) => (isCandle(x) ? { time: asTs(x.time), open: x.open, high: x.high, low: x.low, close: x.close } : { time: asTs(x.time) })))
-    s.area.setData(slots.map((x) => (isCandle(x) ? { time: asTs(x.time), value: x.avg } : { time: asTs(x.time) })))
+    s.area.setData(breakAtGaps(slots.map((x) => (isCandle(x) ? { time: asTs(x.time), value: x.avg } : { time: asTs(x.time) })), HIDE_AREA))
     if (s.ma5 && s.ma20) {
-      const conv = (arr: { time: number; value?: number }[]) => arr.map((p) => (p.value === undefined ? { time: asTs(p.time) } : { time: asTs(p.time), value: p.value }))
+      const conv = (arr: { time: number; value?: number }[]) => breakAtGaps(arr.map((p) => (p.value === undefined ? { time: asTs(p.time) } : { time: asTs(p.time), value: p.value })), HIDE_LINE)
       s.ma5.setData(conv(movingAverage(slots, 5)))
       s.ma20.setData(conv(movingAverage(slots, 20)))
     }
@@ -331,8 +333,9 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
           return upSolid ? { ...bar, color: upSolid, borderColor: upSolid } : bar
         }),
       )
-      s.volMa5.setData(bars.map((b) => (b.ma5 === undefined ? { time: asTs(b.time) } : { time: asTs(b.time), value: b.ma5 })))
-      s.volMa10.setData(bars.map((b) => (b.ma10 === undefined ? { time: asTs(b.time) } : { time: asTs(b.time), value: b.ma10 })))
+      const grid = slots.map((x) => x.time)
+      s.volMa5.setData(breakAtGaps(onGrid(grid, new Map(bars.map((b) => [b.time, b.ma5]))), HIDE_LINE))
+      s.volMa10.setData(breakAtGaps(onGrid(grid, new Map(bars.map((b) => [b.time, b.ma10]))), HIDE_LINE))
     }
   }, [slots, candles, bars, palette, line])
 
