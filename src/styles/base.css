@@ -83,16 +83,11 @@ input {
   white-space: nowrap;
 }
 
-/* Palette cross-fade when switching light/dark. */
-.theme-transition,
-.theme-transition *,
-.theme-transition *::before,
-.theme-transition *::after {
-  transition:
-    background-color 320ms ease,
-    border-color 320ms ease,
-    color 320ms ease,
-    fill 320ms ease !important;
+/* Light/dark switch: one cross-fade of the whole page (see useAppearance). */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 220ms;
+  animation-timing-function: ease-out;
 }
 
 /* Flags (flag-icons) at a fixed ticker-friendly size. */
