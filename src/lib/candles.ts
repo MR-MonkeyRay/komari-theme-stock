@@ -171,7 +171,7 @@ export function inferEvents(cpu: Slot[], mem: Slot[], memTotalGiB: number | null
       cool = 0
       if (run === 3 && !hot) {
         hot = true
-        events.push({ time: s.time * 1000, kind: 'rise', label: '升高', text: `CPU 连续 3 个区间 ≥ ${CPU_EVENT.rise}%（收 ${s.close.toFixed(1)}%）` })
+        events.push({ time: s.time * 1000, kind: 'rise', label: '升高', text: `CPU 连续 3 区间 ≥ ${CPU_EVENT.rise}%，收 ${s.close.toFixed(1)}%` })
       }
     } else {
       run = 0
@@ -179,7 +179,7 @@ export function inferEvents(cpu: Slot[], mem: Slot[], memTotalGiB: number | null
         cool++
         if (cool === 2) {
           hot = false
-          events.push({ time: s.time * 1000, kind: 'fall', label: '回落', text: `CPU 连续 2 个区间 < ${CPU_EVENT.fall}%（收 ${s.close.toFixed(1)}%）` })
+          events.push({ time: s.time * 1000, kind: 'fall', label: '回落', text: `CPU 连续 2 区间 < ${CPU_EVENT.fall}%，收 ${s.close.toFixed(1)}%` })
         }
       }
     }

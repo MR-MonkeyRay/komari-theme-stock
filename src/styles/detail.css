@@ -262,16 +262,6 @@
   background: var(--accent-soft);
 }
 
-.offline-notice {
-  padding: 8px 12px;
-  font-size: 12px;
-  color: var(--text-2);
-  background: var(--flat-soft);
-  border: 1px solid var(--line-strong);
-  border-left: 3px solid var(--offline);
-  border-radius: var(--radius);
-}
-
 /* ---------- layout ---------- */
 
 .detail-grid {
@@ -287,83 +277,172 @@
   gap: 10px;
   min-width: 0;
 }
-.detail-minis,
-.detail-bottom {
+.detail-minis {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
-/* Events under the memory chart, billing under the disk chart; a lone panel takes the row. */
-.detail-bottom > :only-child {
-  grid-column: 1 / -1;
-}
-.detail-bottom:empty {
-  display: none;
-}
-.detail-bottom > .side-panel:only-child .facts {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  column-gap: 1px;
-}
 
-/* Desktop: the page fills the drawer height (up to a cap) with no scrolling on common screens.
-   The CPU chart takes the spare height on the left; on the right, the fact rows share it. */
-@media (min-width: 1181px) {
-  .drawer,
-  .drawer-page {
-    display: flex;
-    flex-direction: column;
+/* Desktop (at least 1181 × 620): the drawer is one screen with no page scroll. The banner is one
+   line; the left column shares its height between the CPU, ping and memory/disk rows by fr (two
+   rows without ping); the right column stacks the node's facts and gives what is left to the
+   events, which scroll inside. Smaller or shorter screens scroll as one column (rules below). */
+@media (min-width: 1181px) and (min-height: 620px) {
+  .drawer {
+    width: min(1760px, calc(100vw - 48px));
+    overflow: hidden;
   }
+  .drawer,
   .drawer-page,
   .detail {
-    flex: 1 0 auto;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
   }
   .detail {
-    padding-bottom: 12px;
+    gap: 8px;
+    padding: 0 12px 10px;
   }
-  .detail-side .world-map {
-    margin: 4px 10px;
+  .quote-banner {
+    position: static;
+    flex: none;
+    gap: 18px;
+    padding: 8px 14px;
+    margin: 0 -12px;
+  }
+  .qb-name h2 {
+    max-width: 240px;
+    overflow: hidden;
+    font-size: 22px;
+    text-overflow: ellipsis;
+  }
+  .qb-price {
+    padding-left: 18px;
+  }
+  .qb-price > b {
+    font-size: 28px;
+  }
+  .quote-banner .statbook {
+    gap: 2px 16px;
+    padding-left: 18px;
   }
   .detail-grid {
-    flex: 1 0 auto;
-    grid-template-rows: 1fr;
-    align-items: stretch;
-    max-height: 1040px;
-  }
-  .chart-main {
-    display: flex;
     flex: 1 1 auto;
-    flex-direction: column;
+    grid-template-columns: minmax(0, 1fr) clamp(316px, 24vw, 376px);
+    grid-template-rows: minmax(0, 1fr);
+    gap: 8px;
+    align-items: stretch;
+    min-height: 0;
   }
-  .detail-grid .chart-main .kline {
+  .detail-main {
+    display: grid;
+    grid-template-rows: minmax(200px, 4.6fr) minmax(130px, 3fr) minmax(120px, 2.7fr);
+    gap: 8px;
+    min-height: 0;
+  }
+  .detail-main:not(:has(> .chart-ping)) {
+    grid-template-rows: minmax(240px, 6fr) minmax(140px, 4fr);
+  }
+  .detail-minis {
+    gap: 8px;
+    min-height: 0;
+  }
+  .detail-main .chart-panel {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .detail-main .chart-panel .kline {
     flex: 1 1 auto;
     height: auto;
-    min-height: 260px;
+    min-height: 0;
   }
-  .detail-grid .chart-mini .kline {
-    height: 200px;
+  .detail-side {
+    /* Contains absolutely placed bits (screen-reader status text) so they scroll with it. */
+    position: relative;
+    gap: 8px;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: thin;
   }
-  .detail-side .side-panel {
-    display: flex;
-    flex-direction: column;
-  }
-  .detail-side .facts {
-    flex: 1 1 auto;
-    display: grid;
-    grid-auto-rows: minmax(26px, 1fr);
-  }
-  .detail-bottom {
+  .detail-side > * {
     flex: none;
   }
-}
-/* Short desktop screens: denser fact rows so long system info still fits without scrolling. */
-@media (min-width: 1181px) and (max-height: 940px) {
-  .detail-side .fact {
-    min-height: 24px;
-    padding-block: 3px;
+  .detail-side .geo-card .world-map {
+    height: clamp(56px, 11vh, 120px);
   }
-  .detail-side .facts {
-    grid-auto-rows: minmax(24px, 1fr);
+  /* The events take the rest of the column and scroll inside; with none, a one-line strip. */
+  .detail-side > .events-panel:not(.is-empty) {
+    flex: 1 1 0;
+    min-height: 96px;
+  }
+  /* Nothing to fill the rest (no events, or events turned off): the fact rows share it instead,
+     so the column has no empty block at its foot. */
+  .detail-side:not(:has(> .events-panel:not(.is-empty))) > .side-panel:has(> .facts-2) {
+    display: flex;
+    flex: 1 0 auto;
+    flex-direction: column;
+  }
+  .detail-side:not(:has(> .events-panel:not(.is-empty))) > .f10-panel {
+    flex-grow: 2;
+  }
+  .detail-side:not(:has(> .events-panel:not(.is-empty))) .facts-2 {
+    flex: 1 1 auto;
+    grid-auto-rows: 1fr;
+  }
+  .detail-side .events {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* The column is narrow: an event's text wraps rather than losing its closing value. */
+  .detail-side .event span {
+    white-space: normal;
+  }
+}
+/* Short desktop screens: the map gives way to the region line beside it. */
+@media (min-width: 1181px) and (min-height: 620px) and (max-height: 720px) {
+  .detail-side .geo-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .detail-side .geo-card .world-map {
+    display: none;
+  }
+  .detail-side .geo-meta {
+    padding-right: 12px;
+  }
+}
+/* Narrow desktop: the banner keeps one line by dropping P95, and the small charts' heads keep to
+   the current value. */
+@media (min-width: 1181px) and (min-height: 620px) and (max-width: 1320px) {
+  .qb-name h2 {
+    max-width: 180px;
+  }
+  .quote-banner .statbook {
+    grid-template-columns: repeat(3, minmax(64px, auto));
+  }
+  .quote-banner .statbook div:nth-child(4) {
+    display: none;
+  }
+}
+@media (min-width: 1181px) and (max-width: 1279px), (max-width: 640px) {
+  .range-note,
+  .chart-mini .lg-time {
+    display: none;
+  }
+}
+/* Short desktop screens: denser rows, and the last-report time drops its clock line. */
+@media (min-width: 1181px) and (min-height: 620px) and (max-height: 900px) {
+  .detail-side .fact {
+    min-height: 23px;
+    padding-block: 2px;
+  }
+  .detail-side .net-now > div {
+    padding-block: 6px;
+  }
+}
+@media (min-width: 1181px) and (min-height: 620px) and (max-width: 1400px) {
+  .qb-seen small {
+    display: none;
   }
 }
 
@@ -386,6 +465,12 @@
 }
 .chart-now em {
   font-style: normal;
+}
+.range-note {
+  margin-left: 8px;
+}
+.range-note b {
+  color: var(--text-2);
 }
 
 /* ---------- k-line ---------- */
@@ -722,6 +807,44 @@
   font-weight: 600;
   text-align: right;
 }
+/* Two-column fact list: cells with the label over the value, hairlines between them. */
+.facts-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--line-faint);
+}
+.facts-2 > .fact {
+  min-width: 0;
+  border-bottom: 0;
+  background: var(--bg-panel);
+}
+.facts-2 > .fact:not(.fact-wide) {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 1px;
+  min-height: 0;
+  padding: 3px 12px;
+}
+.facts-2 > .fact:not(.fact-wide) dt {
+  font-size: 10.5px;
+  line-height: 1.2;
+}
+.facts-2 > .fact:not(.fact-wide) dd {
+  justify-content: flex-start;
+  line-height: 1.3;
+  text-align: left;
+}
+/* The copy button must not make its row taller than its neighbors. */
+.facts-2 .copy-btn {
+  height: 16px;
+  margin-block: -2px;
+}
+.facts-2 > .fact-wide {
+  grid-column: 1 / -1;
+}
+
 .fact .pair {
   flex-direction: row;
   gap: 10px;
@@ -850,17 +973,12 @@
   }
 }
 
-/* Admin-only block at the foot of F10. */
-.ops {
-  border-top: 1px solid var(--line);
-}
-.ops-head {
-  display: flex;
+/* Login-only panel: the lock note and the address mask toggle share the head. */
+.admin-extra {
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 5px 8px 3px 12px;
-  font-size: 11px;
-  color: var(--text-3);
+  gap: 6px;
+  margin-right: -4px;
 }
 .addr {
   display: inline-flex;
@@ -883,19 +1001,67 @@
   color: var(--text-1);
   background: var(--bg-hover);
 }
-.remark {
+/* Geo card: region, group and tags, and the public note on the left; the map on the right. */
+.geo-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  align-items: center;
+}
+.geo-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  padding: 8px 0 8px 12px;
+  font-size: 12.5px;
+}
+.geo-meta > b {
+  font-weight: 700;
+}
+.geo-meta .dim {
+  font-weight: 500;
+}
+.geo-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+/* The group reads as a filing label rather than one more tag. */
+.tag-group {
+  color: var(--text-1);
+  border-style: dashed;
+}
+.geo-remark {
+  display: -webkit-box;
   margin: 0;
-  padding: 8px 12px;
-  font-size: 12px;
+  overflow: hidden;
+  font-size: 11.5px;
   color: var(--text-2);
-  background: var(--bg-inset);
-  border-top: 1px solid var(--line);
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.geo-card .world-map {
+  aspect-ratio: 2.3 / 1;
+  margin: 6px 10px 6px 4px;
+}
+.net-extra {
+  display: inline-flex;
+  gap: 10px;
+}
+.net-extra b {
+  color: var(--text-1);
+  font-weight: 650;
 }
 
 .events-panel {
   display: flex;
   flex-direction: column;
+}
+.events-panel:not(.is-empty) {
   min-height: 148px;
+}
+.events-panel.is-empty .panel-head {
+  border-bottom: 0;
 }
 /* The list scrolls inside the panel instead of growing the row. */
 .events-body {
@@ -911,18 +1077,6 @@
   margin: 0;
   padding: 4px 0;
 }
-.events-empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  min-height: 100px;
-  margin: 0;
-  padding: 10px 16px;
-  text-align: center;
-  font-size: 12px;
-  color: var(--text-2);
-}
 .event {
   display: grid;
   grid-template-columns: 40px 34px minmax(0, 1fr);
@@ -932,7 +1086,7 @@
   font-size: 11.5px;
 }
 .events.with-date .event {
-  grid-template-columns: 84px 34px minmax(0, 1fr);
+  grid-template-columns: 78px 34px minmax(0, 1fr);
 }
 .event time {
   color: var(--text-3);
@@ -961,7 +1115,8 @@
 
 /* ---------- responsive detail ---------- */
 
-@media (max-width: 1320px) {
+/* Narrow, or short enough to scroll: the CPU stats get a line of their own. */
+@media (max-width: 1320px) and (max-height: 619px), (max-width: 1180px) {
   .quote-banner {
     grid-template-columns: auto minmax(0, 1fr) auto;
     grid-template-areas:

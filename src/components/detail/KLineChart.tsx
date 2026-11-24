@@ -129,8 +129,8 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
       s.udp = c.addSeries(LineSeries, connLine, 1)
       // Headroom at the top of the pane for its legend.
       s.vol.priceScale().applyOptions({ scaleMargins: { top: 0.3, bottom: 0 } })
-      c.panes()[0].setStretchFactor(0.76)
-      c.panes()[1].setStretchFactor(0.24)
+      c.panes()[0].setStretchFactor(0.73)
+      c.panes()[1].setStretchFactor(0.27)
     }
     if (!volume) c.applyOptions({ rightPriceScale: { scaleMargins: { top: 0.14, bottom: 0.12 } } })
     chart.current = c
@@ -252,6 +252,10 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
       const panes = chart.current?.panes()
       if (!panes || panes.length < 2 || !legend.current) return
       setSubTop(legend.current.offsetHeight + panes[0].getHeight() + 1)
+      // Headroom for the pane's legend line in pixels, so short panes don't draw under it.
+      const h = panes[1].getHeight()
+      // Labels that the pane's top edge would cut in half are left out.
+      if (h > 0) series.current?.vol?.priceScale().applyOptions({ scaleMargins: { top: Math.min(0.55, Math.max(0.2, 30 / h)), bottom: 0 }, entireTextOnly: true })
     }
     const ro = new ResizeObserver(() => requestAnimationFrame(place))
     ro.observe(host.current)

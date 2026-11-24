@@ -6,7 +6,7 @@ import { create } from 'zustand'
 import type { ClientOps } from '../../lib/api'
 import type { NodeEvent, RangeStats, Volume } from '../../lib/candles'
 import { daysLeft, expiryNote } from '../../lib/market'
-import { clock, dateText, duration, finite, monthDayTime, parseTime, sameDay, size } from '../../lib/format'
+import { clock, dateText, duration, finite, monthDayTime, parseTags, parseTime, sameDay, size } from '../../lib/format'
 import type { Row } from '../../lib/model'
 import { continentName } from '../../lib/region'
 import { QUOTA } from '../../lib/thresholds'
@@ -15,10 +15,9 @@ import { Pair, Tick } from '../primitives'
 
 const WorldMap = lazy(() => import('./WorldMap'))
 
-/** `grow` shares spare column height between panels (roughly their row counts), so rows stay even. */
-export function Panel({ title, extra, children, className, grow }: { title: ReactNode; extra?: ReactNode; children: ReactNode; className?: string; grow?: number }) {
+export function Panel({ title, extra, children, className }: { title: ReactNode; extra?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <section className={clsx('panel side-panel', className)} style={grow ? { flexGrow: grow } : undefined}>
+    <section className={clsx('panel side-panel', className)}>
       <div className="panel-head compact">
         <h3>{title}</h3>
         {extra && <span className="panel-extra">{extra}</span>}
@@ -28,22 +27,46 @@ export function Panel({ title, extra, children, className, grow }: { title: Reac
   )
 }
 
-function Fact({ k, children, className }: { k: ReactNode; children: ReactNode; className?: string }) {
+/** In a two-column list (`.facts-2`) a fact is a cell, label over value; `wide` takes a whole row. */
+function Fact({ k, children, className, wide }: { k: ReactNode; children: ReactNode; className?: string; wide?: boolean }) {
   return (
-    <div className={clsx('fact', className)}>
+    <div className={clsx('fact', wide && 'fact-wide', className)}>
       <dt>{k}</dt>
       <dd>{children}</dd>
     </div>
   )
 }
 
+/** Where the node is and how it is filed: region, group, tags and the public note, beside the map. */
 export function LocationPanel({ r }: { r: Row }) {
+  const n = r.node
+  const tagged = parseTags(n.tags).length > 0
   return (
-    <Panel title="节点位置" extra={`${r.region.name} · ${continentName(r.region.continent)}`} className="map-panel">
+    <section className="panel side-panel geo-card" aria-label="节点位置">
+      <div className="geo-meta">
+        <b>
+          {r.region.name} <span className="dim">· {continentName(r.region.continent)}</span>
+        </b>
+        {(n.group || tagged) && (
+          <span className="geo-tags">
+            {n.group && (
+              <span className="tag tag-group" title="分组">
+                {n.group}
+              </span>
+            )}
+            {tagged && <Tags tags={n.tags} max={3} />}
+          </span>
+        )}
+        {n.public_remark && (
+          <p className="geo-remark" title={n.public_remark}>
+            {n.public_remark}
+          </p>
+        )}
+      </div>
       <Suspense fallback={<div className="world-map skeleton" />}>
         <WorldMap lat={r.region.lat} lng={r.region.lng} online={r.online} />
       </Suspense>
-    </Panel>
+    </section>
   )
 }
 
@@ -74,7 +97,20 @@ export function NetworkPanel({ r, volume, traffic, monthly }: { r: Row; volume: 
   // Share of upload in the current throughput, like the bid/ask ratio bar of a quote panel.
   const upShare = total ? (st!.net_out / total) * 100 : null
   return (
-    <Panel title="网络" grow={5} extra={<span className="num">合计 {size(total, true)}</span>}>
+    <Panel
+      title="网络"
+      className="net-panel"
+      extra={
+        <span className="num net-extra">
+          <span>
+            合计 <b>{size(total, true)}</b>
+          </span>
+          <span className="has-hint" title="TCP / UDP 连接数">
+            连接 <b>{st ? `${st.connections} / ${st.connections_udp}` : '—'}</b>
+          </span>
+        </span>
+      }
+    >
       <div className="net-now">
         <div>
           <span className="dim">当前上行</span>
@@ -96,18 +132,18 @@ export function NetworkPanel({ r, volume, traffic, monthly }: { r: Row; volume: 
           </span>
         )}
       </div>
-      <dl className="facts">
+      <dl className="facts facts-2">
         <Fact k="区间均值 ↑ / ↓">
           <span className="num">{size(avg(ups), true)} / {size(avg(downs), true)}</span>
         </Fact>
         <Fact k="区间峰值 ↑ / ↓">
           <span className="num">{size(ups.length ? Math.max(...ups) : null, true)} / {size(downs.length ? Math.max(...downs) : null, true)}</span>
         </Fact>
-        <Fact k={monthly ? '本月 ↑ / ↓' : '累计 ↑ / ↓'}>
+        <Fact k={monthly ? '本月 ↑ / ↓' : '累计 ↑ / ↓'} wide>
           <Pair up={traffic?.up} down={traffic?.down} />
         </Fact>
         {usedPct !== null && (
-          <Fact k="流量配额" className="fact-quota">
+          <Fact k="流量配额" className="fact-quota" wide>
             <span className="quota">
               <span className="num">
                 {size(used)} / {size(limit)}
@@ -118,112 +154,12 @@ export function NetworkPanel({ r, volume, traffic, monthly }: { r: Row; volume: 
             </span>
           </Fact>
         )}
-        <Fact k="连接 TCP / UDP">
-          <span className="num">{st ? `${st.connections} / ${st.connections_udp}` : '—'}</span>
-        </Fact>
       </dl>
     </Panel>
   )
 }
 
 const CYCLES: Record<number, string> = { 30: '月付', 31: '月付', 90: '季付', 92: '季付', 180: '半年付', 182: '半年付', 365: '年付', 366: '年付', 730: '两年付', 1095: '三年付' }
-
-/** `leadDays`: how close to expiry counts as due soon (Komari's expiry notice setting). */
-export function BillingPanel({ r, now, leadDays }: { r: Row; now: number; leadDays: number }) {
-  const n = r.node
-  const cycle = Number.isInteger(n.billing_cycle) ? n.billing_cycle : 0
-  const expiry = parseTime(n.expired_at)
-  const left = daysLeft(n, now)
-  const amount = finite(n.price) && n.price > 0 ? `${n.currency ? n.currency + ' ' : ''}${n.price.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}` : n.price === -1 ? '免费' : '—'
-  if (amount === '—' && expiry === null && cycle === 0) return null
-  return (
-    <Panel
-      title="续费信息"
-      extra={
-        <span className="panel-lock has-hint" title="Komari 的公开接口仍会把续费字段下发给访客，主题只是不显示；要真正保密，请在后台开启私有站点，或不填写金额">
-          <Lock size={11} aria-hidden="true" />
-          仅登录可见
-        </span>
-      }
-    >
-      <dl className="facts">
-        <Fact k="续费周期">{cycle === -1 ? '一次性' : cycle > 0 ? <span className="num">{CYCLES[cycle] ? `${CYCLES[cycle]} · ` : ''}{cycle} 天</span> : '—'}</Fact>
-        <Fact k="到期日">
-          {expiry !== null ? (
-            <span className="num">
-              {dateText(expiry)}
-              {left !== null && <em className={clsx('left', left <= 0 ? 'bad' : left <= leadDays ? 'warn' : 'dim')}> {expiryNote(left)}</em>}
-            </span>
-          ) : (
-            '—'
-          )}
-        </Fact>
-        <Fact k="续费金额">
-          <span className="num">{amount}</span>
-        </Fact>
-        <Fact k="自动续费">{n.auto_renewal ? '已开启' : '未开启'}</Fact>
-      </dl>
-    </Panel>
-  )
-}
-
-export function SystemPanel({ r, ops }: { r: Row; ops?: ClientOps }) {
-  const n = r.node
-  const st = r.online ? r.status : undefined
-  return (
-    <Panel title="系统信息" extra={<span className="has-hint" title="行情软件中查看个股资料的 F10 键；这里是节点的基本资料">F10</span>} grow={12}>
-      <dl className="facts">
-        <Fact k="处理器">
-          <span className="clip" title={n.cpu_name}>{n.cpu_name || '—'}</span>
-        </Fact>
-        <Fact k="核心">
-          <span className="num">{n.cpu_cores ? `${n.cpu_cores} 逻辑${n.cpu_physical_cores ? ` / ${n.cpu_physical_cores} 物理` : ''}` : '—'}</span>
-        </Fact>
-        <Fact k="操作系统">
-          <span className="clip" title={n.os}>{n.os || '—'}</span>
-        </Fact>
-        {n.kernel_version && (
-          <Fact k="内核">
-            <span className="num clip">{n.kernel_version}</span>
-          </Fact>
-        )}
-        <Fact k="架构 / 虚拟化">
-          <span className="num">
-            {n.arch || '—'} / {n.virtualization || '—'}
-          </span>
-        </Fact>
-        {n.gpu_name && (
-          <Fact k="GPU">
-            <span className="clip" title={n.gpu_name}>{n.gpu_name}</span>
-          </Fact>
-        )}
-        <Fact k="内存 / 交换">
-          <span className="num">
-            {size(st?.ram_total || n.mem_total)} / {size(st?.swap_total || n.swap_total)}
-          </span>
-        </Fact>
-        <Fact k="磁盘总量">
-          <span className="num">{size(st?.disk_total || n.disk_total)}</span>
-        </Fact>
-        <Fact k="运行时长">
-          <span className="num">{duration(st?.uptime)}</span>
-        </Fact>
-        <Fact k="负载 1m / 5m / 15m">
-          <span className="num">{st ? [st.load, st.load5, st.load15].map((x) => (finite(x) ? x.toFixed(2) : '—')).join(' / ') : '—'}</span>
-        </Fact>
-        <Fact k="进程数">
-          <span className="num">{st?.process ?? '—'}</span>
-        </Fact>
-        <Fact k="标签">
-          <Tags tags={n.tags} />
-        </Fact>
-        {n.group && <Fact k="分组">{n.group}</Fact>}
-      </dl>
-      {n.public_remark && <p className="remark">{n.public_remark}</p>}
-      {ops && <OpsSection ops={ops} />}
-    </Panel>
-  )
-}
 
 // Addresses start masked so a screenshot of the page is safe to share; the choice holds while
 // paging between nodes and resets on reload.
@@ -258,28 +194,124 @@ function Address({ ip, label, shown }: { ip: string; label: string; shown: boole
   )
 }
 
-/** Only for a logged-in viewer: what Komari's admin list adds to the public node data. */
-function OpsSection({ ops }: { ops: ClientOps }) {
+/**
+ * What only a logged-in viewer sees, in one panel: the agent's addresses and version from Komari's
+ * admin list (`ops`), and the billing fields. `leadDays`: how close to expiry counts as due soon
+ * (Komari's expiry notice setting).
+ */
+export function AdminPanel({ r, now, leadDays, ops }: { r: Row; now: number; leadDays: number; ops?: ClientOps }) {
   const shown = useReveal((s) => s.shown)
+  const n = r.node
+  const cycle = Number.isInteger(n.billing_cycle) ? n.billing_cycle : 0
+  const expiry = parseTime(n.expired_at)
+  const left = daysLeft(n, now)
+  const amount = finite(n.price) && n.price > 0 ? `${n.currency ? n.currency + ' ' : ''}${n.price.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}` : n.price === -1 ? '免费' : '—'
+  const billing = amount !== '—' || expiry !== null || cycle !== 0
+  if (!billing && !ops) return null
   return (
-    <div className="ops">
-      <div className="ops-head">
-        <span className="panel-lock">
-          <Lock size={11} aria-hidden="true" />
-          运维 · 仅登录可见
+    <Panel
+      className="admin-panel"
+      title={ops && billing ? '运维 · 续费' : ops ? '运维信息' : '续费信息'}
+      extra={
+        <span className="admin-extra">
+          <span className="panel-lock has-hint" title="Komari 的公开接口仍会把续费字段下发给访客，主题只是不显示；要真正保密，请在后台开启私有站点，或不填写金额">
+            <Lock size={11} aria-hidden="true" />
+            仅登录可见
+          </span>
+          {ops && (ops.ipv4 || ops.ipv6) && (
+            <button type="button" className="copy-btn" aria-pressed={shown} onClick={() => useReveal.setState({ shown: !shown })} aria-label="显示完整地址" title={shown ? '地址打码（便于截图）' : '显示完整地址'}>
+              {shown ? <EyeOff size={12} aria-hidden="true" /> : <Eye size={12} aria-hidden="true" />}
+            </button>
+          )}
         </span>
-        <button type="button" className="copy-btn" aria-pressed={shown} onClick={() => useReveal.setState({ shown: !shown })} aria-label="显示完整地址" title={shown ? '地址打码（便于截图）' : '显示完整地址'}>
-          {shown ? <EyeOff size={12} aria-hidden="true" /> : <Eye size={12} aria-hidden="true" />}
-        </button>
-      </div>
-      <dl className="facts">
-        <Fact k="IPv4">{ops.ipv4 ? <Address key={ops.ipv4} ip={ops.ipv4} label="IPv4" shown={shown} /> : '—'}</Fact>
-        <Fact k="IPv6">{ops.ipv6 ? <Address key={ops.ipv6} ip={ops.ipv6} label="IPv6" shown={shown} /> : '—'}</Fact>
-        <Fact k="Agent 版本">
-          <span className="num">{ops.version || '—'}</span>
+      }
+    >
+      <dl className="facts facts-2">
+        {ops && (
+          <>
+            <Fact k="IPv4">{ops.ipv4 ? <Address key={ops.ipv4} ip={ops.ipv4} label="IPv4" shown={shown} /> : '—'}</Fact>
+            <Fact k="Agent 版本">
+              <span className="num">{ops.version || '—'}</span>
+            </Fact>
+            <Fact k="IPv6" wide>
+              {ops.ipv6 ? <Address key={ops.ipv6} ip={ops.ipv6} label="IPv6" shown={shown} /> : '—'}
+            </Fact>
+          </>
+        )}
+        {billing && (
+          <>
+            <Fact k="续费周期">{cycle === -1 ? '一次性' : cycle > 0 ? <span className="num">{CYCLES[cycle] ? `${CYCLES[cycle]} · ` : ''}{cycle} 天</span> : '—'}</Fact>
+            <Fact k="续费金额">
+              <span className="num">{amount}</span>
+            </Fact>
+            <Fact k="到期日">
+              {expiry !== null ? (
+                <span className="num">
+                  {dateText(expiry)}
+                  {left !== null && <em className={clsx('left', left <= 0 ? 'bad' : left <= leadDays ? 'warn' : 'dim')}> {expiryNote(left)}</em>}
+                </span>
+              ) : (
+                '—'
+              )}
+            </Fact>
+            <Fact k="自动续费">{n.auto_renewal ? '已开启' : '未开启'}</Fact>
+          </>
+        )}
+      </dl>
+    </Panel>
+  )
+}
+
+export function SystemPanel({ r }: { r: Row }) {
+  const n = r.node
+  const st = r.online ? r.status : undefined
+  return (
+    <Panel title="系统信息" className="f10-panel" extra={<span className="has-hint" title="行情软件中查看个股资料的 F10 键；这里是节点的基本资料">F10</span>}>
+      {/* Cells pair up; a long value without a partner (GPU, an OS without a kernel version) takes the row. */}
+      <dl className="facts facts-2">
+        <Fact k="处理器">
+          <span className="clip" title={n.cpu_name}>{n.cpu_name || '—'}</span>
+        </Fact>
+        <Fact k="核心">
+          <span className="num">{n.cpu_cores ? `${n.cpu_cores} 逻辑${n.cpu_physical_cores ? ` / ${n.cpu_physical_cores} 物理` : ''}` : '—'}</span>
+        </Fact>
+        {n.gpu_name && (
+          <Fact k="GPU" wide>
+            <span className="clip" title={n.gpu_name}>{n.gpu_name}</span>
+          </Fact>
+        )}
+        <Fact k="操作系统" wide={!n.kernel_version}>
+          <span className="clip" title={n.os}>{n.os || '—'}</span>
+        </Fact>
+        {n.kernel_version && (
+          <Fact k="内核">
+            <span className="num clip" title={n.kernel_version}>{n.kernel_version}</span>
+          </Fact>
+        )}
+        <Fact k="架构 / 虚拟化">
+          <span className="num">
+            {n.arch || '—'} / {n.virtualization || '—'}
+          </span>
+        </Fact>
+        <Fact k="内存 / 交换">
+          <span className="num">
+            {size(st?.ram_total || n.mem_total)} / {size(st?.swap_total || n.swap_total)}
+          </span>
+        </Fact>
+        <Fact k="磁盘总量">
+          <span className="num">{size(st?.disk_total || n.disk_total)}</span>
+        </Fact>
+        <Fact k="运行时长">
+          <span className="num">{duration(st?.uptime)}</span>
+        </Fact>
+        <Fact k="负载 1m / 5m / 15m">
+          <span className="num">{st ? [st.load, st.load5, st.load15].map((x) => (finite(x) ? x.toFixed(2) : '—')).join(' / ') : '—'}</span>
+        </Fact>
+        <Fact k="进程数">
+          <span className="num">{st?.process ?? '—'}</span>
         </Fact>
       </dl>
-    </div>
+    </Panel>
   )
 }
 
@@ -287,22 +319,22 @@ export function EventsPanel({ events, now }: { events: NodeEvent[]; now: number 
   // Dates are shown for every row as soon as one event is not from today, so the columns line up.
   const withDate = events.some((e) => !sameDay(e.time, now))
   return (
-    <Panel title="节点事件" extra="样本推断" className="events-panel">
-      <div className="events-body">
-        {events.length ? (
+    <Panel title="节点事件" extra={events.length ? '样本推断' : '所选范围内无异动'} className={clsx('events-panel', !events.length && 'is-empty')}>
+      {events.length > 0 && (
+        <div className="events-body">
           <ol className={clsx('events', withDate && 'with-date')}>
             {events.map((e, i) => (
               <li key={`${e.time}-${i}`} className={clsx('event', `ev-${e.kind}`)}>
-                <time className="num" dateTime={new Date(e.time).toISOString()}>{withDate ? monthDayTime(e.time) : clock(e.time, false)}</time>
+                <time className="num" dateTime={new Date(e.time).toISOString()}>
+                  {withDate ? monthDayTime(e.time) : clock(e.time, false)}
+                </time>
                 <b>{e.label}</b>
                 <span title={e.text}>{e.text}</span>
               </li>
             ))}
           </ol>
-        ) : (
-          <p className="events-empty">所选范围内无异动</p>
-        )}
-      </div>
+        </div>
+      )}
     </Panel>
   )
 }

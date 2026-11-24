@@ -10,7 +10,7 @@ import { ago, clock, finite, pct, ratio, signed, utcOffset } from '../../lib/for
 import type { Row } from '../../lib/model'
 import { usePrefs, type ChartStyle, type Range, type ThemeSettings } from '../../lib/settings'
 import { Flag, Segmented, Tick } from '../primitives'
-import { BillingPanel, EventsPanel, LocationPanel, NetworkPanel, StatBook, SystemPanel } from './Panels'
+import { AdminPanel, EventsPanel, LocationPanel, NetworkPanel, StatBook, SystemPanel } from './Panels'
 import { PingPanel, type PingPick } from './PingPanel'
 
 // lightweight-charts is only needed once a detail drawer opens.
@@ -22,6 +22,16 @@ const LOOKS: ChartStyle[] = ['candle', 'line']
 const setLook = (chartStyle: ChartStyle) => usePrefs.getState().update({ chartStyle })
 const fmtPct = (v: number) => `${v.toFixed(1)}%`
 const fmtGiB = (v: number) => v.toFixed(v >= 100 ? 1 : 2)
+
+/** Range average and high, beside the current value in a small chart's head. */
+function RangeNote({ stats }: { stats: ReturnType<typeof rangeStats> }) {
+  if (!stats) return null
+  return (
+    <span className="range-note">
+      均 <b>{fmtGiB(stats.avg)}</b> 高 <b>{fmtGiB(stats.high)}</b>
+    </span>
+  )
+}
 
 function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange, ping, onPing, sub, onSub, onStep }: { r: Row; rows: Row[]; settings: ThemeSettings; traffic: { up: number; down: number } | null; monthly: boolean; now: number; picked: Range; onRange: (r: Range) => void; ping: PingPick | null; onPing: (p: PingPick | null) => void; sub: SubPane; onSub: (s: SubPane) => void; onStep: (d: number) => void }) {
   const admin = useIsAdmin()
@@ -84,7 +94,9 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange,
           <Flag code={r.region.code} title={r.region.name} />
           <div className="qb-name">
             <Dialog.Title asChild>
-              <h2 className="num">{r.node.name}</h2>
+              <h2 className="num" title={r.node.name}>
+                {r.node.name}
+              </h2>
             </Dialog.Title>
             <span className="node-code num">
               {r.code.area}·<em>{r.code.hash}</em>
@@ -140,8 +152,6 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange,
         </div>
       </header>
 
-      {!r.online && <div className="offline-notice">节点离线 · 以下仅显示已留存的历史样本</div>}
-
       <Suspense fallback={<div className="detail-grid" aria-busy="true" />}>
       <div className="detail-grid" ref={grid}>
         <div className="detail-main">
@@ -173,10 +183,10 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange,
                 <span className="chart-now num">
                   当前 <b>{st ? `${fmtGiB(st.ram / GIB)} / ${fmtGiB(memTotal ?? 0)}` : '—'}</b>
                   {st && <em className="dim"> {pct(ratio(st.ram, st.ram_total || r.node.mem_total))}</em>}
+                  <RangeNote stats={memStats} />
                 </span>
               </div>
               <KLineChart look={settings.chartStyle} slots={mem} format={fmtGiB} loading={loading} stale={stale} offline={!r.online} label="内存已用" rangeKey={dataKey} />
-              <StatBook stats={memStats} format={fmtGiB} items={['avg', 'high']} />
             </section>
             <section className="panel chart-panel chart-mini">
               <div className="panel-head compact">
@@ -186,24 +196,22 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange,
                 <span className="chart-now num">
                   当前 <b>{st ? `${fmtGiB(st.disk / GIB)} / ${fmtGiB(diskTotal ?? 0)}` : '—'}</b>
                   {st && <em className="dim"> {pct(ratio(st.disk, st.disk_total || r.node.disk_total))}</em>}
+                  <RangeNote stats={diskStats} />
                 </span>
               </div>
               <KLineChart look={settings.chartStyle} slots={disk} format={fmtGiB} loading={loading} stale={stale} offline={!r.online} label="磁盘已用" rangeKey={dataKey} />
-              <StatBook stats={diskStats} format={fmtGiB} items={['avg', 'high']} />
             </section>
           </div>
 
-          {/* Bottom row under the charts; either panel may be absent (events off, no billing data). */}
-          <div className="detail-bottom">
-            {settings.showEvents && <EventsPanel events={events} now={now} />}
-            {admin && <BillingPanel r={r} now={now} leadDays={leadDays ?? 7} />}
-          </div>
         </div>
 
         <aside className="detail-side" aria-label="节点资料">
           <LocationPanel r={r} />
           <NetworkPanel r={r} volume={volume} traffic={traffic} monthly={monthly} />
-          <SystemPanel r={r} ops={admin ? ops : undefined} />
+          <SystemPanel r={r} />
+          {admin && <AdminPanel r={r} now={now} leadDays={leadDays ?? 7} ops={ops} />}
+          {/* Last, so on a desktop it takes whatever height the column has left. */}
+          {settings.showEvents && <EventsPanel events={events} now={now} />}
         </aside>
       </div>
       </Suspense>
