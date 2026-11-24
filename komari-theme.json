@@ -1,9 +1,6 @@
 {
-  "name": {
-    "zh-CN": "Atlas 行情",
-    "en": "Atlas Stock"
-  },
-  "short": "AtlasStock",
+  "name": "komari-theme-stock",
+  "short": "komari-theme-stock",
   "description": {
     "zh-CN": "股票行情软件风格的 Komari 主题：报价表式节点列表与 K 线式资源趋势",
     "en": "A stock-terminal style theme for Komari: quote-board node list and candlestick resource charts"
@@ -15,8 +12,8 @@
   "configuration": {
     "type": "managed",
     "name": {
-      "zh-CN": "Atlas 行情设置",
-      "en": "Atlas Stock Settings"
+      "zh-CN": "komari-theme-stock 设置",
+      "en": "komari-theme-stock Settings"
     },
     "data": [
       {

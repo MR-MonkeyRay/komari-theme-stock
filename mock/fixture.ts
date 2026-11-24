@@ -265,7 +265,7 @@ export function metricDefinitions() {
 export const publicSettings = {
   sitename: 'Komari Monitor',
   description: 'A simple server monitor tool.',
-  theme: 'AtlasStock',
+  theme: 'komari-theme-stock',
   theme_settings: {},
   private_site: false,
   custom_head: '',

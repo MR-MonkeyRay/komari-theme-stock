@@ -1,4 +1,4 @@
-# Atlas Stock · Komari 主题
+# komari-theme-stock
 
 [![CI](https://github.com/MR-MonkeyRay/komari-theme-stock/actions/workflows/ci.yml/badge.svg)](https://github.com/MR-MonkeyRay/komari-theme-stock/actions/workflows/ci.yml)
 
@@ -17,7 +17,7 @@
 
 ## 主题设置
 
-在 Komari 后台「主题管理 → Atlas 行情设置」中调整：
+在 Komari 后台「主题管理 → komari-theme-stock 设置」中调整：
 
 | 设置 | 说明 |
 | --- | --- |
