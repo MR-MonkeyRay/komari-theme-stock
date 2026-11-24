@@ -3,7 +3,7 @@ import clsx from 'clsx'
 import { Monitor, Moon, Sun } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useMemo, useState, type ComponentProps } from 'react'
-import type { Appearance } from '../lib/appearance'
+import { resolveTheme, type Appearance } from '../lib/appearance'
 import { clock, dateText, finite, signed, sizeParts, utcOffset } from '../lib/format'
 import type { Bulletin, MarketSummary } from '../lib/market'
 import { dirOf } from '../lib/model'
@@ -16,22 +16,44 @@ function NumberFlow(props: ComponentProps<typeof NumberFlowBase>) {
   return <NumberFlowBase transformTiming={FLOW_TIMING} spinTiming={FLOW_TIMING} opacityTiming={{ duration: 200, easing: 'ease-out' }} {...props} />
 }
 
-export function ThemeSwitch({ value, onChange }: { value: Appearance; onChange: (a: Appearance) => void }) {
-  const items: { key: Appearance; label: string; icon: typeof Sun }[] = [
-    { key: 'light', label: '浅色', icon: Sun },
-    { key: 'dark', label: '深色', icon: Moon },
-    { key: 'system', label: '自动', icon: Monitor },
-  ]
+const MODES: Record<Appearance, { label: string; icon: typeof Sun }> = {
+  system: { label: '自动', icon: Monitor },
+  light: { label: '浅色', icon: Sun },
+  dark: { label: '深色', icon: Moon },
+}
+
+/**
+ * Cycle: auto → the opposite of the system theme → the system theme → auto,
+ * so each explicit step visibly changes the page.
+ */
+function nextAppearance(a: Appearance): Appearance {
+  const os = resolveTheme('system')
+  const other = os === 'dark' ? 'light' : 'dark'
+  return a === 'system' ? other : a === other ? os : 'system'
+}
+
+/** One button for page colors; shows the current mode (default: auto, following the system). */
+export function ThemeToggle({ value, onChange }: { value: Appearance; onChange: (a: Appearance) => void }) {
+  const { label, icon: Icon } = MODES[value]
+  const next = nextAppearance(value)
+  const hint = `配色：${label}${value === 'system' ? '（跟随系统）' : ''}，点击切换为${MODES[next].label}`
   return (
-    <div className="seg theme-switch" role="radiogroup" aria-label="页面配色">
-      {items.map(({ key, label, icon: Icon }) => (
-        <button key={key} type="button" role="radio" aria-checked={value === key} title={label} onClick={() => onChange(key)}>
-          {value === key && <motion.span layoutId="theme-pill" className="seg-pill" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} />}
-          <Icon size={13} strokeWidth={2} aria-hidden="true" />
-          <span className="seg-label">{label}</span>
-        </button>
-      ))}
-    </div>
+    <button type="button" className="theme-toggle" onClick={() => onChange(nextAppearance(value))} title={hint} aria-label={hint}>
+      <span className="theme-toggle-icon" aria-hidden="true">
+        <AnimatePresence initial={false}>
+          <motion.span
+            key={value}
+            initial={{ opacity: 0, rotate: -90, scale: 0.6 }}
+            animate={{ opacity: 1, rotate: 0, scale: 1 }}
+            exit={{ opacity: 0, rotate: 90, scale: 0.6 }}
+            transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <Icon size={14} strokeWidth={2} />
+          </motion.span>
+        </AnimatePresence>
+      </span>
+      <span className="theme-toggle-label">{label}</span>
+    </button>
   )
 }
 
@@ -55,7 +77,7 @@ export function TopBar({ siteName, live, refreshSeconds, now, appearance, onAppe
           <span className="clock-date">{dateText(now)} </span>
           <b>{clock(now)}</b> <small>{utcOffset(now)}</small>
         </span>
-        <ThemeSwitch value={appearance} onChange={onAppearance} />
+        <ThemeToggle value={appearance} onChange={onAppearance} />
       </div>
     </header>
   )

@@ -10,13 +10,13 @@
     <meta name="color-scheme" content="dark light" />
     <script>
       // Apply the saved appearance before first paint (key shared with Komari's default theme).
+      // Anything other than an explicit light/dark — including no value or blocked storage — follows the system.
+      var a = null
       try {
-        var a = localStorage.getItem('appearance')
-        var dark = a === 'dark' || ((!a || a === 'system') && matchMedia('(prefers-color-scheme: dark)').matches)
-        document.documentElement.dataset.theme = dark ? 'dark' : 'light'
-      } catch (e) {
-        document.documentElement.dataset.theme = 'dark'
-      }
+        a = localStorage.getItem('appearance')
+      } catch (e) {}
+      var dark = a === 'dark' || (a !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches)
+      document.documentElement.dataset.theme = dark ? 'dark' : 'light'
     </script>
   </head>
   <body>
