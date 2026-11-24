@@ -2,11 +2,11 @@ import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { monthStart, useLatestStatus, useMe, useMetricDefinitions, useMonthlyTraffic, useNodes, usePublicSettings, useSparklines } from './lib/api'
 import { useAppearance } from './lib/appearance'
 import { buildRows, connState, useNow, type Row } from './lib/model'
-import { CONTINENTS } from './lib/region'
 import { useShallow } from 'zustand/react/shallow'
 import { readSiteSettings, usePrefs, type ThemeSettings } from './lib/settings'
 import { IndexStrip, StatusBar, TopBar } from './components/Chrome'
 import { bulletins, summarize } from './lib/market'
+import { boardView, useBoardQuery } from './lib/board'
 import { QuoteBoard, type BoardExtras } from './components/QuoteBoard'
 import { NodeDetail } from './components/detail/NodeDetail'
 
@@ -28,13 +28,6 @@ export default function App() {
   }, [settings.redUp])
 
   const rows = useMemo(() => buildRows(nodes.data, status.data), [nodes.data, status.data])
-  // Same order as the grouped board, so [ / ] in the drawer pages through what is on screen.
-  const navRows = useMemo(() => {
-    if (settings.groupBy === 'none') return rows
-    const key = (r: Row) => (settings.groupBy === 'continent' ? r.region.continent : r.node.group?.trim() || '未分组')
-    const order = settings.groupBy === 'continent' ? CONTINENTS.map((c) => c.code as string) : [...new Set(rows.map(key))]
-    return [...rows].sort((a, b) => order.indexOf(key(a)) - order.indexOf(key(b)))
-  }, [rows, settings.groupBy])
   const uuids = useMemo(() => (nodes.data ?? []).map((n) => n.uuid), [nodes.data])
   const sparks = useSparklines(uuids, settings.showSparkline)
 
@@ -52,6 +45,11 @@ export default function App() {
     },
     [useMonthly, monthly.data],
   )
+
+  // Grouping, tab, search and sort are applied once here: the board renders this view and the
+  // drawer's [ / ] steps through the same on-screen order.
+  const [query] = useBoardQuery()
+  const view = useMemo(() => boardView(rows, settings.groupBy, query, traffic), [rows, settings.groupBy, query, traffic])
 
   const extras: BoardExtras = useMemo(() => ({ sparks: sparks.data, traffic, trafficMonthly: useMonthly, now }), [sparks.data, traffic, useMonthly, now])
 
@@ -102,7 +100,7 @@ export default function App() {
             </div>
           </section>
         ) : (
-          <QuoteBoard rows={rows} settings={settings} x={extras} loading={nodes.isLoading} searchRef={searchRef} />
+          <QuoteBoard rows={rows} view={view} settings={settings} x={extras} loading={nodes.isLoading} searchRef={searchRef} />
         )}
         {/* Phones have no room in the status bar for the credit Komari requires. */}
         <p className="page-credit">
@@ -112,7 +110,7 @@ export default function App() {
         </p>
       </main>
       <StatusBar conn={conn} retrying={retrying} onRetry={retry} items={bulletins(rows)} now={now} />
-      <NodeDetail rows={navRows} settings={settings} traffic={traffic} monthly={useMonthly} now={now} ready={nodes.isSuccess} />
+      <NodeDetail rows={rows} order={view.order} settings={settings} traffic={traffic} monthly={useMonthly} now={now} ready={nodes.isSuccess} />
     </>
   )
 }

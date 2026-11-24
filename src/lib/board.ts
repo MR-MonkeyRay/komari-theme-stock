@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo } from 'react'
 import { useLocation, useSearchParams } from 'react-router'
 import { create } from 'zustand'
+import { parseTags } from './format'
+import type { Row } from './model'
+import { CONTINENTS, continentName } from './region'
+import type { SiteSettings } from './settings'
 
 // Board view state (search, group tab, sort) lives in the URL query, so a reload or a shared link
 // shows the same board, and the detail drawer keeps it while it is open.
@@ -113,4 +117,95 @@ export function useBoardQuery() {
   }, [write])
 
   return [query, update, flush] as const
+}
+
+export interface Group {
+  key: string
+  label: string
+  code?: string
+  rows: Row[]
+}
+
+export function groupRows(rows: Row[], by: SiteSettings['groupBy']): Group[] {
+  if (by === 'none') return [{ key: 'all', label: '全部', rows }]
+  const map = new Map<string, Row[]>()
+  for (const r of rows) {
+    const k = by === 'continent' ? r.region.continent : r.node.group?.trim() || '未分组'
+    map.set(k, [...(map.get(k) ?? []), r])
+  }
+  if (by === 'continent') {
+    return CONTINENTS.filter((c) => map.has(c.code)).map((c) => ({ key: c.code, label: continentName(c.code), code: c.code === 'OT' ? undefined : c.code, rows: map.get(c.code)! }))
+  }
+  return [...map.entries()].map(([k, rs]) => ({ key: k, label: k, rows: rs }))
+}
+
+type Traffic = (r: Row) => { up: number; down: number } | null
+
+function sortValue(r: Row, key: SortKey, traffic: Traffic): number | string | null {
+  const st = r.online ? r.status : undefined
+  switch (key) {
+    case 'name':
+      return r.node.name.toLowerCase()
+    case 'uptime':
+      return st?.uptime ?? null
+    case 'cpu':
+      return r.cpu
+    case 'ram':
+      return r.ram
+    case 'disk':
+      return r.disk
+    case 'load':
+      return st?.load ?? null
+    case 'traffic': {
+      const t = traffic(r)
+      return t ? t.up + t.down : null
+    }
+    case 'net':
+      return st ? st.net_in + st.net_out : null
+    case 'seen':
+      return r.lastSeen
+  }
+}
+
+export interface BoardView {
+  /** Every group, for the tabs and their counts. */
+  allGroups: Group[]
+  /** The tab in effect: the URL's when it still exists, else 'all'. */
+  filter: string
+  /** Groups after the tab and search filters (empty groups dropped). */
+  groups: Group[]
+  /** Sorted rows when a column sort is on (the board is then one flat list), else null. */
+  flat: Row[] | null
+  /** Rows on screen, in screen order: what ↑/↓ and the drawer's [ / ] step through. */
+  order: Row[]
+}
+
+export function boardView(rows: Row[], by: SiteSettings['groupBy'], query: BoardQuery, traffic: Traffic): BoardView {
+  const allGroups = groupRows(rows, by)
+  // A tab from an old link that no longer exists (or grouping switched off) shows everything.
+  const filter = by !== 'none' && allGroups.some((g) => g.key === query.group) ? query.group : 'all'
+  const q = query.q.trim().toLowerCase()
+  const match = (r: Row) =>
+    !q || [r.node.name, r.region.name, r.region.code ?? '', r.code.area, r.code.hash, r.node.group, ...parseTags(r.node.tags).map((t) => t.text)].some((s) => s?.toLowerCase().includes(q))
+  const groups = allGroups
+    .filter((g) => filter === 'all' || g.key === filter)
+    .map((g) => ({ ...g, rows: g.rows.filter(match) }))
+    .filter((g) => g.rows.length)
+
+  let flat: Row[] | null = null
+  const sort = query.sort
+  if (sort) {
+    const dir = sort.dir === 'asc' ? 1 : -1
+    flat = groups
+      .flatMap((g) => g.rows)
+      .sort((a, b) => {
+        const va = sortValue(a, sort.key, traffic)
+        const vb = sortValue(b, sort.key, traffic)
+        if (va === null && vb === null) return 0
+        if (va === null) return 1
+        if (vb === null) return -1
+        return (va < vb ? -1 : va > vb ? 1 : 0) * dir
+      })
+  }
+  return { allGroups, filter, groups, flat, order: flat ?? groups.flatMap((g) => g.rows) }
 }

@@ -175,7 +175,7 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, onStep }: { r: R
   )
 }
 
-export function NodeDetail({ rows, settings, traffic, monthly, now, ready }: { rows: Row[]; settings: ThemeSettings; traffic: (r: Row) => { up: number; down: number } | null; monthly: boolean; now: number; ready: boolean }) {
+export function NodeDetail({ rows, order, settings, traffic, monthly, now, ready }: { rows: Row[]; order: Row[]; settings: ThemeSettings; traffic: (r: Row) => { up: number; down: number } | null; monthly: boolean; now: number; ready: boolean }) {
   const match = useMatch('/instance/:uuid')
   const navigate = useNavigate()
   const location = useLocation()
@@ -192,14 +192,34 @@ export function NodeDetail({ rows, settings, traffic, monthly, now, ready }: { r
     else navigate({ pathname: '/', search: location.search }, { replace: true })
   }, [location.state, location.search, navigate])
 
+  // [ / ] page through the board in its on-screen order, as it was when the drawer opened: a board
+  // sorted by a live value reshuffles every refresh, and paging must not revisit nodes because of it.
+  // A node that was not on screen (filtered out, or opened from a link) pages through every node for
+  // the whole visit, so stepping onto a node that is on screen does not shrink the range midway.
+  const [snapshot, setSnapshot] = useState<string[] | 'all' | null>(null)
+  if (open && !snapshot && r) setSnapshot(order.some((x) => x.node.uuid === r.node.uuid) ? order.map((x) => x.node.uuid) : 'all')
+  if (!open && snapshot) setSnapshot(null)
+  const nav = useMemo(() => {
+    if (!snapshot || snapshot === 'all') return rows
+    const byId = new Map(rows.map((x) => [x.node.uuid, x]))
+    const list = snapshot.flatMap((id) => byId.get(id) ?? [])
+    return r && list.some((x) => x.node.uuid === r.node.uuid) ? list : rows
+  }, [snapshot, rows, r])
   const step = useCallback(
     (d: number) => {
-      if (!rows.length || !r) return
-      const i = rows.findIndex((x) => x.node.uuid === r.node.uuid)
-      const next = rows[(i + d + rows.length) % rows.length]
+      if (!nav.length || !r) return
+      // Read the node from the live URL: a quick second press can arrive before the re-render.
+      let current = r.node.uuid
+      try {
+        current = decodeURIComponent(window.location.pathname.match(/\/instance\/([^/]+)/)?.[1] ?? current)
+      } catch {
+        // malformed escape in a hand-typed URL: keep the rendered node
+      }
+      const i = nav.findIndex((x) => x.node.uuid === current)
+      const next = i < 0 ? nav[0] : nav[(((i + d) % nav.length) + nav.length) % nav.length]
       navigate({ pathname: `/instance/${next.node.uuid}`, search: location.search }, { replace: true, state: location.state })
     },
-    [rows, r, navigate, location.state, location.search],
+    [nav, r, navigate, location.state, location.search],
   )
 
   useEffect(() => {
@@ -231,7 +251,7 @@ export function NodeDetail({ rows, settings, traffic, monthly, now, ready }: { r
                 {r ? (
                   <AnimatePresence mode="wait" initial={false}>
                     <motion.div key={r.node.uuid} className="drawer-page" initial={{ opacity: 0, y: reduce ? 0 : 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: reduce ? 0 : 0.16 }}>
-                      <DetailBody r={r} rows={rows} settings={settings} traffic={traffic(r)} monthly={monthly} now={now} onStep={step} />
+                      <DetailBody r={r} rows={nav} settings={settings} traffic={traffic(r)} monthly={monthly} now={now} onStep={step} />
                     </motion.div>
                   </AnimatePresence>
                 ) : (
