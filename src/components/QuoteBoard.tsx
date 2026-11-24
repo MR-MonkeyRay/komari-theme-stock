@@ -314,7 +314,7 @@ export function QuoteBoard({ rows, settings, x, loading, searchRef }: { rows: Ro
                     <span className="group-meta num">
                       {finite(cpuAvg) && (
                         <span className="group-cpu">
-                          板块 CPU <b>{cpuAvg.toFixed(1)}%</b>
+                          平均 CPU 使用率 <b>{cpuAvg.toFixed(1)}%</b>
                         </span>
                       )}
                       <span>

@@ -86,7 +86,7 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, onStep }: { r: R
 
         <div className="qb-tools">
           <span className="qb-seen">
-            最后上报 <b className="num">{ago(r.lastSeen, now)}</b>
+            <span>最后上报 <b className="num">{ago(r.lastSeen, now)}</b></span>
             <small className="num">{r.lastSeen ? `${clock(r.lastSeen)} ${utcOffset(r.lastSeen)}` : '—'}</small>
           </span>
           <div className="qb-nav">

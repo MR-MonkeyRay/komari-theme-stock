@@ -88,7 +88,7 @@ export function TopBar({ siteName, live, refreshSeconds, me, mePending, appearan
           K
         </span>
         <strong>{siteName}</strong>
-        <span className="crumb">/ 节点行情</span>
+        <span className="crumb">/ 节点监控</span>
       </a>
       <div className="topbar-tools">
         <span className={clsx('market', live ? 'is-live' : 'is-stale')} title={live ? `每 ${refreshSeconds} 秒刷新` : '实时数据暂不可用'}>

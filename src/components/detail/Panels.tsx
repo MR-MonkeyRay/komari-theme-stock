@@ -214,10 +214,7 @@ export function EventsPanel({ events }: { events: NodeEvent[] }) {
             ))}
           </ol>
         ) : (
-          <div className="events-empty">
-            <p>所选范围内无异动</p>
-            <p className="dim">CPU 连续 3 个区间 ≥ 80% 记为升高，之后连续 2 个区间 &lt; 75% 记为回落；内存 ≥ 90% 记为高位；无上报样本的区间记为缺测</p>
-          </div>
+          <p className="events-empty">所选范围内无异动</p>
         )}
       </div>
     </Panel>
