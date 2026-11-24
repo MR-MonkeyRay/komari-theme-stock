@@ -27,14 +27,16 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange,
   const available = useAvailableRanges()
   const range = fitRange(picked, available)
   const history = useHistory(r.node.uuid, range, settings.refreshSeconds)
+  // Placeholder data is only ever this node's previous range: it stays on screen, dimmed, until the
+  // new range arrives, instead of the charts dropping back to a skeleton.
   const h = history.data
   const uuid = r.node.uuid
-  const fresh = !!h && !history.isPlaceholderData
+  const stale = history.isPlaceholderData
 
-  const cpu = useMemo(() => (h && fresh ? buildCandles(h, 'cpu.usage', uuid) : []), [h, fresh, uuid])
-  const mem = useMemo(() => (h && fresh ? buildCandles(h, 'memory.used', uuid, GIB) : []), [h, fresh, uuid])
-  const disk = useMemo(() => (h && fresh ? buildCandles(h, 'disk.used', uuid, GIB) : []), [h, fresh, uuid])
-  const volume = useMemo(() => (h && fresh ? buildVolume(h, uuid) : []), [h, fresh, uuid])
+  const cpu = useMemo(() => (h ? buildCandles(h, 'cpu.usage', uuid) : []), [h, uuid])
+  const mem = useMemo(() => (h ? buildCandles(h, 'memory.used', uuid, GIB) : []), [h, uuid])
+  const disk = useMemo(() => (h ? buildCandles(h, 'disk.used', uuid, GIB) : []), [h, uuid])
+  const volume = useMemo(() => (h ? buildVolume(h, uuid) : []), [h, uuid])
   const cpuStats = useMemo(() => rangeStats(cpu), [cpu])
   const memStats = useMemo(() => rangeStats(mem), [mem])
   const diskStats = useMemo(() => rangeStats(disk), [disk])
@@ -51,7 +53,9 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange,
   const changePct = finite(change) && finite(open) && open >= 5 ? (change / open) * 100 : null
   const dir = !r.online ? 'off' : finite(change) ? (change > 0.05 ? 'up' : change < -0.05 ? 'down' : 'flat') : 'flat'
   const idx = rows.findIndex((x) => x.node.uuid === uuid)
-  const loading = history.isFetching && !fresh
+  const loading = history.isFetching && !h
+  // Charts refit when data for a new range (or node) arrives, not when the range is clicked.
+  const dataKey = `${uuid}-${h?.range}`
 
   // Paging to another node keeps the banner, the panels and the chart instances; only the content
   // under the banner gives a short fade so the change of node registers.
@@ -146,7 +150,7 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange,
                 <Segmented className="range-tabs" value={range} options={available.ranges} onChange={onRange} label="时间范围" />
               </div>
             </div>
-            <KLineChart slots={cpu} volume={volume} format={fmtPct} percent ma loading={loading} offline={!r.online} label="CPU 使用率" rangeKey={`${uuid}-${range}`} />
+            <KLineChart slots={cpu} volume={volume} format={fmtPct} percent ma loading={loading} stale={stale} offline={!r.online} label="CPU 使用率" rangeKey={dataKey} />
           </section>
 
           <PingPanel uuid={uuid} range={range} refreshSeconds={settings.refreshSeconds} offline={!r.online} pick={ping} onPick={onPing} />
@@ -162,7 +166,7 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange,
                   {st && <em className="dim"> {pct(ratio(st.ram, st.ram_total || r.node.mem_total))}</em>}
                 </span>
               </div>
-              <KLineChart slots={mem} format={fmtGiB} loading={loading} offline={!r.online} label="内存已用" rangeKey={`${uuid}-${range}`} />
+              <KLineChart slots={mem} format={fmtGiB} loading={loading} stale={stale} offline={!r.online} label="内存已用" rangeKey={dataKey} />
               <StatBook stats={memStats} format={fmtGiB} items={['avg', 'high']} />
             </section>
             <section className="panel chart-panel chart-mini">
@@ -175,7 +179,7 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange,
                   {st && <em className="dim"> {pct(ratio(st.disk, st.disk_total || r.node.disk_total))}</em>}
                 </span>
               </div>
-              <KLineChart slots={disk} format={fmtGiB} loading={loading} offline={!r.online} label="磁盘已用" rangeKey={`${uuid}-${range}`} />
+              <KLineChart slots={disk} format={fmtGiB} loading={loading} stale={stale} offline={!r.online} label="磁盘已用" rangeKey={dataKey} />
               <StatBook stats={diskStats} format={fmtGiB} items={['avg', 'high']} />
             </section>
           </div>

@@ -172,6 +172,8 @@ function toMap(res: MetricQueryResult): SeriesMap {
 }
 
 export interface HistoryResult {
+  /** The range this data covers; differs from the requested one while another range loads. */
+  range: Range
   interval: number
   start: number
   end: number
@@ -184,7 +186,8 @@ export function useHistory(uuid: string | undefined, range: Range, refreshSecond
   return useQuery<HistoryResult>({
     queryKey: ['history', uuid, range],
     enabled: !!uuid,
-    placeholderData: (prev) => prev,
+    // While another range of the same node loads, keep the old one (dimmed); never another node's.
+    placeholderData: (prev, prevQuery) => (prevQuery?.queryKey[1] === uuid ? prev : undefined),
     refetchInterval: Math.max(30, refreshSeconds * 10) * 1000,
     queryFn: async ({ signal }): Promise<HistoryResult> => {
       const aggs: Aggregation[] = ['max', 'min', 'last', 'avg']
@@ -196,6 +199,7 @@ export function useHistory(uuid: string | undefined, range: Range, refreshSecond
       const first = results[0]
       const interval = first.series?.find((s) => s.interval_seconds)?.interval_seconds ?? (spec.hours * 3600) / spec.points
       return {
+        range,
         interval,
         start: Date.parse(first.start),
         end: Date.parse(first.end),
@@ -232,6 +236,7 @@ export interface PingLine {
   loss: Map<number, number>
 }
 export interface PingHistory {
+  range: Range
   interval: number
   start: number
   end: number
@@ -287,6 +292,7 @@ export function usePingHistory(uuid: string | undefined, range: Range, refreshSe
       const first = results[0]
       const end = Date.parse(first.end)
       return {
+        range,
         interval: first.series?.find((s) => s.interval_seconds)?.interval_seconds ?? (spec.hours * 3600) / spec.points,
         start: Date.parse(first.start),
         end,

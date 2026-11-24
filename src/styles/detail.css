@@ -405,10 +405,36 @@
 .chart-ping .kline {
   height: 220px;
 }
-/* Same node, another range loading: the old lines stay, dimmed. */
+/* Same node, another range loading: the old chart stays, dimmed, under a thin progress bar. */
 .kline.is-stale .kline-canvas {
   opacity: 0.45;
   transition: opacity 120ms ease;
+}
+.kline.is-stale::before {
+  position: absolute;
+  z-index: 3;
+  top: 0;
+  left: 0;
+  width: 30%;
+  height: 2px;
+  content: '';
+  background: var(--accent);
+  animation: stale-bar 1s ease-in-out infinite;
+}
+@keyframes stale-bar {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(340%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .kline.is-stale::before {
+    width: 100%;
+    opacity: 0.5;
+    animation: none;
+  }
 }
 .kline-legend .warn,
 .kline-legend .warn b {

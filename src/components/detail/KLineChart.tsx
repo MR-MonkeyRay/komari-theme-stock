@@ -15,6 +15,8 @@ export interface KLineProps {
   percent?: boolean
   ma?: boolean
   loading?: boolean
+  /** Showing the previous range of this node while the new one loads: dimmed, with a progress bar. */
+  stale?: boolean
   offline?: boolean
   label: string
   rangeKey: string
@@ -26,7 +28,7 @@ interface Hover {
   volume?: Volume
 }
 
-export default function KLineChart({ slots, volume, format, percent, ma, loading, offline, label, rangeKey }: KLineProps) {
+export default function KLineChart({ slots, volume, format, percent, ma, loading, stale, offline, label, rangeKey }: KLineProps) {
   const host = useRef<HTMLDivElement>(null)
   const chart = useRef<IChartApi | null>(null)
   const series = useRef<{
@@ -171,22 +173,32 @@ export default function KLineChart({ slots, volume, format, percent, ma, loading
     setCursor(i)
     const c = candles[i]
     chart.current.setCrosshairPosition(c.close, asTs(c.time), series.current.candle)
+    // Moving the crosshair from code fires no crosshair event: update the legend here.
+    setHover({ time: c.time, candle: c })
   }
   const onBlur = () => {
     setCursor(null)
+    setHover(null)
     chart.current?.clearCrosshairPosition()
   }
 
-  const shown = hover?.candle ?? candles[candles.length - 1] ?? null
+  // Hovering a bucket without samples says so, instead of showing the latest candle.
+  const gap = hover !== null && hover.candle === null
+  const shown = gap ? null : (hover?.candle ?? candles[candles.length - 1] ?? null)
   const shownTime = hover?.time ?? shown?.time
   const vol = shownTime !== undefined ? volByTime.get(shownTime) : undefined
   const chg = shown ? shown.close - shown.open : 0
   const dir = chg > 0 ? 'up' : chg < 0 ? 'down' : 'flat'
 
   return (
-    <div className={clsx('kline', offline && 'is-offline', loading && !candles.length && 'is-loading')}>
+    <div className={clsx('kline', offline && 'is-offline', loading && !candles.length && 'is-loading', stale && 'is-stale')}>
       <div className="kline-legend num" aria-hidden="true">
-        {shown ? (
+        {gap ? (
+          <>
+            <span className="lg-time">{crosshairLabel(hover.time as Time)}</span>
+            <span className="dim">无上报样本</span>
+          </>
+        ) : shown ? (
           <>
             <span className="lg-time">{crosshairLabel(shown.time as Time)}</span>
             <span>

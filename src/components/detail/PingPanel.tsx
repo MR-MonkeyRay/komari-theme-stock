@@ -151,7 +151,7 @@ export function PingPanel({ uuid, range, refreshSeconds, offline, pick, onPick }
           loading={history.isFetching && !h}
           stale={stale}
           offline={offline}
-          rangeKey={`${uuid}-${range}`}
+          rangeKey={`${uuid}-${h?.range}`}
           onHover={setHover}
           summary={
             <>
