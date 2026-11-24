@@ -82,6 +82,12 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
   const palette = usePaletteVersion()
   const [hover, setHover] = useState<Hover | null>(null)
   const [cursor, setCursor] = useState<number | null>(null)
+  // New data (another range or node): ←/→ starts again from the latest bucket.
+  const [cursorData, setCursorData] = useState(rangeKey)
+  if (cursorData !== rangeKey) {
+    setCursorData(rangeKey)
+    setCursor(null)
+  }
   const fmt = useRef(format)
   useEffect(() => {
     fmt.current = format

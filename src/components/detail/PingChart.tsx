@@ -166,6 +166,12 @@ export default function PingChart({ lines, selected, loading, stale, offline, ra
   const palette = usePaletteVersion()
   const [hover, setHover] = useState<number | null>(null)
   const [cursor, setCursor] = useState<number | null>(null)
+  // New data (another range or node): ←/→ starts again from the latest bucket.
+  const [cursorData, setCursorData] = useState(rangeKey)
+  if (cursorData !== rangeKey) {
+    setCursorData(rangeKey)
+    setCursor(null)
+  }
   const report = useRef(onHover)
   useEffect(() => {
     report.current = onHover
