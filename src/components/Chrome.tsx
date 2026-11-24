@@ -36,6 +36,24 @@ function nextAppearance(a: Appearance): Appearance {
   return a === 'system' ? other : a === other ? os : 'system'
 }
 
+/**
+ * Site mark: an amber tile with a K whose stem is a hollow (rising) candle with wicks, drawn on
+ * a 32-unit grid so every edge lands on whole pixels at 16 and 32px. public/favicon.svg matches.
+ */
+function Logomark() {
+  return (
+    <span className="logomark" aria-hidden="true">
+      <svg viewBox="0 0 32 32" focusable="false">
+        <rect width="32" height="32" rx="5" fill="currentColor" />
+        <g className="logomark-k">
+          <path fillRule="evenodd" d="M8 4h2v4h2v16h-2v4H8v-4H6V8h2V4Zm0 6v12h2V10H8Z" />
+          <path d="M21 6h5L16 16l10 10h-5l-9-9v-2l9-9Z" />
+        </g>
+      </svg>
+    </span>
+  )
+}
+
 /** One button for page colors; shows the current mode (default: auto, following the system). */
 export function ThemeToggle({ value, onChange }: { value: Appearance; onChange: (a: Appearance) => void }) {
   const { label, icon: Icon } = MODES[value]
@@ -127,9 +145,7 @@ export function TopBar({ siteName, conn, retrying, updatedAt, onRetry, refreshSe
   return (
     <header className="topbar">
       <a className="brand" href={import.meta.env.BASE_URL} aria-label={`${siteName} 首页`}>
-        <span className="logomark" aria-hidden="true">
-          K
-        </span>
+        <Logomark />
         <strong>{siteName}</strong>
         <span className="crumb">/ 节点监控</span>
       </a>

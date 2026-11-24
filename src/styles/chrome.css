@@ -96,7 +96,7 @@
 .brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
 }
 .brand strong {
@@ -110,22 +110,30 @@
   text-overflow: ellipsis;
 }
 .crumb {
+  margin-left: 2px;
   font-size: 12px;
   color: var(--text-3);
   white-space: nowrap;
 }
+/* The mark draws its own amber tile (see Logomark); public/favicon.svg is the same drawing. */
 .logomark {
-  position: relative;
-  display: inline-grid;
-  place-items: center;
+  display: inline-flex;
+  flex: none;
   width: 26px;
   height: 26px;
-  font-family: var(--font-mono);
-  font-weight: 800;
-  font-size: 14px;
-  color: var(--bg-app);
-  background: var(--brand);
-  border-radius: 3px;
+  color: var(--brand);
+}
+.logomark svg {
+  width: 100%;
+  height: 100%;
+}
+/* Set here, not as a fill="var()" attribute, which not every browser resolves. */
+.logomark-k {
+  fill: var(--bg-app);
+}
+/* Pure white on the darker light-theme amber, as in public/favicon.svg. */
+:root[data-theme='light'] .logomark-k {
+  fill: #fff;
 }
 .topbar-tools {
   display: flex;
@@ -915,6 +923,10 @@ button.sb-conn:hover .sb-conn-text {
   .brand strong {
     font-size: 12.5px;
     letter-spacing: 0.06em;
+  }
+  .logomark {
+    width: 24px;
+    height: 24px;
   }
   .tool-btn {
     width: 28px;
