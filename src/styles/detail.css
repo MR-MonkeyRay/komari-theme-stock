@@ -561,8 +561,44 @@
   margin-left: 6px;
   background: var(--ma20);
 }
-.lg-vol {
-  margin-left: auto;
+/* Legend of the VOL pane, at its top-left like a stock chart's indicator header. */
+.kline-sublegend {
+  position: absolute;
+  z-index: 2;
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 3px 10px;
+  font-size: 11px;
+  color: var(--text-3);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.kline-sublegend b {
+  font-weight: 650;
+  color: var(--text-1);
+}
+.kline-sublegend b.up {
+  color: var(--up);
+}
+.kline-sublegend b.down {
+  color: var(--down);
+}
+.kline-sublegend i {
+  font-style: normal;
+}
+.lg-tag {
+  color: var(--text-2);
+}
+.lg-split {
+  color: var(--text-2);
+}
+.lg-ma5 b {
+  color: var(--ma5);
+}
+.lg-ma10 b {
+  color: var(--ma20);
 }
 .kline-canvas {
   position: relative;
@@ -984,7 +1020,8 @@
   .chart-tools .chart-now,
   .lg-ma,
   .lg-time,
-  .lg-vol {
+  .lg-split,
+  .lg-ma5 {
     display: none;
   }
   .kline-legend {

@@ -141,7 +141,7 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange,
           <section className="panel chart-panel chart-main">
             <div className="panel-head compact">
               <h3>
-                CPU 使用率 <small>K 线 · 网络副图</small>
+                CPU 使用率 <small>K 线 · 量：网络流量</small>
               </h3>
               <div className="chart-tools">
                 <span className="chart-now num">

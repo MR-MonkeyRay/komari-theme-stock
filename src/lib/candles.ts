@@ -65,6 +65,30 @@ export function buildVolume(h: HistoryResult, uuid: string): Volume[] {
     .map((t) => ({ time: t / 1000, up: up?.get(t) ?? 0, down: down?.get(t) ?? 0 }))
 }
 
+/** One bar of the VOL pane: total throughput, its split, and the direction of the CPU candle above. */
+export interface VolBar extends Volume {
+  total: number
+  dir: 'up' | 'down' | 'flat'
+  ma5?: number
+  ma10?: number
+}
+
+/**
+ * The traffic pane drawn like a stock chart's volume: bars of up + down, each taking the direction
+ * of the candle in the same bucket (as volume follows price there), with 5- and 10-bucket averages.
+ */
+export function volumeBars(volume: Volume[], candles: Candle[]): VolBar[] {
+  const byTime = new Map(candles.map((c) => [c.time, c]))
+  const totals: number[] = []
+  const avg = (n: number) => (totals.length >= n ? totals.slice(-n).reduce((a, b) => a + b, 0) / n : undefined)
+  return volume.map((v) => {
+    const c = byTime.get(v.time)
+    const total = v.up + v.down
+    totals.push(total)
+    return { ...v, total, dir: !c || c.close === c.open ? 'flat' : c.close > c.open ? 'up' : 'down', ma5: avg(5), ma10: avg(10) }
+  })
+}
+
 export function movingAverage(slots: Slot[], n: number) {
   const out: { time: number; value?: number }[] = []
   const win: number[] = []

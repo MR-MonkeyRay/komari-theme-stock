@@ -52,9 +52,16 @@
   --meter-track: #1a1f28;
 
   --net-up: #38bdf8;
-  --net-up-bar: rgb(56 189 248 / 0.46);
   --net-down: #f59e0b;
-  --net-down-bar: rgb(245 158 11 / 0.44);
+  /* VOL bars under the CPU candles: rising buckets hollow (stroke + faint fill), falling ones a
+     half-strength solid, so the bars sit a step behind the candles. */
+  --vol-red-stroke: rgb(255 77 82 / 0.82);
+  --vol-red-fill: rgb(255 77 82 / 0.12);
+  --vol-red-solid: rgb(255 77 82 / 0.54);
+  --vol-green-stroke: rgb(0 200 120 / 0.82);
+  --vol-green-fill: rgb(0 200 120 / 0.12);
+  --vol-green-solid: rgb(0 200 120 / 0.56);
+  --vol-flat: rgb(136 144 158 / 0.45);
   /* Size units on the home board's traffic and network columns, more salient as they grow
      (white / indigo / lime / orchid / amethyst). Hues keep clear of red and green (moves, alerts)
      and of the sky-blue upload and amber download colors. */
@@ -136,9 +143,14 @@
   --meter-track: #e6eaf0;
 
   --net-up: #0284c7;
-  --net-up-bar: rgb(2 132 199 / 0.5);
   --net-down: #c2610c;
-  --net-down-bar: rgb(229 142 26 / 0.5);
+  --vol-red-stroke: rgb(225 37 54 / 0.82);
+  --vol-red-fill: rgb(225 37 54 / 0.1);
+  --vol-red-solid: rgb(225 37 54 / 0.52);
+  --vol-green-stroke: rgb(0 138 82 / 0.82);
+  --vol-green-fill: rgb(0 138 82 / 0.1);
+  --vol-green-solid: rgb(0 138 82 / 0.54);
+  --vol-flat: rgb(107 116 133 / 0.42);
   --unit-b: #626c7e;
   --unit-k: #1f2430;
   --unit-m: #4b4dc7;
@@ -174,6 +186,9 @@
   --down: var(--green);
   --down-soft: var(--green-soft);
   --down-line: var(--green-line);
+  --vol-up-stroke: var(--vol-red-stroke);
+  --vol-up-fill: var(--vol-red-fill);
+  --vol-down: var(--vol-green-solid);
 
   --font-sans: 'Inter Variable', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'HarmonyOS Sans SC', 'Hiragino Sans GB',
     'Microsoft YaHei', 'Noto Sans CJK SC', 'Noto Sans SC', sans-serif;
@@ -193,4 +208,7 @@
   --down: var(--red);
   --down-soft: var(--red-soft);
   --down-line: var(--red-line);
+  --vol-up-stroke: var(--vol-green-stroke);
+  --vol-up-fill: var(--vol-green-fill);
+  --vol-down: var(--vol-red-solid);
 }

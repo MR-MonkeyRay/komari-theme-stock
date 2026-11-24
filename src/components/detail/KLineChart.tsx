@@ -1,8 +1,8 @@
 import clsx from 'clsx'
-import { CandlestickSeries, createChart, HistogramSeries, LineSeries, LineStyle, type IChartApi, type IPriceLine, type ISeriesApi, type MouseEventParams, type Time } from 'lightweight-charts'
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { CandlestickSeries, createChart, LineSeries, LineStyle, type IChartApi, type IPriceLine, type ISeriesApi, type MouseEventParams, type Time } from 'lightweight-charts'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { cssVar, usePaletteVersion } from '../../lib/appearance'
-import { isCandle, movingAverage, type Candle, type Slot, type Volume } from '../../lib/candles'
+import { isCandle, movingAverage, volumeBars, type Candle, type Slot, type Volume } from '../../lib/candles'
 import { size } from '../../lib/format'
 import { asTs, baseChartOptions, chartPalette, crosshairLabel } from './chartBase'
 
@@ -35,8 +35,9 @@ export default function KLineChart({ slots, volume, format, percent, ma, loading
     candle: ISeriesApi<'Candlestick'>
     ma5?: ISeriesApi<'Line'>
     ma20?: ISeriesApi<'Line'>
-    up?: ISeriesApi<'Histogram'>
-    down?: ISeriesApi<'Histogram'>
+    vol?: ISeriesApi<'Candlestick'>
+    volMa5?: ISeriesApi<'Line'>
+    volMa10?: ISeriesApi<'Line'>
   } | null>(null)
   const lastLine = useRef<IPriceLine | null>(null)
   const palette = usePaletteVersion()
@@ -48,7 +49,11 @@ export default function KLineChart({ slots, volume, format, percent, ma, loading
   }, [format])
 
   const candles = useMemo(() => slots.filter(isCandle), [slots])
-  const volByTime = useMemo(() => new Map(volume?.map((v) => [v.time, v])), [volume])
+  const bars = useMemo(() => (volume ? volumeBars(volume, candles) : []), [volume, candles])
+  const barByTime = useMemo(() => new Map(bars.map((b) => [b.time, b])), [bars])
+  // The VOL pane's own legend sits at the top of that pane, which moves as the chart resizes.
+  const legend = useRef<HTMLDivElement>(null)
+  const [subTop, setSubTop] = useState<number | null>(null)
 
   // Create once; series are added according to the props that never change per instance.
   useEffect(() => {
@@ -77,14 +82,18 @@ export default function KLineChart({ slots, volume, format, percent, ma, loading
       s.ma20 = c.addSeries(LineSeries, line)
     }
     if (volume) {
-      // Mirrored volume: upload above zero, download below.
-      const volFormat = (v: number) => (v > 0 ? '↑' + size(v, true) : v < 0 ? '↓' + size(-v, true) : '0')
-      const opts = { priceFormat: { type: 'custom' as const, formatter: volFormat, minMove: 1 }, priceLineVisible: false, lastValueVisible: false }
-      s.up = c.addSeries(HistogramSeries, opts, 1)
-      s.down = c.addSeries(HistogramSeries, opts, 1)
-      s.up.priceScale().applyOptions({ scaleMargins: { top: 0.1, bottom: 0.1 } })
-      c.panes()[0].setStretchFactor(0.8)
-      c.panes()[1].setStretchFactor(0.2)
+      // VOL: throughput bars from zero, hollow under a rising candle and solid under a falling one,
+      // drawn with the candle series itself (open 0 → close v rises, v → 0 falls) so they match the
+      // candles above exactly.
+      const volFormat = { type: 'custom' as const, formatter: (v: number) => (v > 0 ? size(v, true) : '0'), minMove: 1 }
+      s.vol = c.addSeries(CandlestickSeries, { priceFormat: volFormat, wickVisible: false, priceLineVisible: false, lastValueVisible: false }, 1)
+      const avgLine = { lineWidth: 1 as const, priceFormat: volFormat, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false }
+      s.volMa5 = c.addSeries(LineSeries, { ...avgLine, visible: !window.matchMedia('(max-width: 640px)').matches }, 1)
+      s.volMa10 = c.addSeries(LineSeries, avgLine, 1)
+      // Headroom at the top of the pane for its legend.
+      s.vol.priceScale().applyOptions({ scaleMargins: { top: 0.3, bottom: 0 } })
+      c.panes()[0].setStretchFactor(0.76)
+      c.panes()[1].setStretchFactor(0.24)
     }
     if (!volume) c.applyOptions({ rightPriceScale: { scaleMargins: { top: 0.14, bottom: 0.12 } } })
     chart.current = c
@@ -122,8 +131,10 @@ export default function KLineChart({ slots, volume, format, percent, ma, loading
     s.candle.applyOptions({ upColor: cssVar('--bg-chart'), borderUpColor: up, wickUpColor: up, downColor: down, borderDownColor: down, wickDownColor: down })
     s.ma5?.applyOptions({ color: cssVar('--ma5') })
     s.ma20?.applyOptions({ color: cssVar('--ma20') })
-    s.up?.applyOptions({ color: cssVar('--net-up-bar') })
-    s.down?.applyOptions({ color: cssVar('--net-down-bar') })
+    const volDown = cssVar('--vol-down')
+    s.vol?.applyOptions({ upColor: cssVar('--vol-up-fill'), borderUpColor: cssVar('--vol-up-stroke'), downColor: volDown, borderDownColor: volDown })
+    s.volMa5?.applyOptions({ color: cssVar('--ma5') })
+    s.volMa10?.applyOptions({ color: cssVar('--ma20') })
   }, [palette])
 
   // Data.
@@ -147,11 +158,35 @@ export default function KLineChart({ slots, volume, format, percent, ma, loading
       s.ma5.setData(conv(movingAverage(slots, 5)))
       s.ma20.setData(conv(movingAverage(slots, 20)))
     }
-    if (s.up && s.down && volume) {
-      s.up.setData(volume.map((v) => ({ time: asTs(v.time), value: v.up })))
-      s.down.setData(volume.map((v) => ({ time: asTs(v.time), value: -v.down })))
+    if (s.vol && s.volMa5 && s.volMa10) {
+      const flat = cssVar('--vol-flat')
+      s.vol.setData(
+        bars.map((b) => {
+          const time = asTs(b.time)
+          if (b.dir === 'down') return { time, open: b.total, high: b.total, low: 0, close: 0 }
+          const bar = { time, open: 0, high: b.total, low: 0, close: b.total }
+          return b.dir === 'flat' ? { ...bar, color: flat, borderColor: flat } : bar
+        }),
+      )
+      s.volMa5.setData(bars.map((b) => (b.ma5 === undefined ? { time: asTs(b.time) } : { time: asTs(b.time), value: b.ma5 })))
+      s.volMa10.setData(bars.map((b) => (b.ma10 === undefined ? { time: asTs(b.time) } : { time: asTs(b.time), value: b.ma10 })))
     }
-  }, [slots, candles, volume, palette])
+  }, [slots, candles, bars, palette])
+
+  // Keep the VOL legend at the top of its pane.
+  useLayoutEffect(() => {
+    if (!volume || !host.current) return
+    const place = () => {
+      const panes = chart.current?.panes()
+      if (!panes || panes.length < 2 || !legend.current) return
+      setSubTop(legend.current.offsetHeight + panes[0].getHeight() + 1)
+    }
+    const ro = new ResizeObserver(() => requestAnimationFrame(place))
+    ro.observe(host.current)
+    place()
+    return () => ro.disconnect()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Fit when the range changes (not on every refresh, so a zoomed view stays put).
   useEffect(() => {
@@ -186,13 +221,13 @@ export default function KLineChart({ slots, volume, format, percent, ma, loading
   const gap = hover !== null && hover.candle === null
   const shown = gap ? null : (hover?.candle ?? candles[candles.length - 1] ?? null)
   const shownTime = hover?.time ?? shown?.time
-  const vol = shownTime !== undefined ? volByTime.get(shownTime) : undefined
+  const bar = shownTime !== undefined ? barByTime.get(shownTime) : undefined
   const chg = shown ? shown.close - shown.open : 0
   const dir = chg > 0 ? 'up' : chg < 0 ? 'down' : 'flat'
 
   return (
     <div className={clsx('kline', offline && 'is-offline', loading && !candles.length && 'is-loading', stale && 'is-stale')}>
-      <div className="kline-legend num" aria-hidden="true">
+      <div className="kline-legend num" aria-hidden="true" ref={legend}>
         {gap ? (
           <>
             <span className="lg-time">{crosshairLabel(hover.time as Time)}</span>
@@ -225,11 +260,6 @@ export default function KLineChart({ slots, volume, format, percent, ma, loading
                 MA20
               </span>
             )}
-            {vol && (
-              <span className="lg-vol">
-                <b className="net-up">↑{size(vol.up, true)}</b> <b className="net-down">↓{size(vol.down, true)}</b>
-              </span>
-            )}
           </>
         ) : (
           <span className="dim">{loading ? '加载中…' : '所选范围内没有样本'}</span>
@@ -244,6 +274,33 @@ export default function KLineChart({ slots, volume, format, percent, ma, loading
         onKeyDown={onKey}
         onBlur={onBlur}
       />
+      {volume && subTop !== null && candles.length > 0 && (
+        <div className="kline-sublegend num" style={{ top: subTop }} aria-hidden="true">
+          <span className="lg-tag">VOL</span>
+          {bar ? (
+            <>
+              <b className={bar.dir}>{size(bar.total, true)}</b>
+              <span className="lg-split">
+                (<i className="net-up">↑</i>
+                {size(bar.up)} <i className="net-down">↓</i>
+                {size(bar.down)})
+              </span>
+              {bar.ma5 !== undefined && (
+                <span className="lg-ma5">
+                  MA5 <b>{size(bar.ma5)}</b>
+                </span>
+              )}
+              {bar.ma10 !== undefined && (
+                <span className="lg-ma10">
+                  MA10 <b>{size(bar.ma10)}</b>
+                </span>
+              )}
+            </>
+          ) : (
+            <span className="dim">无流量样本</span>
+          )}
+        </div>
+      )}
       {loading && !candles.length && <div className="kline-skeleton skeleton" aria-hidden="true" />}
       {offline && <span className="kline-watermark">离线 · 历史快照</span>}
     </div>
