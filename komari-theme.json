@@ -1,5 +1,5 @@
 {
-  "name": "komari-theme-stock",
+  "name": "Komari Theme Stock",
   "short": "komari-theme-stock",
   "description": {
     "zh-CN": "股票行情软件风格的 Komari 主题：报价表式节点列表与 K 线式资源趋势",
@@ -12,8 +12,8 @@
   "configuration": {
     "type": "managed",
     "name": {
-      "zh-CN": "komari-theme-stock 设置",
-      "en": "komari-theme-stock Settings"
+      "zh-CN": "Komari Theme Stock 设置",
+      "en": "Komari Theme Stock Settings"
     },
     "data": [
       {

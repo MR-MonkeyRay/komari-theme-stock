@@ -1,4 +1,4 @@
-# komari-theme-stock
+# Komari Theme Stock
 
 [![CI](https://github.com/MR-MonkeyRay/komari-theme-stock/actions/workflows/ci.yml/badge.svg)](https://github.com/MR-MonkeyRay/komari-theme-stock/actions/workflows/ci.yml)
 
@@ -17,7 +17,7 @@
 
 ## 主题设置
 
-在 Komari 后台「主题管理 → komari-theme-stock 设置」中调整：
+在 Komari 后台「主题管理 → Komari Theme Stock 设置」中调整：
 
 | 设置 | 说明 |
 | --- | --- |
