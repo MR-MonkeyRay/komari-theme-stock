@@ -2,21 +2,28 @@ import { useCallback, useEffect, useMemo } from 'react'
 import { useLocation, useSearchParams } from 'react-router'
 import { create } from 'zustand'
 import { parseTags } from './format'
+import { isHot } from './market'
 import type { Row } from './model'
 import { CONTINENTS, continentName } from './region'
 import type { SiteSettings } from './settings'
 
-// Board view state (search, group tab, sort) lives in the URL query, so a reload or a shared link
-// shows the same board, and the detail drawer keeps it while it is open.
+// Board view state (search, group tab, quick filter, sort) lives in the URL query, so a reload or a
+// shared link shows the same board, and the detail drawer keeps it while it is open.
 
 export type SortKey = 'name' | 'uptime' | 'cpu' | 'ram' | 'disk' | 'load' | 'traffic' | 'net' | 'seen'
 export type Sort = { key: SortKey; dir: 'asc' | 'desc' } | null
+
+/** Quick filters from the index strip: only offline nodes, or only high-load ones. */
+export type Quick = 'offline' | 'hot' | null
+
+export const QUICK_LABEL = { offline: '仅离线', hot: '仅高负载' } as const
 
 export interface BoardQuery {
   /** Search text. */
   q: string
   /** Group tab key; 'all' shows every group. */
   group: string
+  quick: Quick
   sort: Sort
 }
 
@@ -26,6 +33,19 @@ function parseSort(raw: string | null): Sort {
   const [key, dir] = (raw ?? '').split('-')
   if (!SORT_KEYS.includes(key as SortKey) || (dir !== 'asc' && dir !== 'desc')) return null
   return { key: key as SortKey, dir }
+}
+
+/** What each sort orders by, for the "按 CPU 降序" chip. */
+export const SORT_LABEL: Record<SortKey, string> = {
+  name: '名称',
+  uptime: '运行时长',
+  cpu: 'CPU',
+  ram: '内存',
+  disk: '磁盘',
+  load: '负载',
+  traffic: '流量',
+  net: '网速',
+  seen: '最后上报',
 }
 
 /** Default direction when a column is first sorted: names A→Z, numbers high→low. */
@@ -50,8 +70,10 @@ export function useBoardQuery() {
   const typed = useTyped((s) => s.text)
   const q = typed ?? urlQ
   const group = params.get('g') ?? 'all'
+  const f = params.get('f')
+  const quick: Quick = f === 'offline' || f === 'hot' ? f : null
   const sortRaw = params.get('sort')
-  const query = useMemo<BoardQuery>(() => ({ q, group, sort: parseSort(sortRaw) }), [q, group, sortRaw])
+  const query = useMemo<BoardQuery>(() => ({ q, group, quick, sort: parseSort(sortRaw) }), [q, group, quick, sortRaw])
 
   // Our own write landing keeps the typed text (typing may have gone on meanwhile); any other
   // navigation (a link, back/forward, the site mark) brings the URL's search back.
@@ -88,6 +110,7 @@ export function useBoardQuery() {
           const set = (k: string, v: string | null) => (v ? next.set(k, v) : next.delete(k))
           if (text !== null) set('q', text || null)
           if ('group' in patch) set('g', patch.group && patch.group !== 'all' ? patch.group : null)
+          if ('quick' in patch) set('f', patch.quick ?? null)
           if ('sort' in patch) set('sort', patch.sort ? `${patch.sort.key}-${patch.sort.dir}` : null)
           return next
         },
@@ -172,7 +195,7 @@ export interface BoardView {
   allGroups: Group[]
   /** The tab in effect: the URL's when it still exists, else 'all'. */
   filter: string
-  /** Groups after the tab and search filters (empty groups dropped). */
+  /** Groups after the tab, quick and search filters (empty groups dropped). */
   groups: Group[]
   /** Sorted rows when a column sort is on (the board is then one flat list), else null. */
   flat: Row[] | null
@@ -185,8 +208,9 @@ export function boardView(rows: Row[], by: SiteSettings['groupBy'], query: Board
   // A tab from an old link that no longer exists (or grouping switched off) shows everything.
   const filter = by !== 'none' && allGroups.some((g) => g.key === query.group) ? query.group : 'all'
   const q = query.q.trim().toLowerCase()
+  const quick = (r: Row) => (query.quick === 'offline' ? !r.online : query.quick === 'hot' ? isHot(r) : true)
   const match = (r: Row) =>
-    !q || [r.node.name, r.region.name, r.region.code ?? '', r.code.area, r.code.hash, r.node.group, ...parseTags(r.node.tags).map((t) => t.text)].some((s) => s?.toLowerCase().includes(q))
+    quick(r) && (!q || [r.node.name, r.region.name, r.region.code ?? '', r.code.area, r.code.hash, r.node.group, ...parseTags(r.node.tags).map((t) => t.text)].some((s) => s?.toLowerCase().includes(q)))
   const groups = allGroups
     .filter((g) => filter === 'all' || g.key === filter)
     .map((g) => ({ ...g, rows: g.rows.filter(match) }))

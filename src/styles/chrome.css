@@ -47,8 +47,9 @@
 
 .panel-title {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 6px 10px;
 }
 .panel-title h1 {
   margin: 0;
@@ -74,6 +75,27 @@
   color: var(--text-2);
   border: 1px solid var(--line-strong);
   border-radius: 10px;
+}
+/* An active filter or sort on the board; clicking it removes it. */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 6px 0 9px;
+  font-size: 11.5px;
+  white-space: nowrap;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: 11px;
+  transition: background-color 150ms ease;
+}
+.chip:hover {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.chip svg {
+  opacity: 0.75;
 }
 
 /* ---------- top bar ---------- */
@@ -355,6 +377,53 @@ button.sb-conn:hover .sb-conn-text {
 }
 .ix:first-child {
   border-left: 0;
+}
+/* Index cells that filter the board (high load) and the offline count. */
+button.ix {
+  align-items: stretch;
+  text-align: left;
+  transition: background-color 150ms ease;
+}
+.ix-pick {
+  margin: -2px -5px;
+  padding: 2px 5px;
+  font: inherit;
+  letter-spacing: inherit;
+  border-radius: var(--radius-sm);
+  transition: background-color 150ms ease;
+}
+button.ix:hover:not(:disabled),
+.ix-pick:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+button.ix:disabled,
+.ix-pick:disabled {
+  cursor: default;
+}
+/* Pressed: the same accent as the board's filter chips, a ring rather than a line, so it does not
+   crowd the red bar under the offline count. */
+button.ix.is-on,
+.ix-pick.is-on {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+/* Dotted underline hints that the count is clickable (NumberFlow ignores text-decoration). */
+.ix-pick:not(:disabled, .is-on) {
+  background-image: linear-gradient(to right, color-mix(in srgb, currentColor 60%, transparent) 50%, transparent 0);
+  background-position: 0 100%;
+  background-size: 4px 1px;
+  background-repeat: repeat-x;
+  background-origin: content-box;
+  background-clip: content-box;
+}
+/* A finger-sized hit area without a bigger box. */
+.ix-pick {
+  position: relative;
+}
+.ix-pick::after {
+  content: '';
+  position: absolute;
+  inset: -8px -6px;
 }
 .ix-label {
   font-size: 11px;
@@ -856,6 +925,11 @@ button.sb-conn:hover .sb-conn-text {
 }
 .sb-news-item.is-bad {
   color: var(--alert);
+}
+.sb-news-item a:hover,
+.sb-news-item a:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 .sb-hints {
   margin-right: 14px;

@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { forwardRef, useRef, type KeyboardEvent } from 'react'
 import { Link, useLocation } from 'react-router'
 import type { Sparks } from '../lib/api'
-import { firstDir, useBoardQuery, type BoardView, type SortKey } from '../lib/board'
+import { firstDir, QUICK_LABEL, SORT_LABEL, useBoardQuery, type BoardView, type SortKey } from '../lib/board'
 import { ago, duration, finite, levelOf, parseTags, pct, signed, size } from '../lib/format'
 import { metricTrail, type BoardMetric, type Row } from '../lib/model'
 import type { ThemeSettings } from '../lib/settings'
@@ -137,7 +137,7 @@ const QuoteRow = forwardRef<HTMLAnchorElement, { r: Row; x: BoardExtras; showSpa
 })
 
 export function QuoteBoard({ rows, view, settings, x, loading, searchRef }: { rows: Row[]; view: BoardView; settings: ThemeSettings; x: BoardExtras; loading: boolean; searchRef: React.RefObject<HTMLInputElement | null> }) {
-  const [{ q: query, sort }, setBoard, flushQuery] = useBoardQuery()
+  const [{ q: query, quick, sort }, setBoard, flushQuery] = useBoardQuery()
   const { search } = useLocation()
   const listRef = useRef<HTMLDivElement>(null)
   const showSpark = settings.showSparkline
@@ -187,6 +187,19 @@ export function QuoteBoard({ rows, view, settings, x, loading, searchRef }: { ro
           <span className="slot num">01</span>
           <h1 id="board-title">全部节点</h1>
           <span className="count num">{count} 台</span>
+          {/* What is narrowing or reordering the board, each one click from undone. */}
+          {quick && (
+            <button type="button" className="chip" onClick={() => setBoard({ quick: null })} aria-label={`取消筛选：${QUICK_LABEL[quick]}`}>
+              {QUICK_LABEL[quick]}
+              <X size={12} aria-hidden="true" />
+            </button>
+          )}
+          {sort && (
+            <button type="button" className="chip" onClick={() => setBoard({ sort: null })} aria-label={`取消排序（按${SORT_LABEL[sort.key]}${sort.dir === 'asc' ? '升序' : '降序'}），${settings.groupBy === 'none' ? '恢复默认顺序' : '恢复分组'}`}>
+              按 {SORT_LABEL[sort.key]} {sort.dir === 'asc' ? '升序' : '降序'}
+              <X size={12} aria-hidden="true" />
+            </button>
+          )}
         </div>
         {/* The label covers icon and input only: a button inside a label is not allowed. */}
         <div className="search">
@@ -253,7 +266,7 @@ export function QuoteBoard({ rows, view, settings, x, loading, searchRef }: { ro
           rows.length ? (
             <div className="empty">
               <p>没有匹配的节点</p>
-              <button type="button" className="tool-btn" onClick={() => setBoard({ q: '', group: 'all' })}>
+              <button type="button" className="tool-btn" onClick={() => setBoard({ q: '', group: 'all', quick: null })}>
                 清除筛选
               </button>
             </div>

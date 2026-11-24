@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState, type ComponentProps } from 'react'
 import { Link, useLocation } from 'react-router'
 import { SettingsButton } from './Settings'
 import type { Me } from '../lib/api'
+import type { Quick } from '../lib/board'
 import { resolveTheme, type Appearance } from '../lib/appearance'
 import { clock, dateText, finite, sizeParts, utcOffset } from '../lib/format'
 import type { Conn } from '../lib/model'
@@ -198,8 +199,9 @@ function LiveSize({ bytes, rate }: { bytes: number | null; rate?: boolean }) {
   )
 }
 
-export function IndexStrip({ m, loading }: { m: MarketSummary; loading: boolean }) {
+export function IndexStrip({ m, loading, quick, onQuick }: { m: MarketSummary; loading: boolean; quick: Quick; onQuick: (q: Quick) => void }) {
   const hot = m.hot ?? 0
+  const toggle = (q: Exclude<Quick, null>) => onQuick(quick === q ? null : q)
   const normal = Math.max(0, m.online - hot)
   return (
     <section className="index-strip" aria-label="全网概览">
@@ -214,9 +216,18 @@ export function IndexStrip({ m, loading }: { m: MarketSummary; loading: boolean 
                 <NumberFlow value={m.online} />
               </span>
               <span className="ix-sep">/</span>
-              <span className={m.offline ? 'bad' : 'dim'}>
+              {/* The offline count and the high-load cell filter the board to those nodes. */}
+              <button
+                type="button"
+                className={clsx('ix-pick', m.offline ? 'bad' : 'dim', quick === 'offline' && 'is-on')}
+                aria-pressed={quick === 'offline'}
+                aria-label={`只看离线节点（${m.offline} 台）`}
+                disabled={!m.offline && quick !== 'offline'}
+                onClick={() => toggle('offline')}
+                title={quick === 'offline' ? '点击显示全部节点' : m.offline ? '点击只看离线节点' : undefined}
+              >
                 <NumberFlow value={m.offline} />
-              </span>
+              </button>
             </>
           )}
         </span>
@@ -226,7 +237,14 @@ export function IndexStrip({ m, loading }: { m: MarketSummary; loading: boolean 
           <i className="b-off" style={{ flexGrow: m.offline }} />
         </span>
       </div>
-      <div className="ix" title={`在线节点：CPU ≥ ${HOT.cpu}% 或内存 ≥ ${HOT.ram}%`}>
+      <button
+        type="button"
+        className={clsx('ix ix-button', quick === 'hot' && 'is-on')}
+        aria-pressed={quick === 'hot'}
+        disabled={!hot && quick !== 'hot'}
+        onClick={() => toggle('hot')}
+        title={`在线节点：CPU ≥ ${HOT.cpu}% 或内存 ≥ ${HOT.ram}%${hot || quick === 'hot' ? (quick === 'hot' ? '。点击显示全部节点' : '。点击只看这些节点') : ''}`}
+      >
         <span className="ix-label">高负载节点</span>
         <span className="ix-value num">
           {m.hot === null ? <span className="dash">—</span> : (
@@ -236,7 +254,7 @@ export function IndexStrip({ m, loading }: { m: MarketSummary; loading: boolean 
             </>
           )}
         </span>
-      </div>
+      </button>
       <div className="ix">
         <span className="ix-label">内存占用</span>
         <span className="ix-value num">
@@ -277,14 +295,19 @@ export function IndexStrip({ m, loading }: { m: MarketSummary; loading: boolean 
 
 export function StatusBar({ conn, retrying, onRetry, items, now, version }: { conn: Conn; retrying: boolean; onRetry: () => void; items: Bulletin[]; now: number; version?: string }) {
   const [index, setIndex] = useState(0)
-  const [paused, setPaused] = useState(false)
+  // The ticker pauses while the mouse is on it or its link has focus. Focus is kept as the item's
+  // id: when that item resolves, its link leaves without a blur event, and the pause ends with it.
+  const [hovered, setHovered] = useState(false)
+  const [focusedId, setFocusedId] = useState<string | null>(null)
   const list = useMemo(() => (items.length ? items : [{ id: 'calm', level: 'info' as const, text: '全部节点运行平稳' }]), [items])
+  const current = list[index % list.length]
+  const paused = hovered || focusedId === current.id
   useEffect(() => {
     if (paused || list.length < 2) return
     const id = window.setInterval(() => setIndex((i) => (i + 1) % list.length), 5000)
     return () => window.clearInterval(id)
   }, [paused, list.length])
-  const current = list[index % list.length]
+  const location = useLocation()
   return (
     <footer className="statusbar">
       <span className="sb-status">
@@ -302,7 +325,7 @@ export function StatusBar({ conn, retrying, onRetry, items, now, version }: { co
         )}
         <Clock now={now} />
       </span>
-      <span className="sb-news" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} aria-live="polite">
+      <span className="sb-news" onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} onFocus={() => setFocusedId(current.id)} onBlur={() => setFocusedId(null)} aria-live="polite">
         <span className="sb-news-tag">异动</span>
         <span className="sb-news-track">
           <AnimatePresence mode="popLayout" initial={false}>
@@ -314,7 +337,13 @@ export function StatusBar({ conn, retrying, onRetry, items, now, version }: { co
               exit={{ y: -8, opacity: 0 }}
               transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
             >
-              {current.text}
+              {current.uuid ? (
+                <Link to={{ pathname: `/instance/${current.uuid}`, search: location.search }} state={{ fromBoard: true }} title="查看节点详情">
+                  {current.text}
+                </Link>
+              ) : (
+                current.text
+              )}
             </motion.span>
           </AnimatePresence>
         </span>

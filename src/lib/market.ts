@@ -13,13 +13,16 @@ export interface MarketSummary {
   traffic: { up: number; down: number; monthly: boolean } | null
 }
 
+/** High load (高负载): an online node whose CPU or memory reached HOT. */
+export const isHot = (r: Row) => r.online && ((r.cpu ?? 0) >= HOT.cpu || (r.ram ?? 0) >= HOT.ram)
+
 export function summarize(rows: Row[], traffic: MarketSummary['traffic']): MarketSummary {
   const live = rows.filter((r) => r.online && r.status)
   let hot: number | null = null
-  for (const { cpu, ram } of live) {
-    if (!finite(cpu) && !finite(ram)) continue
+  for (const r of live) {
+    if (!finite(r.cpu) && !finite(r.ram)) continue
     hot ??= 0
-    if ((cpu ?? 0) >= HOT.cpu || (ram ?? 0) >= HOT.ram) hot++
+    if (isHot(r)) hot++
   }
   const memUsed = live.reduce((a, r) => a + (r.status!.ram ?? 0), 0)
   const memTotal = live.reduce((a, r) => a + (r.status!.ram_total || r.node.mem_total || 0), 0)
@@ -39,17 +42,20 @@ export interface Bulletin {
   id: string
   level: 'warn' | 'bad' | 'info'
   text: string
+  /** The node it is about; the ticker links to its detail. */
+  uuid?: string
 }
 
 export function bulletins(rows: Row[]): Bulletin[] {
   const out: Bulletin[] = []
   for (const r of rows) {
     const n = r.node.name
-    if (!r.online) out.push({ id: `off-${r.node.uuid}`, level: 'bad', text: `${n} 离线` })
+    const uuid = r.node.uuid
+    if (!r.online) out.push({ id: `off-${uuid}`, level: 'bad', text: `${n} 离线`, uuid })
     else {
-      if ((r.cpu ?? 0) >= ALERT.cpu) out.push({ id: `cpu-${r.node.uuid}`, level: 'warn', text: `${n} CPU ${r.cpu!.toFixed(1)}%` })
-      if ((r.ram ?? 0) >= ALERT.ram) out.push({ id: `ram-${r.node.uuid}`, level: 'warn', text: `${n} 内存 ${r.ram!.toFixed(1)}%` })
-      if ((r.disk ?? 0) >= ALERT.disk) out.push({ id: `disk-${r.node.uuid}`, level: 'warn', text: `${n} 磁盘 ${r.disk!.toFixed(1)}%` })
+      if ((r.cpu ?? 0) >= ALERT.cpu) out.push({ id: `cpu-${uuid}`, level: 'warn', text: `${n} CPU ${r.cpu!.toFixed(1)}%`, uuid })
+      if ((r.ram ?? 0) >= ALERT.ram) out.push({ id: `ram-${uuid}`, level: 'warn', text: `${n} 内存 ${r.ram!.toFixed(1)}%`, uuid })
+      if ((r.disk ?? 0) >= ALERT.disk) out.push({ id: `disk-${uuid}`, level: 'warn', text: `${n} 磁盘 ${r.disk!.toFixed(1)}%`, uuid })
     }
   }
   return out

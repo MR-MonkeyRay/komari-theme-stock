@@ -48,7 +48,7 @@ export default function App() {
 
   // Grouping, tab, search and sort are applied once here: the board renders this view and the
   // drawer's [ / ] steps through the same on-screen order.
-  const [query] = useBoardQuery()
+  const [query, setBoard] = useBoardQuery()
   const view = useMemo(() => boardView(rows, settings.groupBy, query, traffic), [rows, settings.groupBy, query, traffic])
 
   const extras: BoardExtras = useMemo(() => ({ sparks: sparks.data, traffic, trafficMonthly: useMonthly, now }), [sparks.data, traffic, useMonthly, now])
@@ -82,7 +82,7 @@ export default function App() {
   return (
     <>
       <TopBar siteName={siteName} conn={conn} retrying={retrying} updatedAt={status.dataUpdatedAt} onRetry={retry} refreshSeconds={settings.refreshSeconds} me={me.data} mePending={me.isPending} appearance={appearance} onAppearance={setAppearance} />
-      <IndexStrip m={market} loading={nodes.isLoading} />
+      <IndexStrip m={market} loading={nodes.isLoading} quick={query.quick} onQuick={(quick) => setBoard({ quick })} />
       <main className="page">
         {nodes.isError ? (
           <section className="panel error-panel">
