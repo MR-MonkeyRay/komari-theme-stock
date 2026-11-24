@@ -79,6 +79,31 @@ export function useClientOps(enabled: boolean) {
   })
 }
 
+/** Komari's default for how many days before expiry its own notice goes out. */
+const DEFAULT_LEAD_DAYS = 7
+
+/**
+ * Days before expiry that count as due soon, from Komari's expiry notice setting, so the theme and
+ * Komari's notices agree. Null for a guest (no request is sent) and while loading; the default if
+ * the setting cannot be read.
+ */
+export function useExpiryLeadDays(enabled: boolean) {
+  const q = useQuery({
+    queryKey: ['admin', 'expiry-lead-days'],
+    enabled,
+    staleTime: 10 * 60_000,
+    retry: false,
+    // getSettings also holds credentials (API keys, OAuth secrets): only this number is kept.
+    queryFn: async ({ signal }) => {
+      const s = await rpc<Record<string, unknown> | null>('admin:getSettings', {}, signal)
+      const d = s?.expire_notification_lead_days
+      return typeof d === 'number' && Number.isFinite(d) && d >= 0 ? d : DEFAULT_LEAD_DAYS
+    },
+  })
+  if (!enabled) return null
+  return q.data ?? (q.isError ? DEFAULT_LEAD_DAYS : null)
+}
+
 export function usePublicSettings() {
   return useQuery({ queryKey: ['public'], queryFn: getPublic, staleTime: 60_000 })
 }

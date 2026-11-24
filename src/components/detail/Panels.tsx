@@ -5,6 +5,7 @@ import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
 import { create } from 'zustand'
 import type { ClientOps } from '../../lib/api'
 import type { NodeEvent, RangeStats, Volume } from '../../lib/candles'
+import { daysLeft, expiryNote } from '../../lib/market'
 import { clock, dateText, duration, finite, monthDayTime, parseTime, sameDay, size } from '../../lib/format'
 import type { Row } from '../../lib/model'
 import { continentName } from '../../lib/region'
@@ -117,11 +118,12 @@ export function NetworkPanel({ r, volume, traffic, monthly }: { r: Row; volume: 
 
 const CYCLES: Record<number, string> = { 30: '月付', 31: '月付', 90: '季付', 92: '季付', 180: '半年付', 182: '半年付', 365: '年付', 366: '年付', 730: '两年付', 1095: '三年付' }
 
-export function BillingPanel({ r, now }: { r: Row; now: number }) {
+/** `leadDays`: how close to expiry counts as due soon (Komari's expiry notice setting). */
+export function BillingPanel({ r, now, leadDays }: { r: Row; now: number; leadDays: number }) {
   const n = r.node
   const cycle = Number.isInteger(n.billing_cycle) ? n.billing_cycle : 0
   const expiry = parseTime(n.expired_at)
-  const left = expiry !== null ? Math.ceil((expiry - now) / 86400_000) : null
+  const left = daysLeft(n, now)
   const amount = finite(n.price) && n.price > 0 ? `${n.currency ? n.currency + ' ' : ''}${n.price.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}` : n.price === -1 ? '免费' : '—'
   if (amount === '—' && expiry === null && cycle === 0) return null
   return (
@@ -140,7 +142,7 @@ export function BillingPanel({ r, now }: { r: Row; now: number }) {
           {expiry !== null ? (
             <span className="num">
               {dateText(expiry)}
-              {left !== null && <em className={clsx('left', left < 0 ? 'bad' : left <= 7 ? 'warn' : 'dim')}>{left < 0 ? ` 已过期 ${-left} 天` : ` 剩 ${left} 天`}</em>}
+              {left !== null && <em className={clsx('left', left <= 0 ? 'bad' : left <= leadDays ? 'warn' : 'dim')}> {expiryNote(left)}</em>}
             </span>
           ) : (
             '—'

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { monthStart, useLatestStatus, useMe, useMetricDefinitions, useMonthlyTraffic, useNodes, usePublicSettings, useSparklines } from './lib/api'
+import { monthStart, useExpiryLeadDays, useIsAdmin, useLatestStatus, useMe, useMetricDefinitions, useMonthlyTraffic, useNodes, usePublicSettings, useSparklines } from './lib/api'
 import { useAppearance } from './lib/appearance'
 import { buildRows, connState, useNow, type Row } from './lib/model'
 import { useShallow } from 'zustand/react/shallow'
@@ -21,6 +21,7 @@ export default function App() {
   const defs = useMetricDefinitions()
   const now = useNow(1000)
   const me = useMe()
+  const leadDays = useExpiryLeadDays(useIsAdmin())
   const searchRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -122,7 +123,7 @@ export default function App() {
           </a>
         </p>
       </main>
-      <StatusBar conn={conn} retrying={retrying} onRetry={retry} items={bulletins(rows)} now={now} />
+      <StatusBar conn={conn} retrying={retrying} onRetry={retry} items={bulletins(rows, leadDays !== null ? { now, leadDays } : null)} now={now} />
       <NodeDetail rows={rows} order={view.order} settings={settings} traffic={traffic} monthly={useMonthly} now={now} ready={nodes.isSuccess} />
     </>
   )
