@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useSyncExternalStore } from 'react'
 import type { SparkSet, Trail } from './api'
 import { finite, parseTime, ratio } from './format'
 import { regionInfo, type RegionInfo } from './region'
@@ -66,9 +66,9 @@ export function dirOf(delta: number | null | undefined, threshold = 0.5): Dir | 
 /** Per-metric noise floor: memory and disk drift slowly, so small moves are not called out. */
 const FLAT_BELOW: Record<BoardMetric, number> = { cpu: 0.5, ram: 0.8, disk: 1 }
 
-/** 1h trail for one board metric, in percent, with the live value appended and Δ against the 1h mean. */
-export function metricTrail(r: Row, set: SparkSet | undefined, key: BoardMetric, now: number): MetricTrail {
-  const window: [number, number] = [now - HOUR, now]
+/** 1h trail (window ending at `end`) for one board metric, in percent, with the live value appended and Δ against the 1h mean. */
+export function metricTrail(r: Row, set: SparkSet | undefined, key: BoardMetric, end: number): MetricTrail {
+  const window: [number, number] = [end - HOUR, end]
   const empty: MetricTrail = { points: [], window, avg: null, delta: null, dir: null }
   if (!set) return empty
   const raw = (key === 'cpu' ? set.cpu : key === 'ram' ? set.mem : set.disk).filter((p) => p.t >= window[0] - 60_000)
@@ -95,12 +95,41 @@ export function connState(q: { isSuccess: boolean; isError: boolean; dataUpdated
   return now - q.dataUpdatedAt > Math.max(6, refreshSeconds * 3) * 1000 ? 'stale' : 'live'
 }
 
-/** Re-renders every `ms` milliseconds; used for clocks and "x s ago" labels. */
+// One timer per interval for the whole page, however many components read it: a hundred "x s
+// ago" labels then update in a single render pass instead of a hundred.
+const clocks = new Map<number, { now: number; subs: Set<() => void>; id: number }>()
+
+function clockFor(ms: number) {
+  let c = clocks.get(ms)
+  if (!c) clocks.set(ms, (c = { now: Date.now(), subs: new Set(), id: 0 }))
+  return c
+}
+
+function subscribeClock(ms: number, cb: () => void) {
+  const c = clockFor(ms)
+  c.subs.add(cb)
+  if (!c.id) {
+    // Normally the value was just read by the first render, and keeping it saves a second render;
+    // it is only old if that render was thrown away and the subscription came later.
+    if (Date.now() - c.now >= ms) c.now = Date.now()
+    c.id = window.setInterval(() => {
+      c.now = Date.now()
+      c.subs.forEach((f) => f())
+    }, ms)
+  }
+  return () => {
+    c.subs.delete(cb)
+    if (!c.subs.size) {
+      window.clearInterval(c.id)
+      // The next reader starts a fresh clock instead of rendering an old time first.
+      if (clocks.get(ms) === c) clocks.delete(ms)
+    }
+  }
+}
+
+/** Current time, refreshed every `ms` milliseconds by a timer shared with every other reader. */
 export function useNow(ms = 1000) {
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(Date.now()), ms)
-    return () => window.clearInterval(id)
-  }, [ms])
-  return now
+  const subscribe = useCallback((cb: () => void) => subscribeClock(ms, cb), [ms])
+  const read = useCallback(() => clockFor(ms).now, [ms])
+  return useSyncExternalStore(subscribe, read)
 }

@@ -3,20 +3,23 @@ import * as RadioGroup from '@radix-ui/react-radio-group'
 import clsx from 'clsx'
 import { ArrowDownUp, Check, ChevronRight, Search, X } from 'lucide-react'
 import { motion } from 'motion/react'
-import { forwardRef, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
+import { memo, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 import { Link, useLocation } from 'react-router'
 import type { Sparks } from '../lib/api'
 import { firstDir, QUICK_LABEL, SORT_LABEL, useBoardQuery, type BoardView, type Sort, type SortKey } from '../lib/board'
 import { ago, duration, finite, levelOf, parseTags, pct, signed, size } from '../lib/format'
-import { metricTrail, type BoardMetric, type Row } from '../lib/model'
+import { metricTrail, useNow, type BoardMetric, type Row } from '../lib/model'
 import type { ThemeSettings } from '../lib/settings'
 import { Flag, Meter, Pair, Segmented, Sparkline, Tick } from './primitives'
 
+// Rows re-render only when their own data or these shared extras change; nothing here ticks every
+// second (the "x s ago" label keeps its own clock), so a large board stays cheap between refreshes.
 export interface BoardExtras {
   sparks: Sparks | undefined
   traffic: (r: Row) => { up: number; down: number } | null
   trafficMonthly: boolean
-  now: number
+  /** Current time, refreshed once a minute: moves the 1h trails of nodes that stopped reporting. */
+  minute: number
 }
 
 const TAG_COLORS: Record<string, string> = {
@@ -62,7 +65,10 @@ const MIN_SPAN: Record<BoardMetric, number> = { cpu: 6, ram: 6, disk: 10 }
 /** Value, Δ vs. the 1h mean and the 1h trail (or a usage bar when trails are off). */
 function MetricCell({ r, k, x, showSpark, title }: { r: Row; k: BoardMetric; x: BoardExtras; showSpark: boolean; title?: string }) {
   const value = r[k]
-  const trail = showSpark ? metricTrail(r, x.sparks?.get(r.node.uuid), k, x.now) : null
+  // The trail window ends at the node's latest report; a node that stopped reporting drifts left
+  // with the minute clock.
+  const end = r.online && r.lastSeen ? r.lastSeen : x.minute
+  const trail = showSpark ? metricTrail(r, x.sparks?.get(r.node.uuid), k, end) : null
   return (
     <span className={clsx(`c-${k}`, 'metric', trail ? 'has-spark' : 'has-meter', levelOf(value))} title={title}>
       <span className="m-label">{METRIC_LABEL[k]}</span>
@@ -82,14 +88,28 @@ function MetricCell({ r, k, x, showSpark, title }: { r: Row; k: BoardMetric; x: 
   )
 }
 
-const QuoteRow = forwardRef<HTMLAnchorElement, { r: Row; x: BoardExtras; showSpark: boolean; search: string }>(function QuoteRow({ r, x, showSpark, search }, ref) {
+/** "x s ago" on the shared 1 s clock, so only this label re-renders every second, not its row. */
+function Ago({ t }: { t: number | null }) {
+  const now = useNow(1000)
+  return (
+    <time className="num" dateTime={t ? new Date(t).toISOString() : undefined}>
+      {ago(t, now)}
+    </time>
+  )
+}
+
+/** `rank` is the row's place in a sorted board (null when grouped); a change of place slides it. */
+const QuoteRow = memo(function QuoteRow({ r, x, showSpark, search, rank }: { r: Row; x: BoardExtras; showSpark: boolean; search: string; rank: number | null }) {
   const st = r.online ? r.status : undefined
   const t = x.traffic(r)
   const memText = st ? `${size(st.ram)} / ${size(st.ram_total || r.node.mem_total)}` : undefined
   const diskText = st ? `${size(st.disk)} / ${size(st.disk_total || r.node.disk_total)}` : undefined
   return (
-    <motion.div layout="position" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="row-wrap">
-      <Link ref={ref} to={{ pathname: `/instance/${r.node.uuid}`, search }} state={{ fromBoard: true }} className={clsx('qrow', !r.online && 'is-off')} data-uuid={r.node.uuid} aria-label={`${r.node.name} ${r.region.name} ${r.online ? '在线' : '离线'}，查看详情`}>
+    // Only a sorted board reorders. Layout tracking would measure every row on every data refresh;
+    // with the rank as its dependency it measures a row only when its place changes (rows are of
+    // equal height, so a row that keeps its rank keeps its position).
+    <motion.div layout={rank !== null ? 'position' : false} layoutDependency={rank} transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="row-wrap">
+      <Link to={{ pathname: `/instance/${r.node.uuid}`, search }} state={{ fromBoard: true }} className={clsx('qrow', !r.online && 'is-off')} data-uuid={r.node.uuid} aria-label={`${r.node.name} ${r.region.name} ${r.online ? '在线' : '离线'}，查看详情`}>
         <span className="c-name">
           <Flag code={r.region.code} title={r.region.name} />
           <span className="name-stack">
@@ -130,7 +150,7 @@ const QuoteRow = forwardRef<HTMLAnchorElement, { r: Row; x: BoardExtras; showSpa
           <Tags tags={r.node.tags} max={2} />
         </span>
         <span className="c-seen">
-          <time className="num" dateTime={r.lastSeen ? new Date(r.lastSeen).toISOString() : undefined}>{ago(r.lastSeen, x.now)}</time>
+          <Ago t={r.lastSeen} />
           <ChevronRight className="row-arrow" size={14} aria-hidden="true" />
         </span>
       </Link>
@@ -189,7 +209,8 @@ function SortMenu({ sort, grouped, onChange }: { sort: Sort; grouped: boolean; o
   )
 }
 
-export function QuoteBoard({ rows, view, onHold, settings, x, loading, searchRef }: { rows: Row[]; view: BoardView; onHold: (hold: boolean) => void; settings: ThemeSettings; x: BoardExtras; loading: boolean; searchRef: React.RefObject<HTMLInputElement | null> }) {
+// Memoized: the app re-renders every second for its clocks, the board only when its data does.
+export const QuoteBoard = memo(function QuoteBoard({ rows, view, onHold, settings, x, loading, searchRef }: { rows: Row[]; view: BoardView; onHold: (hold: boolean) => void; settings: ThemeSettings; x: BoardExtras; loading: boolean; searchRef: React.RefObject<HTMLInputElement | null> }) {
   const [{ q: query, quick, sort }, setBoard, flushQuery] = useBoardQuery()
   const { search } = useLocation()
   const listRef = useRef<HTMLDivElement>(null)
@@ -349,8 +370,8 @@ export function QuoteBoard({ rows, view, onHold, settings, x, loading, searchRef
           )
         ) : flat ? (
           <div className="group-body">
-            {flat.map((r) => (
-              <QuoteRow key={r.node.uuid} r={r} x={x} showSpark={showSpark} search={search} />
+            {flat.map((r, i) => (
+              <QuoteRow key={r.node.uuid} r={r} x={x} showSpark={showSpark} search={search} rank={i} />
             ))}
           </div>
         ) : (
@@ -379,7 +400,7 @@ export function QuoteBoard({ rows, view, onHold, settings, x, loading, searchRef
                 )}
                 <div className="group-body">
                   {g.rows.map((r) => (
-                    <QuoteRow key={r.node.uuid} r={r} x={x} showSpark={showSpark} search={search} />
+                    <QuoteRow key={r.node.uuid} r={r} x={x} showSpark={showSpark} search={search} rank={null} />
                   ))}
                 </div>
               </section>
@@ -389,4 +410,4 @@ export function QuoteBoard({ rows, view, onHold, settings, x, loading, searchRef
       </div>
     </section>
   )
-}
+})

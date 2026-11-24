@@ -6,7 +6,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { readSiteSettings, usePrefs, type ThemeSettings } from './lib/settings'
 import { IndexStrip, StatusBar, TopBar } from './components/Chrome'
 import { bulletins, summarize } from './lib/market'
-import { boardView, useBoardQuery, useHeldOrder } from './lib/board'
+import { boardView, useBoardQuery, useHeldOrder, type Quick } from './lib/board'
 import { QuoteBoard, type BoardExtras } from './components/QuoteBoard'
 import { NodeDetail } from './components/detail/NodeDetail'
 
@@ -50,10 +50,12 @@ export default function App() {
   // drawer's [ / ] steps through the same on-screen order.
   const [query, setBoard] = useBoardQuery()
   const liveView = useMemo(() => boardView(rows, settings.groupBy, query, traffic), [rows, settings.groupBy, query, traffic])
+  const onQuick = useCallback((quick: Quick) => setBoard({ quick }), [setBoard])
   const [holdOrder, setHoldOrder] = useState(false)
   const view = useHeldOrder(liveView, query, holdOrder)
 
-  const extras: BoardExtras = useMemo(() => ({ sparks: sparks.data, traffic, trafficMonthly: useMonthly, now }), [sparks.data, traffic, useMonthly, now])
+  const minute = useNow(60_000)
+  const extras: BoardExtras = useMemo(() => ({ sparks: sparks.data, traffic, trafficMonthly: useMonthly, minute }), [sparks.data, traffic, useMonthly, minute])
 
   const market = useMemo(() => {
     const totals = rows.map(traffic).filter((t): t is { up: number; down: number } => !!t)
@@ -84,7 +86,7 @@ export default function App() {
   return (
     <>
       <TopBar siteName={siteName} conn={conn} retrying={retrying} updatedAt={status.dataUpdatedAt} onRetry={retry} refreshSeconds={settings.refreshSeconds} me={me.data} mePending={me.isPending} appearance={appearance} onAppearance={setAppearance} />
-      <IndexStrip m={market} loading={nodes.isLoading} quick={query.quick} onQuick={(quick) => setBoard({ quick })} />
+      <IndexStrip m={market} loading={nodes.isLoading} quick={query.quick} onQuick={onQuick} />
       <main className="page">
         {nodes.isError ? (
           <section className="panel error-panel">

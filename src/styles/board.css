@@ -314,6 +314,10 @@ button.th:hover .sort-mark {
 
 .row-wrap {
   position: relative;
+  /* Rows off screen skip style, layout and paint; `auto` keeps each row's last measured height
+     so the scrollbar does not jump. Nothing in a row draws outside it (the focus ring is inset). */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 52px;
 }
 
 .qrow {
@@ -837,6 +841,9 @@ div.empty p {
 }
 
 @media (max-width: 860px) {
+  .row-wrap {
+    contain-intrinsic-size: auto 279px;
+  }
   .panel-head {
     flex-wrap: wrap;
   }

@@ -2,7 +2,7 @@ import NumberFlowBase from '@number-flow/react'
 import clsx from 'clsx'
 import { LogIn, Monitor, Moon, ShieldCheck, Sun } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
-import { useEffect, useMemo, useState, type ComponentProps } from 'react'
+import { memo, useEffect, useMemo, useState, type ComponentProps } from 'react'
 import { Link, useLocation } from 'react-router'
 import { SettingsButton } from './Settings'
 import type { Me } from '../lib/api'
@@ -199,7 +199,7 @@ function LiveSize({ bytes, rate }: { bytes: number | null; rate?: boolean }) {
   )
 }
 
-export function IndexStrip({ m, loading, quick, onQuick }: { m: MarketSummary; loading: boolean; quick: Quick; onQuick: (q: Quick) => void }) {
+export const IndexStrip = memo(function IndexStrip({ m, loading, quick, onQuick }: { m: MarketSummary; loading: boolean; quick: Quick; onQuick: (q: Quick) => void }) {
   const hot = m.hot ?? 0
   const toggle = (q: Exclude<Quick, null>) => onQuick(quick === q ? null : q)
   const normal = Math.max(0, m.online - hot)
@@ -291,7 +291,7 @@ export function IndexStrip({ m, loading, quick, onQuick }: { m: MarketSummary; l
       </div>
     </section>
   )
-}
+})
 
 export function StatusBar({ conn, retrying, onRetry, items, now, version }: { conn: Conn; retrying: boolean; onRetry: () => void; items: Bulletin[]; now: number; version?: string }) {
   const [index, setIndex] = useState(0)
