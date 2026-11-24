@@ -2,7 +2,7 @@ import * as Dialog from '@radix-ui/react-dialog'
 import clsx from 'clsx'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useMatch, useNavigate } from 'react-router'
 import { fitRange, useAvailableRanges, useClientOps, useExpiryLeadDays, useHistory, useIsAdmin } from '../../lib/api'
 import { buildCandles, buildVolume, inferEvents, rangeStats } from '../../lib/candles'
@@ -19,11 +19,10 @@ const GIB = 1024 ** 3
 const fmtPct = (v: number) => `${v.toFixed(1)}%`
 const fmtGiB = (v: number) => v.toFixed(v >= 100 ? 1 : 2)
 
-function DetailBody({ r, rows, settings, traffic, monthly, now, onStep }: { r: Row; rows: Row[]; settings: ThemeSettings; traffic: { up: number; down: number } | null; monthly: boolean; now: number; onStep: (d: number) => void }) {
+function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange, onStep }: { r: Row; rows: Row[]; settings: ThemeSettings; traffic: { up: number; down: number } | null; monthly: boolean; now: number; picked: Range; onRange: (r: Range) => void; onStep: (d: number) => void }) {
   const admin = useIsAdmin()
   const ops = useClientOps(admin).data?.[r.node.uuid]
   const leadDays = useExpiryLeadDays(admin)
-  const [picked, setRange] = useState<Range>(settings.defaultRange)
   const available = useAvailableRanges()
   const range = fitRange(picked, available)
   const history = useHistory(r.node.uuid, range, settings.refreshSeconds)
@@ -52,6 +51,19 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, onStep }: { r: R
   const dir = !r.online ? 'off' : finite(change) ? (change > 0.05 ? 'up' : change < -0.05 ? 'down' : 'flat') : 'flat'
   const idx = rows.findIndex((x) => x.node.uuid === uuid)
   const loading = history.isFetching && !fresh
+
+  // Paging to another node keeps the banner, the panels and the chart instances; only the content
+  // under the banner gives a short fade so the change of node registers.
+  const grid = useRef<HTMLDivElement>(null)
+  const reduce = useReducedMotion()
+  const shownUuid = useRef(uuid)
+  useEffect(() => {
+    if (shownUuid.current === uuid) return
+    shownUuid.current = uuid
+    // A long page (phones) starts over at the top for the next node.
+    grid.current?.closest('.drawer')?.scrollTo({ top: 0 })
+    if (!reduce) grid.current?.animate([{ opacity: 0.4 }, { opacity: 1 }], { duration: 120, easing: 'ease-out' })
+  }, [uuid, reduce])
 
   return (
     <div className="detail">
@@ -119,7 +131,7 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, onStep }: { r: R
       {!r.online && <div className="offline-notice">节点离线 · 以下仅显示已留存的历史样本</div>}
 
       <Suspense fallback={<div className="detail-grid" aria-busy="true" />}>
-      <div className="detail-grid">
+      <div className="detail-grid" ref={grid}>
         <div className="detail-main">
           <section className="panel chart-panel chart-main">
             <div className="panel-head compact">
@@ -130,7 +142,7 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, onStep }: { r: R
                 <span className="chart-now num">
                   覆盖 <b>{cpuStats ? `${Math.round(cpuStats.coverage * 100)}%` : '—'}</b>
                 </span>
-                <Segmented className="range-tabs" value={range} options={available.ranges} onChange={setRange} label="时间范围" />
+                <Segmented className="range-tabs" value={range} options={available.ranges} onChange={onRange} label="时间范围" />
               </div>
             </div>
             <KLineChart slots={cpu} volume={volume} format={fmtPct} percent ma loading={loading} offline={!r.online} label="CPU 使用率" rangeKey={`${uuid}-${range}`} />
@@ -194,6 +206,9 @@ export function NodeDetail({ rows, order, settings, traffic, monthly, now, ready
   const [lastUuid, setLastUuid] = useState(uuid)
   if (uuid && uuid !== lastUuid) setLastUuid(uuid)
   const r = rows.find((x) => x.node.uuid === (uuid ?? lastUuid))
+  // The picked range holds while paging between nodes and resets when the drawer closes.
+  const [picked, setPicked] = useState<Range | null>(null)
+  if (!open && picked !== null) setPicked(null)
 
   const close = useCallback(() => {
     if ((location.state as { fromBoard?: boolean } | null)?.fromBoard) navigate(-1)
@@ -257,11 +272,9 @@ export function NodeDetail({ rows, order, settings, traffic, monthly, now, ready
                 exit={{ x: reduce ? 0 : '100%', opacity: reduce ? 0 : 1, transition: { duration: reduce ? 0 : 0.2, ease: [0.4, 0, 1, 1] } }}
               >
                 {r ? (
-                  <AnimatePresence mode="wait" initial={false}>
-                    <motion.div key={r.node.uuid} className="drawer-page" initial={{ opacity: 0, y: reduce ? 0 : 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: reduce ? 0 : 0.16 }}>
-                      <DetailBody r={r} rows={nav} settings={settings} traffic={traffic(r)} monthly={monthly} now={now} onStep={step} />
-                    </motion.div>
-                  </AnimatePresence>
+                  <div className="drawer-page">
+                    <DetailBody r={r} rows={nav} settings={settings} traffic={traffic(r)} monthly={monthly} now={now} picked={picked ?? settings.defaultRange} onRange={setPicked} onStep={step} />
+                  </div>
                 ) : (
                   <div className="detail-missing">
                     <Dialog.Title>{ready ? '节点不存在或未公开' : '加载中…'}</Dialog.Title>
