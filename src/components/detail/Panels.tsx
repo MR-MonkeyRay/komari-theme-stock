@@ -1,4 +1,5 @@
 import clsx from 'clsx'
+import { Lock } from 'lucide-react'
 import { lazy, Suspense, type ReactNode } from 'react'
 import type { NodeEvent, RangeStats, Volume } from '../../lib/candles'
 import { clock, dateText, duration, finite, monthDayTime, parseTime, sameDay, size } from '../../lib/format'
@@ -121,7 +122,15 @@ export function BillingPanel({ r, now }: { r: Row; now: number }) {
   const amount = finite(n.price) && n.price > 0 ? `${n.currency ? n.currency + ' ' : ''}${n.price.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}` : n.price === -1 ? '免费' : '—'
   if (amount === '—' && expiry === null && cycle === 0) return null
   return (
-    <Panel title="续费信息">
+    <Panel
+      title="续费信息"
+      extra={
+        <span className="panel-lock has-hint" title="Komari 的公开接口仍会把续费字段下发给访客，主题只是不显示；要真正保密，请在后台开启私有站点，或不填写金额">
+          <Lock size={11} aria-hidden="true" />
+          仅登录可见
+        </span>
+      }
+    >
       <dl className="facts">
         <Fact k="续费周期">{cycle === -1 ? '一次性' : cycle > 0 ? <span className="num">{CYCLES[cycle] ? `${CYCLES[cycle]} · ` : ''}{cycle} 天</span> : '—'}</Fact>
         <Fact k="到期日">

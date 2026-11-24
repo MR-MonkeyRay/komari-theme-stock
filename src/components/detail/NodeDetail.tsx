@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useMatch, useNavigate } from 'react-router'
-import { fitRange, useAvailableRanges, useHistory } from '../../lib/api'
+import { fitRange, useAvailableRanges, useHistory, useIsAdmin } from '../../lib/api'
 import { buildCandles, buildVolume, inferEvents, rangeStats } from '../../lib/candles'
 import { ago, clock, finite, pct, ratio, signed, utcOffset } from '../../lib/format'
 import type { Row } from '../../lib/model'
@@ -20,6 +20,7 @@ const fmtPct = (v: number) => `${v.toFixed(1)}%`
 const fmtGiB = (v: number) => v.toFixed(v >= 100 ? 1 : 2)
 
 function DetailBody({ r, rows, settings, traffic, monthly, now, onStep }: { r: Row; rows: Row[]; settings: ThemeSettings; traffic: { up: number; down: number } | null; monthly: boolean; now: number; onStep: (d: number) => void }) {
+  const admin = useIsAdmin()
   const [picked, setRange] = useState<Range>(settings.defaultRange)
   const available = useAvailableRanges()
   const range = fitRange(picked, available)
@@ -165,7 +166,7 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, onStep }: { r: R
           {/* Bottom row under the charts; either panel may be absent (events off, no billing data). */}
           <div className="detail-bottom">
             {settings.showEvents && <EventsPanel events={events} now={now} />}
-            <BillingPanel r={r} now={now} />
+            {admin && <BillingPanel r={r} now={now} />}
           </div>
         </div>
 

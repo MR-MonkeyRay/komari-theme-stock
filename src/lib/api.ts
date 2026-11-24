@@ -33,10 +33,19 @@ export function useMe() {
     queryKey: ['me'],
     queryFn: ({ signal }) => rpc<Me>('public:getMe', {}, signal),
     staleTime: 60_000,
-    // Logging in happens in the admin pages; pick it up when the viewer comes back.
-    refetchOnWindowFocus: true,
+    // Logging in or out happens in the admin pages, often in another tab; check again whenever the
+    // viewer comes back, even within staleTime, so login-only content does not linger.
+    refetchOnWindowFocus: 'always',
     retry: 1,
   })
+}
+
+/**
+ * True only once Komari confirms a logged-in session. While getMe is pending (or failed) the page
+ * renders as for a guest, so login-only content never flashes up for one.
+ */
+export function useIsAdmin() {
+  return useMe().data?.logged_in === true
 }
 
 export function usePublicSettings() {

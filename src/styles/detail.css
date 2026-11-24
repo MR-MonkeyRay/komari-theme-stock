@@ -113,6 +113,11 @@
   color: var(--offline);
   background: var(--flat-soft);
 }
+.panel-lock {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
 .badge-hidden {
   color: var(--text-2);
   border: 1px dashed var(--line-strong);
