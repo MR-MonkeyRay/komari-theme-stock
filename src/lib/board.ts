@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useSearchParams } from 'react-router'
 import { create } from 'zustand'
 import { parseTags } from './format'
@@ -232,4 +232,30 @@ export function boardView(rows: Row[], by: SiteSettings['groupBy'], query: Board
       })
   }
   return { allGroups, filter, groups, flat, order: flat ?? groups.flatMap((g) => g.rows) }
+}
+
+/**
+ * Holds a sorted board's row order while `hold` is on (pointer or focus on the list), so rows sorted
+ * by a live value do not slide away under the pointer every refresh. A new search, tab, filter or
+ * sort applies at once; rows that leave the filter drop out and new ones join at the end.
+ */
+export function useHeldOrder(view: BoardView, query: BoardQuery, hold: boolean): BoardView {
+  const [held, setHeld] = useState<{ key: string; ids: string[] } | null>(null)
+  const key = `${query.q}|${view.filter}|${query.quick}|${query.sort?.key}-${query.sort?.dir}`
+  // Only a non-empty list is held: an empty one (still loading, or nothing matches yet) has no
+  // order to keep, and holding it would leave every row that arrives later unordered.
+  const live = hold && view.flat?.length ? view.flat : null
+  if (!live) {
+    if (held) setHeld(null)
+  } else if (held?.key !== key) {
+    setHeld({ key, ids: live.map((r) => r.node.uuid) })
+  }
+  return useMemo(() => {
+    if (!live || held?.key !== key) return view
+    const byId = new Map(live.map((r) => [r.node.uuid, r]))
+    const kept = held.ids.flatMap((id) => byId.get(id) ?? [])
+    const seen = new Set(held.ids)
+    const flat = [...kept, ...live.filter((r) => !seen.has(r.node.uuid))]
+    return { ...view, flat, order: flat }
+  }, [view, live, held, key])
 }

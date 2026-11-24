@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { monthStart, useLatestStatus, useMe, useMetricDefinitions, useMonthlyTraffic, useNodes, usePublicSettings, useSparklines } from './lib/api'
 import { useAppearance } from './lib/appearance'
 import { buildRows, connState, useNow, type Row } from './lib/model'
@@ -6,7 +6,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { readSiteSettings, usePrefs, type ThemeSettings } from './lib/settings'
 import { IndexStrip, StatusBar, TopBar } from './components/Chrome'
 import { bulletins, summarize } from './lib/market'
-import { boardView, useBoardQuery } from './lib/board'
+import { boardView, useBoardQuery, useHeldOrder } from './lib/board'
 import { QuoteBoard, type BoardExtras } from './components/QuoteBoard'
 import { NodeDetail } from './components/detail/NodeDetail'
 
@@ -49,7 +49,9 @@ export default function App() {
   // Grouping, tab, search and sort are applied once here: the board renders this view and the
   // drawer's [ / ] steps through the same on-screen order.
   const [query, setBoard] = useBoardQuery()
-  const view = useMemo(() => boardView(rows, settings.groupBy, query, traffic), [rows, settings.groupBy, query, traffic])
+  const liveView = useMemo(() => boardView(rows, settings.groupBy, query, traffic), [rows, settings.groupBy, query, traffic])
+  const [holdOrder, setHoldOrder] = useState(false)
+  const view = useHeldOrder(liveView, query, holdOrder)
 
   const extras: BoardExtras = useMemo(() => ({ sparks: sparks.data, traffic, trafficMonthly: useMonthly, now }), [sparks.data, traffic, useMonthly, now])
 
@@ -100,7 +102,7 @@ export default function App() {
             </div>
           </section>
         ) : (
-          <QuoteBoard rows={rows} view={view} settings={settings} x={extras} loading={nodes.isLoading} searchRef={searchRef} />
+          <QuoteBoard rows={rows} view={view} onHold={setHoldOrder} settings={settings} x={extras} loading={nodes.isLoading} searchRef={searchRef} />
         )}
         {/* Phones have no room in the status bar for the credit Komari requires. */}
         <p className="page-credit">

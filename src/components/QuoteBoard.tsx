@@ -2,8 +2,8 @@ import * as Popover from '@radix-ui/react-popover'
 import * as RadioGroup from '@radix-ui/react-radio-group'
 import clsx from 'clsx'
 import { ArrowDownUp, Check, ChevronRight, Search, X } from 'lucide-react'
-import { AnimatePresence, motion } from 'motion/react'
-import { forwardRef, useId, useRef, useState, type KeyboardEvent } from 'react'
+import { motion } from 'motion/react'
+import { forwardRef, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 import { Link, useLocation } from 'react-router'
 import type { Sparks } from '../lib/api'
 import { firstDir, QUICK_LABEL, SORT_LABEL, useBoardQuery, type BoardView, type Sort, type SortKey } from '../lib/board'
@@ -88,7 +88,7 @@ const QuoteRow = forwardRef<HTMLAnchorElement, { r: Row; x: BoardExtras; showSpa
   const memText = st ? `${size(st.ram)} / ${size(st.ram_total || r.node.mem_total)}` : undefined
   const diskText = st ? `${size(st.disk)} / ${size(st.disk_total || r.node.disk_total)}` : undefined
   return (
-    <motion.div layout="position" transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }} className="row-wrap">
+    <motion.div layout="position" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="row-wrap">
       <Link ref={ref} to={{ pathname: `/instance/${r.node.uuid}`, search }} state={{ fromBoard: true }} className={clsx('qrow', !r.online && 'is-off')} data-uuid={r.node.uuid} aria-label={`${r.node.name} ${r.region.name} ${r.online ? '在线' : '离线'}，查看详情`}>
         <span className="c-name">
           <Flag code={r.region.code} title={r.region.name} />
@@ -189,7 +189,7 @@ function SortMenu({ sort, grouped, onChange }: { sort: Sort; grouped: boolean; o
   )
 }
 
-export function QuoteBoard({ rows, view, settings, x, loading, searchRef }: { rows: Row[]; view: BoardView; settings: ThemeSettings; x: BoardExtras; loading: boolean; searchRef: React.RefObject<HTMLInputElement | null> }) {
+export function QuoteBoard({ rows, view, onHold, settings, x, loading, searchRef }: { rows: Row[]; view: BoardView; onHold: (hold: boolean) => void; settings: ThemeSettings; x: BoardExtras; loading: boolean; searchRef: React.RefObject<HTMLInputElement | null> }) {
   const [{ q: query, quick, sort }, setBoard, flushQuery] = useBoardQuery()
   const { search } = useLocation()
   const listRef = useRef<HTMLDivElement>(null)
@@ -230,6 +230,14 @@ export function QuoteBoard({ rows, view, settings, x, loading, searchRef }: { ro
       e.preventDefault()
     }
   }
+
+  // A focused row that leaves the list (filtered out, or the board unmounts) never fires blur,
+  // so release the hold whenever the rows change and neither the mouse nor a row holds it.
+  useEffect(() => {
+    const el = listRef.current
+    if (!el || (!el.matches(':hover') && !el.querySelector('a.qrow:focus-visible'))) onHold(false)
+  }, [view.order, onHold])
+  useEffect(() => () => onHold(false), [onHold])
 
   const cols = clsx('board', !showSpark && 'no-spark')
 
@@ -293,7 +301,17 @@ export function QuoteBoard({ rows, view, settings, x, loading, searchRef }: { ro
         </div>
       )}
 
-      <div className={cols} ref={listRef} onKeyDown={onKeyDown}>
+      {/* While the mouse is over the list or the keyboard is on a row, a sorted board keeps its order
+          (see useHeldOrder). A clicked header keeps focus but must not hold the board. */}
+      <div
+        className={cols}
+        ref={listRef}
+        onKeyDown={onKeyDown}
+        onPointerEnter={(e) => e.pointerType === 'mouse' && onHold(true)}
+        onPointerLeave={(e) => e.pointerType === 'mouse' && !listRef.current?.querySelector('a.qrow:focus-visible') && onHold(false)}
+        onFocus={(e) => e.target.matches('a.qrow:focus-visible') && onHold(true)}
+        onBlur={(e) => !(e.relatedTarget instanceof Element && e.relatedTarget.matches('a.qrow')) && !listRef.current?.matches(':hover') && onHold(false)}
+      >
         <div className="qhead" role="row">
           {HEAD.map((h) =>
             h.key ? (
@@ -331,11 +349,9 @@ export function QuoteBoard({ rows, view, settings, x, loading, searchRef }: { ro
           )
         ) : flat ? (
           <div className="group-body">
-            <AnimatePresence initial={false}>
-              {flat.map((r) => (
-                <QuoteRow key={r.node.uuid} r={r} x={x} showSpark={showSpark} search={search} />
-              ))}
-            </AnimatePresence>
+            {flat.map((r) => (
+              <QuoteRow key={r.node.uuid} r={r} x={x} showSpark={showSpark} search={search} />
+            ))}
           </div>
         ) : (
           visible.map((g) => {
