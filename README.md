@@ -28,15 +28,13 @@
 
 ## 界面预览
 
-截图由 Docker Playwright MCP 在本地模拟模式下拍摄，使用模拟监控数据。
-
 **首页报价表**
 
-![深色行情首页：全网概览、地区分组和各节点的 CPU、内存、磁盘走势](./docs/images/stock-board.png)
+![深色行情首页：全网概览、地区分组与 CPU、内存、磁盘走势](./preview.png)
 
 **节点详情**
 
-![HK-01 节点详情：24 小时 CPU K 线与网络副图，以及内存、磁盘 K 线和系统信息](./docs/images/stock-detail.png)
+![HK-01 节点详情：十字光标联动 24 小时 CPU K 线与网络副图，下方为内存和磁盘 K 线](./docs/images/stock-detail.png)
 
 ## 设置与数据口径
 
