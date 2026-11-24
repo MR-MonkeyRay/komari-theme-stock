@@ -118,7 +118,7 @@ export function BillingPanel({ r, now }: { r: Row; now: number }) {
   const cycle = Number.isInteger(n.billing_cycle) ? n.billing_cycle : 0
   const expiry = parseTime(n.expired_at)
   const left = expiry !== null ? Math.ceil((expiry - now) / 86400_000) : null
-  const amount = finite(n.price) && n.price > 0 ? `${n.currency ? n.currency + ' ' : ''}${n.price.toLocaleString('zh-CN', { maximumFractionDigits: 4 })}` : n.price === -1 ? '免费' : '—'
+  const amount = finite(n.price) && n.price > 0 ? `${n.currency ? n.currency + ' ' : ''}${n.price.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}` : n.price === -1 ? '免费' : '—'
   if (amount === '—' && expiry === null && cycle === 0) return null
   return (
     <Panel title="续费信息">
@@ -137,7 +137,7 @@ export function BillingPanel({ r, now }: { r: Row; now: number }) {
         <Fact k="续费金额">
           <span className="num">{amount}</span>
         </Fact>
-        <Fact k="自动续期标记">{n.auto_renewal ? '已标记' : '未标记'}</Fact>
+        <Fact k="自动续费">{n.auto_renewal ? '已开启' : '未开启'}</Fact>
       </dl>
     </Panel>
   )
@@ -147,7 +147,7 @@ export function SystemPanel({ r }: { r: Row }) {
   const n = r.node
   const st = r.online ? r.status : undefined
   return (
-    <Panel title="系统信息" extra="F10" grow={12}>
+    <Panel title="系统信息" extra={<span className="has-hint" title="行情软件中查看个股资料的 F10 键；这里是节点的基本资料">F10</span>} grow={12}>
       <dl className="facts">
         <Fact k="处理器">
           <span className="clip" title={n.cpu_name}>{n.cpu_name || '—'}</span>
