@@ -1,5 +1,7 @@
 name: CI
 
+# Every push and PR is built and tested. On main, when the version in komari-theme.json has no
+# GitHub Release yet, the theme ZIP is published as Release v<version>.
 on:
   push:
     branches: [main]
@@ -11,31 +13,25 @@ permissions:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
-    name: Build (Node ${{ matrix.node }})
+    name: Build and test
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        # README promises Node 22+; 24 is the version releases are built with.
-        node: [22, 24]
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      package: ${{ steps.meta.outputs.package }}
     steps:
       - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v7
         with:
-          node-version: ${{ matrix.node }}
+          node-version: 24
           cache: npm
 
       - run: npm ci
-
-      - name: Check theme manifest
-        id: meta
-        run: npm run check:manifest
 
       - name: Lint
         run: npm run lint -- --deny-warnings
@@ -43,12 +39,55 @@ jobs:
       - name: Type-check, build and package
         run: npm run package
 
-      # The theme zip itself (not zip-in-zip), ready to upload in Komari's theme manager.
+      - name: Read theme version
+        id: meta
+        run: |
+          short=$(jq -r .short komari-theme.json)
+          version=$(jq -r .version komari-theme.json)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "package=$short-$version.zip" >> "$GITHUB_OUTPUT"
+
       - name: Upload theme package
-        if: matrix.node == 24
         uses: actions/upload-artifact@v7
         with:
-          path: ${{ steps.meta.outputs.zip }}
+          path: release/${{ steps.meta.outputs.package }}
           archive: false
           if-no-files-found: error
           retention-days: 14
+
+  release:
+    name: Release
+    needs: build
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    concurrency:
+      group: release
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TAG: v${{ needs.build.outputs.version }}
+      PACKAGE: ${{ needs.build.outputs.package }}
+    steps:
+      - name: Check whether this version is released
+        id: check
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "$TAG is already released; nothing to publish."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download theme package
+        if: steps.check.outputs.publish == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ env.PACKAGE }}
+
+      - name: Publish release
+        if: steps.check.outputs.publish == 'true'
+        run: gh release create "$TAG" "$PACKAGE" --target "$GITHUB_SHA" --title "$TAG" --generate-notes

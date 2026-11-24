@@ -64,15 +64,11 @@ npm run package
 
 ## 持续集成与发布
 
-- 推送到 `main` 或提交 PR 时，[CI](.github/workflows/ci.yml) 会在 Node 22 和 24 上依次运行 manifest 检查、lint、类型检查、构建和打包。Node 24 打出的主题 zip 可以在该次运行的 Artifacts 中下载，保留 14 天。
-- 发布新版本：
+[CI](.github/workflows/ci.yml) 在每次推送和 PR 时运行 lint、类型检查、构建和打包，打出的主题 zip 可在该次运行的 Artifacts 中下载（保留 14 天）。
 
-  ```bash
-  npm version 0.3.0        # 同步 package.json 与 komari-theme.json，提交并打 tag v0.3.0
-  git push --follow-tags   # 推送后由 Release workflow 构建并发布 GitHub Release，附带主题 zip
-  ```
+发布以 `komari-theme.json` 中的 `version` 为准：推送到 `main` 时，如果该版本还没有对应的 GitHub Release，流水线会自动创建 tag `v<version>` 和 Release，附件只有主题 zip。版本号没变时只构建和测试，不发布。
 
-  tag 必须与 `komari-theme.json` 中的版本一致，否则 [Release](.github/workflows/release.yml) 会失败。带 `-` 的 tag（如 `v0.3.0-beta.1`）发布为预发布版本。
+在 Komari 后台「主题管理 → 导入远程主题」中填入本仓库地址，即可安装最新 Release。
 
 ## 主题约定
 
