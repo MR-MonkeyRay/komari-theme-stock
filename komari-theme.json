@@ -26,8 +26,8 @@
           "en": "Group nodes by"
         },
         "help": {
-          "zh-CN": "首页报价表的板块划分。大洲按节点地区自动归类；后台分组使用节点设置中的「分组」字段；不分组则平铺。涨跌配色、走势曲线、刷新间隔等展示偏好由访客在首页「设置」中自行调整。",
-          "en": "How the home board is split into sections. Continent groups nodes by region; Admin group uses each node's Group field; None lists them flat. Display preferences such as up/down colors, trails and refresh rate are set by each visitor from the Settings button on the home page."
+          "zh-CN": "选择首页分组方式。「后台分组」使用节点设置中的「分组」字段。",
+          "en": "Choose how nodes are grouped on the home page. “Admin group” uses each node’s Group field."
         }
       }
     ]
