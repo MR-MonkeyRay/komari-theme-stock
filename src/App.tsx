@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { monthStart, useLatestStatus, useMetricDefinitions, useMonthlyTraffic, useNodes, usePublicSettings, useSparklines } from './lib/api'
 import { useAppearance } from './lib/appearance'
 import { buildRows, useNow, type Row } from './lib/model'
+import { CONTINENTS } from './lib/region'
 import { readSettings } from './lib/settings'
 import { IndexStrip, StatusBar, TopBar } from './components/Chrome'
 import { bulletins, summarize } from './lib/market'
@@ -23,6 +24,13 @@ export default function App() {
   }, [settings.redUp])
 
   const rows = useMemo(() => buildRows(nodes.data, status.data), [nodes.data, status.data])
+  // Same order as the grouped board, so [ / ] in the drawer pages through what is on screen.
+  const navRows = useMemo(() => {
+    if (settings.groupBy === 'none') return rows
+    const key = (r: Row) => (settings.groupBy === 'continent' ? r.region.continent : r.node.group?.trim() || '未分组')
+    const order = settings.groupBy === 'continent' ? CONTINENTS.map((c) => c.code as string) : [...new Set(rows.map(key))]
+    return [...rows].sort((a, b) => order.indexOf(key(a)) - order.indexOf(key(b)))
+  }, [rows, settings.groupBy])
   const uuids = useMemo(() => (nodes.data ?? []).map((n) => n.uuid), [nodes.data])
   const sparks = useSparklines(uuids, settings.showSparkline)
 
@@ -79,7 +87,7 @@ export default function App() {
         )}
       </main>
       <StatusBar live={live} items={bulletins(rows)} />
-      <NodeDetail rows={rows} settings={settings} traffic={traffic} monthly={useMonthly} now={now} ready={nodes.isSuccess} />
+      <NodeDetail rows={navRows} settings={settings} traffic={traffic} monthly={useMonthly} now={now} ready={nodes.isSuccess} />
     </>
   )
 }
