@@ -1,96 +1,78 @@
-# Komari Theme Stock
+<h1 align="center">Komari Theme Stock</h1>
 
-[![CI](https://github.com/MR-MonkeyRay/komari-theme-stock/actions/workflows/ci.yml/badge.svg)](https://github.com/MR-MonkeyRay/komari-theme-stock/actions/workflows/ci.yml)
+<p align="center">把 <a href="https://github.com/komari-monitor/komari">Komari</a> 监控首页变成行情终端：在报价表里比较节点，点开 K 线追踪资源变化。</p>
 
-股票行情软件风格的 [Komari](https://github.com/komari-monitor/komari) 监控主题：首页是报价表式的节点列表，详情页用 K 线展示 CPU、内存和磁盘趋势。
+<p align="center">
+  <a href="https://github.com/MR-MonkeyRay/komari-theme-stock/actions/workflows/ci.yml"><img src="https://github.com/MR-MonkeyRay/komari-theme-stock/actions/workflows/ci.yml/badge.svg" alt="CI 状态"></a> <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-22C55E?style=flat-square" alt="MIT 许可证"></a>
+</p>
 
-![preview](preview.png)
+## 核心亮点
 
-## 特性
+- **找出异常节点。** 顶栏汇总在线状态、资源与流量；报价表按地区或后台分组，支持搜索和排序。CPU、内存和磁盘同时展示当前用量与近 1 小时走势。
+- **追踪异常发生的时间。** 节点详情用 K 线展示 CPU、内存和磁盘。CPU 与上下行速率共用时间轴，便于对照变化；缺测区间留空。
+- **选熟悉的配色。** 深色、浅色或跟随系统；红涨绿跌与绿涨红跌可单独切换。
+- **用键盘浏览。** `/` 聚焦搜索；聚焦报价表后用 `↑` / `↓` 选节点、`Enter` 打开详情；详情中用 `[` / `]` 切换节点、`Esc` 返回。
 
-- **首页报价表**：大盘指数条（节点数、在线/高载/离线家数条、CPU 中位数及 15 分钟涨跌、内存占用、总上下行、本月/累计流量）；按大洲或后台分组的板块行；节点名下附「大洲·国家·UUID」代码；CPU、内存、磁盘三列均为「现值 + 较 1 小时均值涨跌（pp）+ 1 小时走势曲线」；流量、网络两列按单位着色（B 灰、K 白、M 青、G 黄、T 品红），量级一眼可辨；表头点击排序（排序时平铺并带重排动画）；数值跳动时单元格红绿闪烁；离线节点置灰。
-- **个股式详情**：顶部报价栏显示 CPU 现价、较区间开盘涨跌、区间最高/最低/均值/P95；CPU K 线叠加 MA5/MA20，下方为上行/下行镜像成交量副图，两者共用时间轴与十字光标；内存、磁盘 K 线；右栏依次为点阵地图、网络、F10 系统信息，图表下方一行为样本推断事件与续费信息。桌面端整页按窗口高度铺满（主 K 线随高度伸缩，右栏行高均分），常见 1080p 屏幕无需上下滚动。
-- **K 线口径**：高/低/收分别取服务端 `max`/`min`/`last` 聚合，开盘取上一根收盘；空心为区间上升、实心为区间下降，缺测区间留空。
-- **配色**：深色「交易终端」与浅色「券商日间」两套，支持红涨绿跌 / 绿涨红跌。顶栏一个按钮在「自动 → 浅色/深色 → 自动」之间切换，默认自动跟随系统；选择保存在与 Komari 默认主题共用的 `appearance` 本地存储键中。
-- **管理入口**：顶栏右侧按钮识别登录状态：未登录显示「登录」，跳转 Komari 登录页，登录后回到当前页面；已登录显示用户名，点击进入管理后台。
-- **状态栏**：底部显示连接状态与延迟、按浏览器时区显示的当前日期时间（附 UTC 偏移）、异动滚动提示和 Powered by Komari Monitor.。
-- **键盘**：`↑↓` 选行、`Enter` 打开详情、`Esc` 关闭、`[` `]` 切换上/下一个节点、`/` 搜索、K 线获得焦点后 `←→` 逐根查看。
-- 尊重系统「减少动态效果」设置。
+## 快速安装
 
-## 设置
+1. 从 [GitHub Releases](https://github.com/MR-MonkeyRay/komari-theme-stock/releases/latest) 下载附件 `komari-theme-stock-<版本>.zip`，不要下载 `Source code` 压缩包。
+2. 在 Komari 后台进入 **主题管理 → 上传主题**，上传 ZIP。
+3. 在已安装的 **Komari Theme Stock** 卡片上选择 **设为当前主题**。
 
-### 访客设置（首页「设置」按钮）
+也可以在 **主题管理 → 导入远程主题** 中填入 `https://github.com/MR-MonkeyRay/komari-theme-stock`，检测并确认导入后，再设为当前主题。
 
-展示偏好由每位访客自行调整，即改即生效，仅保存在当前浏览器（本地存储键 `komari-theme-stock.prefs`），「恢复默认」一键还原。改过设置时按钮上会出现一个小圆点。
+## 快速开始
 
-| 设置 | 选项 |
-| --- | --- |
-| 涨跌配色 | 红涨绿跌（默认）/ 绿涨红跌；高负载告警始终为红色 |
-| 1 小时走势曲线 | 默认开启；关闭后 CPU、内存、磁盘三列改为占用条 |
-| 实时刷新间隔 | 1s / 2s（默认）/ 5s / 10s / 30s |
-| 默认时间范围 | 1h / 6h / 24h（默认）/ 3d / 7d，只列出站点指标保留期覆盖的范围；详情页内可临时切换 |
-| 显示节点事件 | 默认开启 |
+1. 打开 Komari 站点首页，从报价表找一台有历史数据的节点。找不到时，可按节点名、地区或标签搜索。
+2. 点击节点，打开详情并选择时间范围。将光标移到 CPU K 线上，可沿同一条时间轴查看对应的上行、下行速率。
 
-深浅配色仍由顶栏单独的按钮切换。
+## 界面预览
 
-### 站点设置（Komari 后台）
+截图由 Docker Playwright MCP 在本地模拟模式下拍摄，使用模拟监控数据。
 
-只保留需要后台数据的项，在「主题管理 → Komari Theme Stock 设置」单页中调整：
+**首页报价表**
 
-| 设置 | 选项 |
-| --- | --- |
-| 节点分组 | 大洲（默认）/ 后台分组（使用节点设置中的「分组」字段）/ 不分组 |
+![深色行情首页：全网概览、地区分组和各节点的 CPU、内存、磁盘走势](./docs/images/stock-board.png)
 
-月流量需要 Komari 指标保留期覆盖当月（`traffic.up/down` 的保留天数），否则显示节点开机以来的累计流量。
+**节点详情**
 
-## 开发
+![HK-01 节点详情：24 小时 CPU K 线与网络副图，以及内存、磁盘 K 线和系统信息](./docs/images/stock-detail.png)
 
-需要 Node.js 22 或更高版本。
+## 设置与数据口径
 
-```bash
-npm install
-# 开发服务器会把 /api 和 /themes 代理到 Komari 后端
-VITE_API_TARGET=http://127.0.0.1:25774 npm run dev
-```
+- **访客设置：** 首页「设置」可调整涨跌配色、1 小时走势、实时刷新间隔、默认时间范围和节点事件。设置只保存在当前浏览器；深浅配色用顶栏按钮单独切换。
+- **站点设置：** 后台的主题设置决定首页按大洲（默认）、后台分组或不分组展示。
+- **流量：** 指标保留期覆盖当月至今且月度数据可用时，显示本月流量；否则显示节点上报的累计流量。详情可选时间范围受指标保留期限制。
 
-也可以在 `.env.local` 中写入 `VITE_API_TARGET=...`。
+## 本地预览
 
-没有可用后端时，可用离线模拟数据开发（12 个节点、24 小时历史）：
+在仓库根目录用 Node.js 24（与 CI 一致）执行：
 
 ```bash
+npm ci
 npm run dev:mock
 ```
 
-## 构建与打包
+打开终端打印的地址，可查看 12 台模拟节点，无需 Komari 后端。
+
+## 开发与打包
+
+已安装依赖时，可把开发服务器指向本地 Komari 后端：
+
+```bash
+VITE_API_TARGET=http://127.0.0.1:25774 npm run dev
+```
+
+开发服务器将 `/api` 和 `/themes` 转发至该后端。也可在 `.env.local` 中设置 `VITE_API_TARGET`。
 
 ```bash
 npm run package
 ```
 
-产物位于 `release/<short>-<version>.zip`，压缩包根目录包含：
+可上传的主题 ZIP 位于 `release/komari-theme-stock-<版本>.zip`，包含根目录的 `komari-theme.json`、`preview.png` 和 `dist/`。向 `main` 推送或提交 PR 时，[CI](./.github/workflows/ci.yml) 会检查并打包；`main` 上尚未发布的 `komari-theme.json` 版本会生成对应的 GitHub Release。
 
-- `komari-theme.json`：主题元数据
-- `preview.png`：预览图
-- `dist/`：构建产物（`dist/index.html` 为页面模板）
+修改页面模板时，保留 [`index.html`](./index.html) 中的站点标题和描述占位符；Komari 会在部署时替换它们。更多约定见 [Komari 主题开发指南](https://komari-document.pages.dev/dev/theme)。
 
-在 Komari 后台「主题管理」上传该压缩包即可安装。
+## 许可证
 
-## 持续集成与发布
-
-[CI](.github/workflows/ci.yml) 在每次推送和 PR 时运行 lint、类型检查、构建和打包，打出的主题 zip 可在该次运行的 Artifacts 中下载（GitHub 会在外面再套一层 zip，保留 14 天）。
-
-发布以 `komari-theme.json` 中的 `version` 为准：推送到 `main` 时，如果该版本还没有对应的 GitHub Release，流水线会自动创建 tag `v<version>` 和 Release，附件只有主题 zip。版本号没变时只构建和测试，不发布。
-
-在 Komari 后台「主题管理 → 导入远程主题」中填入本仓库地址，即可安装最新 Release。
-
-## 主题约定
-
-- `index.html` 中的 `<title>Komari Monitor</title>` 与 `<meta name="description" content="A simple server monitor tool." />` 需保持原样，Komari 会将其替换为站点名称与描述。
-- 页脚保留 `Powered by Komari Monitor.`。
-- 不占用 `/admin` 与 `/terminal` 路径。
-
-参考：[Komari 主题开发文档](https://komari-document.pages.dev/dev/theme)
-
-## 许可
-
-MIT
+[MIT](./LICENSE)
