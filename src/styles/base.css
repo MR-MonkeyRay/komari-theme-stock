@@ -1,0 +1,185 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  background: var(--bg-app);
+  color: var(--text-1);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'cv11', 'ss01';
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+input {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.mono,
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: 'zero' 0;
+}
+
+.up {
+  color: var(--up);
+}
+.down {
+  color: var(--down);
+}
+.flat {
+  color: var(--flat);
+}
+.dim {
+  color: var(--text-3);
+}
+.dash {
+  color: var(--text-4);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Palette cross-fade when switching light/dark. */
+.theme-transition,
+.theme-transition *,
+.theme-transition *::before,
+.theme-transition *::after {
+  transition:
+    background-color 320ms ease,
+    border-color 320ms ease,
+    color 320ms ease,
+    fill 320ms ease !important;
+}
+
+/* Flags (flag-icons) at a fixed ticker-friendly size. */
+.flag {
+  display: inline-block;
+  width: 20px;
+  height: 15px;
+  border-radius: 2px;
+  background-size: cover;
+  background-position: center;
+  box-shadow: 0 0 0 1px rgb(127 127 127 / 0.22);
+  flex: none;
+}
+.flag-none {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 15px;
+  border-radius: 2px;
+  font-size: 9px;
+  color: var(--text-3);
+  background: var(--bg-inset);
+  box-shadow: inset 0 0 0 1px var(--line);
+  flex: none;
+}
+
+/* Value flash on tick: background peaks at 12% then fades (650ms). */
+.tick {
+  border-radius: 2px;
+  padding: 0 2px;
+  margin: 0 -2px;
+}
+.tick-up {
+  animation: tick-up 650ms var(--ease-flash);
+}
+.tick-down {
+  animation: tick-down 650ms var(--ease-flash);
+}
+@keyframes tick-up {
+  12% {
+    background-color: var(--up-soft);
+    color: var(--up);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+@keyframes tick-down {
+  12% {
+    background-color: var(--down-soft);
+    color: var(--down);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--bg-inset) 0%, var(--bg-hover) 50%, var(--bg-inset) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1400ms linear infinite;
+  border-radius: var(--radius-sm);
+}
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .tick-up {
+    animation: none;
+    color: var(--up);
+  }
+  .tick-down {
+    animation: none;
+    color: var(--down);
+  }
+}

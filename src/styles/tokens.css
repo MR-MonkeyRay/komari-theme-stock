@@ -1,0 +1,159 @@
+/*
+ * Atlas Stock palette.
+ * Dark: charcoal trading-terminal base. Light: brokerage daylight.
+ * --up / --down are semantic (rising / falling) and follow the up/down
+ * convention setting; --red / --green are the raw hues.
+ */
+
+:root,
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg-app: #08090c;
+  --bg-panel: #101217;
+  --bg-chart: #0c0e12;
+  --bg-hover: #191d25;
+  --bg-thead: #14171e;
+  --bg-group: #151922;
+  --bg-inset: #0a0c10;
+  --bg-overlay: rgb(3 4 6 / 0.72);
+
+  --line-strong: #2a2f3a;
+  --line: #1d212a;
+  --line-faint: #171a21;
+
+  --text-1: #eef0f4;
+  --text-2: #9aa1ae;
+  --text-3: #6c7483;
+  --text-4: #444a56;
+
+  --brand: #f5b041;
+  --brand-soft: #2a2010;
+  --accent: #3b82f6;
+  --accent-soft: #12213d;
+  --focus: #5b9bff;
+
+  --red: #ff4d52;
+  --red-soft: #3a1418;
+  --red-line: #7a2328;
+  --green: #00c878;
+  --green-soft: #0d2b20;
+  --green-line: #155e42;
+  --flat: #88909e;
+  --flat-soft: #1d2028;
+
+  --warn: #ffb020;
+  --warn-soft: #33250b;
+  --online: #16c784;
+  --offline: #6c7483;
+  --alert: #e5484d;
+
+  --meter: #4f7fb8;
+  --meter-track: #1a1f28;
+
+  --net-up: #38bdf8;
+  --net-up-bar: rgb(56 189 248 / 0.78);
+  --net-down: #f59e0b;
+  --net-down-bar: rgb(245 158 11 / 0.72);
+
+  --chart-grid: #171b23;
+  --chart-grid-strong: #262b37;
+  --chart-axis: #7a8291;
+  --chart-cross: #8b94a5;
+  --chart-cross-bg: #2a303c;
+  --ma5: rgb(230 233 239 / 0.72);
+  --ma20: #e879f9;
+
+  --map-dot: #2e3542;
+  --shadow-drawer: -24px 0 64px rgb(0 0 0 / 0.55);
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --bg-app: #eceff4;
+  --bg-panel: #ffffff;
+  --bg-chart: #ffffff;
+  --bg-hover: #f1f5fb;
+  --bg-thead: #f6f8fb;
+  --bg-group: #e9edf4;
+  --bg-inset: #f2f4f8;
+  --bg-overlay: rgb(17 24 39 / 0.36);
+
+  --line-strong: #cfd6e0;
+  --line: #e3e7ee;
+  --line-faint: #eef1f5;
+
+  --text-1: #11141a;
+  --text-2: #4f5868;
+  --text-3: #768092;
+  --text-4: #a8b0be;
+
+  --brand: #b4690e;
+  --brand-soft: #fdf3e3;
+  --accent: #1d5bff;
+  --accent-soft: #ebf1ff;
+  --focus: #1d5bff;
+
+  --red: #e12536;
+  --red-soft: #fbdadd;
+  --red-line: #f3b3b9;
+  --green: #008a52;
+  --green-soft: #cdeee0;
+  --green-line: #9bdac0;
+  --flat: #6b7485;
+  --flat-soft: #eef0f4;
+
+  --warn: #d97706;
+  --warn-soft: #fef3c7;
+  --online: #0d9460;
+  --offline: #8c95a6;
+  --alert: #c81e32;
+
+  --meter: #5a82b8;
+  --meter-track: #e6eaf0;
+
+  --net-up: #0284c7;
+  --net-up-bar: rgb(2 132 199 / 0.7);
+  --net-down: #c2610c;
+  --net-down-bar: rgb(229 142 26 / 0.7);
+
+  --chart-grid: #eef1f6;
+  --chart-grid-strong: #d6dde7;
+  --chart-axis: #687286;
+  --chart-cross: #64748b;
+  --chart-cross-bg: #1e2430;
+  --ma5: rgb(55 65 81 / 0.75);
+  --ma20: #c026d3;
+
+  --map-dot: #cdd4df;
+  --shadow-drawer: -16px 0 48px rgb(15 23 42 / 0.18);
+}
+
+:root {
+  --up: var(--red);
+  --up-soft: var(--red-soft);
+  --up-line: var(--red-line);
+  --down: var(--green);
+  --down-soft: var(--green-soft);
+  --down-line: var(--green-line);
+
+  --font-sans: 'Inter Variable', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'HarmonyOS Sans SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', 'Noto Sans CJK SC', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, 'SFMono-Regular', 'Cascadia Mono', Consolas, 'PingFang SC',
+    'Microsoft YaHei', monospace;
+
+  --radius: 4px;
+  --radius-sm: 2px;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-flash: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+:root[data-convention='green-up'] {
+  --up: var(--green);
+  --up-soft: var(--green-soft);
+  --up-line: var(--green-line);
+  --down: var(--red);
+  --down-soft: var(--red-soft);
+  --down-line: var(--red-line);
+}
