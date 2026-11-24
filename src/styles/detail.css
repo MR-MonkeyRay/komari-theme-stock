@@ -723,9 +723,25 @@
 }
 
 .net-now {
+  position: relative;
   display: grid;
   grid-template-columns: 1fr 1fr;
   border-bottom: 1px solid var(--line);
+}
+/* Upload share of the current throughput: up color from the left, down color for the rest. */
+.net-ratio {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 3px;
+  background: var(--net-down);
+}
+.net-ratio i {
+  display: block;
+  height: 100%;
+  background: var(--net-up);
+  transition: width 300ms var(--ease-out);
 }
 .net-now > div {
   display: flex;
@@ -740,27 +756,16 @@
   font-size: 11px;
 }
 .net-now b {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
   font-size: 18px;
   font-weight: 700;
   letter-spacing: -0.02em;
 }
-.legend-keys {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-.legend-keys i {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 2px;
-}
-.legend-keys .k-up {
-  background: var(--net-up);
-}
-.legend-keys .k-down {
-  margin-left: 6px;
-  background: var(--net-down);
+.net-now b > i {
+  font-style: normal;
+  font-weight: 600;
 }
 
 .world-map {

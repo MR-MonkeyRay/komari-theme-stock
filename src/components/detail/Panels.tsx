@@ -70,21 +70,31 @@ export function NetworkPanel({ r, volume, traffic, monthly }: { r: Row; volume: 
   const limit = r.node.traffic_limit
   const used = traffic && limit > 0 ? trafficUsed(r.node.traffic_limit_type, traffic.up, traffic.down) : null
   const usedPct = used !== null ? Math.min(100, (used / limit) * 100) : null
+  const total = st ? st.net_out + st.net_in : null
+  // Share of upload in the current throughput, like the bid/ask ratio bar of a quote panel.
+  const upShare = total ? (st!.net_out / total) * 100 : null
   return (
-    <Panel title="网络" grow={5} extra={<span className="legend-keys"><i className="k-up" />上行 <i className="k-down" />下行</span>}>
+    <Panel title="网络" grow={5} extra={<span className="num">合计 {size(total, true)}</span>}>
       <div className="net-now">
         <div>
           <span className="dim">当前上行</span>
-          <b className="num net-up">
+          <b className="num">
+            <i className="net-up" aria-hidden="true">↑</i>
             <Tick value={st?.net_out} threshold={Math.max((st?.net_out ?? 0) * 0.1, 8192)}>{size(st?.net_out, true)}</Tick>
           </b>
         </div>
         <div>
           <span className="dim">当前下行</span>
-          <b className="num net-down">
+          <b className="num">
+            <i className="net-down" aria-hidden="true">↓</i>
             <Tick value={st?.net_in} threshold={Math.max((st?.net_in ?? 0) * 0.1, 8192)}>{size(st?.net_in, true)}</Tick>
           </b>
         </div>
+        {upShare !== null && (
+          <span className="net-ratio" role="img" aria-label={`上行占 ${Math.round(upShare)}%，下行占 ${Math.round(100 - upShare)}%`} title={`上行 ${Math.round(upShare)}% · 下行 ${Math.round(100 - upShare)}%`}>
+            <i style={{ width: `${upShare}%` }} />
+          </span>
+        )}
       </div>
       <dl className="facts">
         <Fact k="区间均值 ↑ / ↓">
