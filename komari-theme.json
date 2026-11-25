@@ -5,7 +5,8 @@
     "zh-CN": "股票行情软件风格的 Komari 主题：报价表式节点列表与 K 线式资源趋势",
     "zh-TW": "股票行情軟體風格的 Komari 主題：報價表式節點列表與 K 線式資源趨勢",
     "en": "A stock-terminal style theme for Komari: quote-board node list and candlestick resource charts",
-    "ja": "株式ターミナル風の Komari テーマ：気配板風のノード一覧とローソク足のリソース推移"
+    "ja": "株式ターミナル風の Komari テーマ：気配板風のノード一覧とローソク足のリソース推移",
+    "id": "Tema Komari bergaya terminal saham: daftar node ala papan kuotasi dan grafik sumber daya candlestick"
   },
   "version": "0.3.0",
   "author": "MonkeyRay",
@@ -17,7 +18,8 @@
       "zh-CN": "Komari Theme Stock 设置",
       "zh-TW": "Komari Theme Stock 設定",
       "en": "Komari Theme Stock Settings",
-      "ja": "Komari Theme Stock 設定"
+      "ja": "Komari Theme Stock 設定",
+      "id": "Pengaturan Komari Theme Stock"
     },
     "data": [
       {
@@ -29,13 +31,15 @@
           "zh-CN": "节点分组",
           "zh-TW": "節點分組",
           "en": "Group nodes by",
-          "ja": "ノードのグループ化"
+          "ja": "ノードのグループ化",
+          "id": "Pengelompokan node"
         },
         "help": {
           "zh-CN": "选择首页分组方式。「后台分组」使用节点设置中的「分组」字段。",
           "zh-TW": "選擇首頁的節點分組方式。「后台分组」使用節點設定中的「分組」欄位。",
           "en": "Choose how nodes are grouped on the home page: “大洲” by continent, “后台分组” by each node’s Group field, “不分组” not at all.",
-          "ja": "ホームのノードのグループ化方法を選びます。「大洲」は大陸別、「后台分组」は各ノードの「グループ」欄、「不分组」はグループ化しません。"
+          "ja": "ホームのノードのグループ化方法を選びます。「大洲」は大陸別、「后台分组」は各ノードの「グループ」欄、「不分组」はグループ化しません。",
+          "id": "Pilih cara mengelompokkan node di beranda: “大洲” per benua, “后台分组” menurut kolom Grup tiap node, “不分组” tanpa grup."
         }
       }
     ]
