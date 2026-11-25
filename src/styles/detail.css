@@ -1469,35 +1469,118 @@
     background: var(--bg-panel);
     border-color: color-mix(in srgb, var(--accent) 28%, var(--line-strong));
   }
-  /* Ping: the title on its own line, then the chips on one line that scrolls sideways; the legend
-     scrolls too instead of cutting its last readings off. Neither changes height on hover. */
-  .chart-ping .panel-head {
-    flex-wrap: wrap;
-    row-gap: 6px;
+  /* Ping: 全部 beside the title, then a card per carrier, two by two; nothing scrolls sideways. */
+  .ping-all {
+    height: 30px;
+    padding: 0 12px;
+    font-size: 12px;
+    border-radius: 15px;
   }
-  .ping-pick {
-    flex: 1 0 100%;
-    justify-content: flex-start;
+  .ping-all[aria-pressed='true'] {
+    color: var(--text-1);
+    background: var(--accent-soft);
+    border-color: var(--accent);
   }
-  .ping-chips,
-  .ping-legend {
-    flex-wrap: nowrap;
-    justify-content: flex-start;
-    overflow-x: auto;
-    scrollbar-width: none;
+  .ping-cards {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    padding: 0 12px 10px;
   }
-  /* The legend fades at its right edge where it runs on, and its end clears the fade. */
-  .ping-legend {
-    padding-right: 24px;
-    mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent);
+  .ping-cards-group {
+    display: contents;
   }
-  .ping-chip {
+  .ping-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    min-width: 0;
+    height: 48px;
+    padding: 0 10px;
+    color: var(--text-2);
+    text-align: left;
+    background: var(--bg-panel);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    transition: background-color 120ms ease, border-color 120ms ease;
+  }
+  .ping-card[data-state='checked'] {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+  }
+  .pc-top {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    font-size: 12.5px;
+  }
+  .pc-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    font-family: var(--font-sans);
+    font-weight: 600;
+    color: var(--text-1);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .ping-card .chip-v {
     flex: none;
-    padding: 0 7px;
+    min-width: 6ch;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-1);
+    text-align: right;
   }
-  /* Up to 999ms: three carriers and 全部 then fit a phone without scrolling. */
-  .ping-chip .chip-v {
-    min-width: 5.5ch;
+  .ping-card .chip-v.warn {
+    color: var(--warn);
+  }
+  /* Read at the pinned time: the figures in the accent, as the pinned legends' times are. */
+  .ping-cards.is-pinned .chip-v:not(.warn) {
+    color: var(--focus);
+  }
+  /* Labels in the narrower sans, figures in the mono of the rest. */
+  .pc-sub {
+    overflow: hidden;
+    font-family: var(--font-sans);
+    font-size: 11px;
+    color: var(--text-3);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .pc-sub .lg-v {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: var(--text-2);
+  }
+  .pc-sub .lg-v.quiet {
+    font-weight: 500;
+    color: var(--text-3);
+  }
+  .pc-sub .lg-v.warn {
+    color: var(--warn);
+  }
+  .ping-card.ping-more {
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    font-weight: 650;
+  }
+  /* One carrier's legend wraps instead of scrolling: its slots have fixed widths, so it breaks at
+     the same places whether it reads the range or a bucket. With every carrier drawn, the cards are
+     the legend and the row is gone unless a note needs it. */
+  .ping-legend {
+    flex-wrap: wrap;
+    padding: 4px 12px;
+  }
+  .ping-legend:empty {
+    display: none;
+  }
+  .chart-ping .kline {
+    height: 200px;
   }
 }
 

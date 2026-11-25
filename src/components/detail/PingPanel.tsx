@@ -8,6 +8,7 @@ import { lazy, Suspense, useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { usePingHistory, usePingStats, usePingTasks } from '../../lib/api'
 import { finite, monthDayTime } from '../../lib/format'
+import { useIsPhone } from '../../lib/media'
 import { buildPingLines, lossText, ms, PING_SLOTS, type PingLineData, type PingPoint } from '../../lib/ping'
 import type { Range } from '../../lib/settings'
 import type { PingTask, PingTaskStats } from '../../lib/types'
@@ -24,6 +25,8 @@ export interface PingPick {
 
 // Chips that fit the panel head beside the title; more tasks fold into a menu.
 const MAX_CHIPS = 4
+// Phones: a two-by-two grid of carrier cards; with more carriers the last cell opens the rest.
+const MAX_CARDS = 4
 
 function statsTitle(task: PingTask, s: PingTaskStats | undefined, t: TFunction) {
   const how = t('ping.probe', { type: task.type.toUpperCase(), count: task.interval })
@@ -122,6 +125,7 @@ function ChipValue({ v }: { v: { text: string; lost?: boolean } }) {
 
 export function PingPanel({ uuid, range, refreshSeconds, offline, pick, onPick }: { uuid: string; range: Range; refreshSeconds: number; offline: boolean; pick: PingPick | null; onPick: (p: PingPick | null) => void }) {
   const { t } = useTranslation()
+  const phone = useIsPhone()
   const { tasks, place } = usePingTasks(uuid)
   const on = tasks.length > 0
   const history = usePingHistory(uuid, range, refreshSeconds, on)
@@ -173,15 +177,65 @@ export function PingPanel({ uuid, range, refreshSeconds, offline, pick, onPick }
     return { text: s?.valid ? `${ms(s.latest)}ms` : '—', lost: rangeLost(s) }
   }
 
-  // Up to MAX_CHIPS chips; the chosen one always among them.
-  let chips = tasks.slice(0, MAX_CHIPS)
-  if (single && !chips.includes(single)) chips = [...chips.slice(0, MAX_CHIPS - 1), single]
+  // Up to MAX_CHIPS chips beside the menu; on phones up to MAX_CARDS cells, the menu one of them.
+  // The chosen carrier is always shown.
+  const shown = phone ? (tasks.length > MAX_CARDS ? MAX_CARDS - 1 : MAX_CARDS) : MAX_CHIPS
+  let chips = tasks.slice(0, shown)
+  if (single && !chips.includes(single)) chips = [...chips.slice(0, shown - 1), single]
   const rest = tasks.filter((t) => !chips.includes(t))
+  const more = rest.length > 0 && (
+    <Popover.Root>
+      <Popover.Trigger className={clsx('ping-more', phone ? 'ping-card' : 'ping-chip')} aria-label={t('ping.more', { count: rest.length })}>
+        +{rest.length} <ChevronDown size={12} aria-hidden="true" />
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Content className="sort-menu ping-menu" align="end" sideOffset={6}>
+          {rest.map((task) => {
+            const v = chipValue(task)
+            return (
+              <Popover.Close asChild key={task.id}>
+                <button type="button" className="sort-opt ping-opt" onClick={() => choose(String(task.id))}>
+                  <i className="ping-dot" style={{ background: `var(--ping-${(slots.get(String(task.id)) ?? 0) + 1})` }} aria-hidden="true" />
+                  {task.name}
+                  <span className={clsx('num', v.lost ? 'warn' : 'dim')}>{v.text}</span>
+                </button>
+              </Popover.Close>
+            )
+          })}
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
+  )
+  /** A card's second line: the range's mean and loss, or the bucket's spread and loss while one is
+   *  read (its mean is the card's figure then). */
+  const cardSub = (task: PingTask) => {
+    const id = String(task.id)
+    if (readTime !== null) {
+      const p = at >= 0 ? lines.find((l) => l.id === id)?.points[at] : undefined
+      const spread = p?.min != null && p.max != null ? `${ms(p.min)}–${ms(p.max)}` : null
+      return (
+        <>
+          <b className={clsx('lg-v', spread === null && 'quiet')}>{spread ?? '—'}</b> · {t('ping.lossShort')} <Loss pct={p && p.loss !== null ? p.loss * 100 : null} />
+        </>
+      )
+    }
+    // The mean without its unit: the figure above has it, and the line fits a narrow card.
+    const s = stats.data?.get(id)
+    const avg = s?.valid ? s.avg : null
+    return (
+      <>
+        {t('chart.avg')} <b className={clsx('lg-v', rangeLost(s) ? 'warn' : avg === null && 'quiet')}>{avg === null ? '—' : ms(avg)}</b> · {t('ping.lossShort')} <Loss pct={rangeLoss(s)} />
+      </>
+    )
+  }
   const stale = !!history.isPlaceholderData
   const from = h?.retainedFrom
 
   const one = single ? lines.find((l) => l.id === String(single.id)) : undefined
-  const legend: ReactNode = (
+  const legend: ReactNode = phone && !single ? (
+    // Phones show every carrier's readings on its card; the row keeps only a shortened history.
+    from ? <span className="lg-since">{t('ping.since', { time: monthDayTime(from) })}</span> : null
+  ) : (
     <>
       <Context label={single ? t('ping.rangeStats') : t('ping.rangeMean')} time={readTime === null ? null : at >= 0 ? times[at] : readTime} />
       {single ? <OneLegend s={stats.data?.get(String(single.id))} p={at >= 0 ? one?.points[at] : undefined} reading={readTime !== null} /> : <AllLegend lines={lines} stats={stats.data} at={at} reading={readTime !== null} />}
@@ -195,50 +249,60 @@ export function PingPanel({ uuid, range, refreshSeconds, offline, pick, onPick }
         <h3>
           {t('ping.title')} <small>ms</small>
         </h3>
-        <div className="ping-pick">
-          <RadioGroup.Root className="ping-chips" value={selected ?? 'all'} onValueChange={(v) => onPick(v === 'all' ? null : { id: v, name: tasks.find((t) => String(t.id) === v)?.name ?? '' })} orientation="horizontal" loop aria-label={t('ping.lines')}>
-            {tasks.length > 1 && (
-              <RadioGroup.Item value="all" className="ping-chip">
-                {t('common.all')}
-              </RadioGroup.Item>
-            )}
+        {phone ? (
+          tasks.length > 1 && (
+            <button type="button" className="ping-chip ping-all" aria-pressed={selected === null} onClick={() => onPick(null)}>
+              {t('common.all')}
+            </button>
+          )
+        ) : (
+          <div className="ping-pick">
+            <RadioGroup.Root className="ping-chips" value={selected ?? 'all'} onValueChange={(v) => onPick(v === 'all' ? null : { id: v, name: tasks.find((t) => String(t.id) === v)?.name ?? '' })} orientation="horizontal" loop aria-label={t('ping.lines')}>
+              {tasks.length > 1 && (
+                <RadioGroup.Item value="all" className="ping-chip">
+                  {t('common.all')}
+                </RadioGroup.Item>
+              )}
+              {chips.map((task) => {
+                const id = String(task.id)
+                const s = stats.data?.get(id)
+                return (
+                  <RadioGroup.Item key={id} value={id} className="ping-chip" aria-label={task.name} title={statsTitle(task, s, t)} onClick={() => id === selected && tasks.length > 1 && choose(id)}>
+                    <i style={{ background: `var(--ping-${(slots.get(id) ?? 0) + 1})` }} aria-hidden="true" />
+                    {task.name}
+                    <ChipValue v={chipValue(task)} />
+                  </RadioGroup.Item>
+                )
+              })}
+            </RadioGroup.Root>
+            {more}
+          </div>
+        )}
+      </div>
+      {phone && (
+        // A card per carrier: its figure (the latest, or the bucket read) over its mean and loss. A
+        // tap draws that carrier alone; a tap on it again, or 全部, draws them all.
+        <div className={clsx('ping-cards num', onPin && 'is-pinned')}>
+          <RadioGroup.Root className="ping-cards-group" value={selected ?? ''} onValueChange={choose} orientation="horizontal" loop aria-label={t('ping.lines')}>
             {chips.map((task) => {
               const id = String(task.id)
-              const s = stats.data?.get(id)
               return (
-                <RadioGroup.Item key={id} value={id} className="ping-chip" aria-label={task.name} title={statsTitle(task, s, t)} onClick={() => id === selected && tasks.length > 1 && choose(id)}>
-                  <i style={{ background: `var(--ping-${(slots.get(id) ?? 0) + 1})` }} aria-hidden="true" />
-                  {task.name}
-                  <ChipValue v={chipValue(task)} />
+                <RadioGroup.Item key={id} value={id} className="ping-card" aria-label={task.name} onClick={() => id === selected && tasks.length > 1 && choose(id)}>
+                  <span className="pc-top">
+                    <i className="ping-dot" style={{ background: `var(--ping-${(slots.get(id) ?? 0) + 1})` }} aria-hidden="true" />
+                    <span className="pc-name">{task.name}</span>
+                    <ChipValue v={chipValue(task)} />
+                  </span>
+                  <span className="pc-sub" aria-hidden="true">
+                    {cardSub(task)}
+                  </span>
                 </RadioGroup.Item>
               )
             })}
           </RadioGroup.Root>
-          {rest.length > 0 && (
-            <Popover.Root>
-              <Popover.Trigger className="ping-chip ping-more" aria-label={t('ping.more', { count: rest.length })}>
-                +{rest.length} <ChevronDown size={12} aria-hidden="true" />
-              </Popover.Trigger>
-              <Popover.Portal>
-                <Popover.Content className="sort-menu ping-menu" align="end" sideOffset={6}>
-                  {rest.map((task) => {
-                    const v = chipValue(task)
-                    return (
-                      <Popover.Close asChild key={task.id}>
-                        <button type="button" className="sort-opt ping-opt" onClick={() => choose(String(task.id))}>
-                          <i className="ping-dot" style={{ background: `var(--ping-${(slots.get(String(task.id)) ?? 0) + 1})` }} aria-hidden="true" />
-                          {task.name}
-                          <span className={clsx('num', v.lost ? 'warn' : 'dim')}>{v.text}</span>
-                        </button>
-                      </Popover.Close>
-                    )
-                  })}
-                </Popover.Content>
-              </Popover.Portal>
-            </Popover.Root>
-          )}
+          {more}
         </div>
-      </div>
+      )}
       <Suspense fallback={<div className="kline skeleton" />}>
         <PingChart
           lines={lines}
