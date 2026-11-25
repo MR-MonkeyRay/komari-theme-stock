@@ -347,7 +347,6 @@
     "on": "An",
     "off": "Aus",
     "system": "System",
-    "f10Hint": "Im Börsenterminal zeigt die F10-Taste das Firmenprofil einer Aktie; hier sind es die Grunddaten des Knotens",
     "cpu": "Prozessor",
     "cores": "Kerne",
     "coresLogical": "{{logical}} logisch",

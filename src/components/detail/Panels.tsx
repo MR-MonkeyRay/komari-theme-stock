@@ -274,7 +274,7 @@ export function SystemPanel({ r }: { r: Row }) {
   const n = r.node
   const st = r.online ? r.status : undefined
   return (
-    <Panel title={t('panel.system')} className="f10-panel" extra={<span className="has-hint" title={t('panel.f10Hint')}>F10</span>}>
+    <Panel title={t('panel.system')} className="system-panel">
       {/* Cells pair up; a long value without a partner (GPU, an OS without a kernel version) takes the row. */}
       <dl className="facts facts-2">
         <Fact k={t('panel.cpu')}>

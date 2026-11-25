@@ -385,7 +385,7 @@
     flex: 1 0 auto;
     flex-direction: column;
   }
-  .detail-side:not(:has(> .events-panel:not(.is-empty))) > .f10-panel {
+  .detail-side:not(:has(> .events-panel:not(.is-empty))) > .system-panel {
     flex-grow: 2;
   }
   .detail-side:not(:has(> .events-panel:not(.is-empty))) .facts-2 {
@@ -1612,9 +1612,9 @@
   .fact .pair-line {
     font-size: 13px;
   }
-  /* System (F10): two columns, every cell label over value; long names (CPU, GPU, OS) run to two
+  /* System: two columns, every cell label over value; long names (CPU, GPU, OS) run to two
      lines before they are cut. */
-  .f10-panel .facts-2 > .fact {
+  .system-panel .facts-2 > .fact {
     flex-direction: column;
     align-items: stretch;
     justify-content: flex-start;
@@ -1622,17 +1622,17 @@
     min-height: 0;
     padding: 7px 12px;
   }
-  .f10-panel .facts-2 > .fact dt {
+  .system-panel .facts-2 > .fact dt {
     font-size: 11px;
     line-height: 1.25;
   }
-  .f10-panel .facts-2 > .fact dd {
+  .system-panel .facts-2 > .fact dd {
     justify-content: flex-start;
     font-size: 13px;
     line-height: 1.35;
     text-align: left;
   }
-  .f10-panel .clip {
+  .system-panel .clip {
     display: -webkit-box;
     white-space: normal;
     overflow-wrap: anywhere;

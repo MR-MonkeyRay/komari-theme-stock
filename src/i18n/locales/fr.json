@@ -347,7 +347,6 @@
     "on": "Activé",
     "off": "Désactivé",
     "system": "Système",
-    "f10Hint": "La touche F10 ouvre la fiche d'une action dans les terminaux de marché ; ici, ce sont les informations de base du nœud",
     "cpu": "Processeur",
     "cores": "Cœurs",
     "coresLogical": "{{logical}} logiques",

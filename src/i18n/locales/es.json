@@ -347,7 +347,6 @@
     "on": "Activada",
     "off": "Desactivada",
     "system": "Sistema",
-    "f10Hint": "En los terminales bursátiles, F10 abre el perfil de una acción; aquí muestra los datos básicos del nodo",
     "cpu": "Procesador",
     "cores": "Núcleos",
     "coresLogical": "{{logical}} lógicos",

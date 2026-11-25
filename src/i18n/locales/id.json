@@ -332,7 +332,6 @@
     "on": "Aktif",
     "off": "Nonaktif",
     "system": "Sistem",
-    "f10Hint": "Di terminal pasar, F10 membuka profil saham; di sini berisi informasi dasar node",
     "cpu": "Prosesor",
     "cores": "Core",
     "coresLogical": "{{logical}} logis",

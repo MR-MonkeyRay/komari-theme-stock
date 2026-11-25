@@ -347,7 +347,6 @@
     "on": "Ativada",
     "off": "Desativada",
     "system": "Sistema",
-    "f10Hint": "A tecla F10 abre o perfil de uma ação nos terminais de mercado; aqui são os dados básicos do nó",
     "cpu": "Processador",
     "cores": "Núcleos",
     "coresLogical": "{{logical}} lógicos",

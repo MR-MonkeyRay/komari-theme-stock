@@ -315,7 +315,7 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
     if (!s) return
     s.candle.applyOptions({ visible: !line })
     s.area.applyOptions({ visible: line })
-    // In 分时 the gold MA20 plays the stock chart's average line; MA5 would only crowd it.
+    // In the line look the gold MA20 is the average line; MA5 would only crowd it.
     s.ma5?.applyOptions({ visible: !line && !isPhone() })
   }, [line])
 
@@ -574,7 +574,7 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
             <span className="sub-read" aria-hidden="true">
               {cn && (cn.tcp !== null || cn.udp !== null) ? (
                 <>
-                  <span className="lg-tag">CONN</span>
+                  <span className="lg-tag">{t('panel.total')}</span>
                   <b>{Math.round((cn.tcp ?? 0) + (cn.udp ?? 0))}</b>
                   <span className="lg-tcp">
                     TCP <b>{cn.tcp === null ? '—' : Math.round(cn.tcp)}</b>
@@ -589,7 +589,7 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
             </span>
           ) : (
           <span className="sub-read" aria-hidden="true">
-          <span className="lg-tag">VOL</span>
+          <span className="lg-tag">{t('panel.total')}</span>
           {bar ? (
             <>
               <b className={bar.dir}>{size(bar.total, true)}</b>
