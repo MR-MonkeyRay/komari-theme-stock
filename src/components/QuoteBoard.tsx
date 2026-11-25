@@ -1,23 +1,26 @@
+import * as Popover from '@radix-ui/react-popover'
+import * as RadioGroup from '@radix-ui/react-radio-group'
 import clsx from 'clsx'
-import { ChevronRight, Search } from 'lucide-react'
-import { AnimatePresence, motion } from 'motion/react'
-import { forwardRef, useMemo, useRef, useState, type KeyboardEvent } from 'react'
-import { Link } from 'react-router'
+import { ArrowDownUp, Check, ChevronRight, Eye, EyeOff, Search, X } from 'lucide-react'
+import { motion } from 'motion/react'
+import { memo, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
+import { Link, useLocation } from 'react-router'
 import type { Sparks } from '../lib/api'
+import { firstDir, useBoardQuery, type BoardView, type Sort, type SortKey } from '../lib/board'
 import { ago, duration, finite, levelOf, parseTags, pct, signed, size } from '../lib/format'
-import { metricTrail, type BoardMetric, type Row } from '../lib/model'
-import { CONTINENTS, continentName } from '../lib/region'
+import { metricTrail, useNow, type BoardMetric, type Row } from '../lib/model'
 import type { ThemeSettings } from '../lib/settings'
-import { Flag, Meter, Pair, Sparkline, Tick } from './primitives'
+import { Flag, Meter, Pair, Segmented, Sparkline, Tick } from './primitives'
 
-type SortKey = 'name' | 'uptime' | 'cpu' | 'ram' | 'disk' | 'load' | 'traffic' | 'net' | 'seen'
-type Sort = { key: SortKey; dir: 'asc' | 'desc' } | null
-
+// Rows re-render only when their own data or these shared extras change; nothing here ticks every
+// second (the "x s ago" label keeps its own clock), so a large board stays cheap between refreshes.
 export interface BoardExtras {
   sparks: Sparks | undefined
   traffic: (r: Row) => { up: number; down: number } | null
   trafficMonthly: boolean
-  now: number
+  /** Current time, refreshed once a minute: moves the 1h trails of nodes that stopped reporting. */
+  minute: number
 }
 
 const TAG_COLORS: Record<string, string> = {
@@ -43,62 +46,39 @@ export function Tags({ tags, max }: { tags: string; max?: number }) {
   )
 }
 
-function sortValue(r: Row, key: SortKey, x: BoardExtras): number | string | null {
-  const st = r.online ? r.status : undefined
-  switch (key) {
-    case 'name':
-      return r.node.name.toLowerCase()
-    case 'uptime':
-      return st?.uptime ?? null
-    case 'cpu':
-      return r.cpu
-    case 'ram':
-      return r.ram
-    case 'disk':
-      return r.disk
-    case 'load':
-      return st?.load ?? null
-    case 'traffic': {
-      const t = x.traffic(r)
-      return t ? t.up + t.down : null
-    }
-    case 'net':
-      return st ? st.net_in + st.net_out : null
-    case 'seen':
-      return r.lastSeen
-  }
-}
-
-const HEAD: { key: SortKey | null; label: string; cls: string; trail?: boolean }[] = [
-  { key: 'name', label: '节点', cls: 'c-name' },
-  { key: 'uptime', label: '状态', cls: 'c-state' },
-  { key: 'cpu', label: 'CPU', cls: 'c-cpu', trail: true },
-  { key: 'ram', label: '内存', cls: 'c-ram', trail: true },
-  { key: 'disk', label: '磁盘', cls: 'c-disk', trail: true },
-  { key: 'load', label: '负载 1/5/15', cls: 'c-load' },
-  { key: 'traffic', label: '流量 ↑/↓', cls: 'c-traffic' },
-  { key: 'net', label: '网络 ↑/↓', cls: 'c-net' },
-  { key: null, label: '标签', cls: 'c-tags' },
-  { key: 'seen', label: '最后上报', cls: 'c-seen' },
+/** Columns; `col` names the header (board.col.*), the traffic one depends on the period. */
+const HEAD: { key: SortKey | null; col: 'name' | 'state' | 'cpu' | 'ram' | 'disk' | 'load' | 'traffic' | 'net' | 'tags' | 'seen'; cls: string; trail?: boolean }[] = [
+  { key: 'name', col: 'name', cls: 'c-name' },
+  { key: 'uptime', col: 'state', cls: 'c-state' },
+  { key: 'cpu', col: 'cpu', cls: 'c-cpu', trail: true },
+  { key: 'ram', col: 'ram', cls: 'c-ram', trail: true },
+  { key: 'disk', col: 'disk', cls: 'c-disk', trail: true },
+  { key: 'load', col: 'load', cls: 'c-load' },
+  { key: 'traffic', col: 'traffic', cls: 'c-traffic' },
+  { key: 'net', col: 'net', cls: 'c-net' },
+  { key: null, col: 'tags', cls: 'c-tags' },
+  { key: 'seen', col: 'seen', cls: 'c-seen' },
 ]
-
-const METRIC_LABEL: Record<BoardMetric, string> = { cpu: 'CPU', ram: '内存', disk: '磁盘' }
 /** Disk barely moves within an hour; a wider minimum range keeps its trail visibly flat. */
 const MIN_SPAN: Record<BoardMetric, number> = { cpu: 6, ram: 6, disk: 10 }
 
 /** Value, Δ vs. the 1h mean and the 1h trail (or a usage bar when trails are off). */
 function MetricCell({ r, k, x, showSpark, title }: { r: Row; k: BoardMetric; x: BoardExtras; showSpark: boolean; title?: string }) {
+  const { t } = useTranslation()
   const value = r[k]
-  const trail = showSpark ? metricTrail(r, x.sparks?.get(r.node.uuid), k, x.now) : null
+  // The trail window ends at the node's latest report; a node that stopped reporting drifts left
+  // with the minute clock.
+  const end = r.online && r.lastSeen ? r.lastSeen : x.minute
+  const trail = showSpark ? metricTrail(r, x.sparks?.get(r.node.uuid), k, end) : null
   return (
     <span className={clsx(`c-${k}`, 'metric', trail ? 'has-spark' : 'has-meter', levelOf(value))} title={title}>
-      <span className="m-label">{METRIC_LABEL[k]}</span>
+      <span className="m-label">{t(`board.col.${k}`)}</span>
       <span className="m-nums">
         <b className="m-value num">
           <Tick value={value} threshold={1}>{pct(value)}</Tick>
         </b>
         {trail?.dir && (
-          <span className={clsx('delta num', trail.dir)} title="较近 1 小时均值（曲线中的虚线）">
+          <span className={clsx('delta num', trail.dir)} title={t('board.deltaHint')}>
             {signed(trail.delta!, 1)}
             <small>pp</small>
           </span>
@@ -109,35 +89,55 @@ function MetricCell({ r, k, x, showSpark, title }: { r: Row; k: BoardMetric; x: 
   )
 }
 
-const QuoteRow = forwardRef<HTMLAnchorElement, { r: Row; x: BoardExtras; showSpark: boolean }>(function QuoteRow({ r, x, showSpark }, ref) {
+/** "x s ago" on the shared 1 s clock, so only this label re-renders every second, not its row. */
+function Ago({ t }: { t: number | null }) {
+  const now = useNow(1000)
+  return (
+    <time className="num" dateTime={t ? new Date(t).toISOString() : undefined}>
+      {ago(t, now, true)}
+    </time>
+  )
+}
+
+/** `rank` is the row's place in a sorted board (null when grouped); a change of place slides it. */
+const QuoteRow = memo(function QuoteRow({ r, x, showSpark, search, rank }: { r: Row; x: BoardExtras; showSpark: boolean; search: string; rank: number | null }) {
+  const { t } = useTranslation()
   const st = r.online ? r.status : undefined
-  const t = x.traffic(r)
+  const tr = x.traffic(r)
   const memText = st ? `${size(st.ram)} / ${size(st.ram_total || r.node.mem_total)}` : undefined
   const diskText = st ? `${size(st.disk)} / ${size(st.disk_total || r.node.disk_total)}` : undefined
   return (
-    <motion.div layout="position" transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }} className="row-wrap">
-      <Link ref={ref} to={`/instance/${r.node.uuid}`} state={{ fromBoard: true }} className={clsx('qrow', !r.online && 'is-off')} data-uuid={r.node.uuid} aria-label={`${r.node.name} ${r.region.name} ${r.online ? '在线' : '离线'}，查看详情`}>
+    // Only a sorted board reorders. Layout tracking would measure every row on every data refresh;
+    // with the rank as its dependency it measures a row only when its place changes (rows are of
+    // equal height, so a row that keeps its rank keeps its position).
+    <motion.div layout={rank !== null ? 'position' : false} layoutDependency={rank} transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="row-wrap">
+      <Link to={{ pathname: `/instance/${r.node.uuid}`, search }} state={{ fromBoard: true }} className={clsx('qrow', !r.online && 'is-off')} data-uuid={r.node.uuid} aria-label={t(r.node.hidden ? 'board.rowHidden' : 'board.row', { name: r.node.name, region: r.region.name, state: r.online ? t('common.online') : t('common.offline') })}>
         <span className="c-name">
           <Flag code={r.region.code} title={r.region.name} />
           <span className="name-stack">
             <b className="node-name num">{r.node.name}</b>
             <span className="node-code num">
               {r.code.area}·<em>{r.code.hash}</em>
+              {r.node.hidden && (
+                <span className="hidden-tag" title={t('common.hiddenHint')}>
+                  {t('common.hidden')}
+                </span>
+              )}
             </span>
           </span>
         </span>
         <span className="c-state">
           <span className={clsx('state', r.online ? 'on' : 'off')}>
             <i aria-hidden="true" />
-            {r.online ? '在线' : '离线'}
+            {r.online ? t('common.online') : t('common.offline')}
           </span>
-          <span className="uptime num" title="系统运行时长">{duration(st?.uptime)}</span>
+          <span className="uptime num" title={t('board.uptimeHint')}>{duration(st?.uptime)}</span>
         </span>
         <MetricCell r={r} k="cpu" x={x} showSpark={showSpark} />
         <MetricCell r={r} k="ram" x={x} showSpark={showSpark} title={memText} />
         <MetricCell r={r} k="disk" x={x} showSpark={showSpark} title={diskText} />
         <span className="c-load num">
-          <span className="m-label">负载</span>
+          <span className="m-label">{t('board.load')}</span>
           {(['load', 'load5', 'load15'] as const).map((k, i) => (
             <span key={k} className="load-cell">
               <small>{[1, 5, 15][i]}m</small>
@@ -146,18 +146,18 @@ const QuoteRow = forwardRef<HTMLAnchorElement, { r: Row; x: BoardExtras; showSpa
           ))}
         </span>
         <span className="c-traffic">
-          <span className="m-label">{x.trafficMonthly ? '月流量' : '累计流量'}</span>
-          <Pair up={t?.up} down={t?.down} byUnit />
+          <span className="m-label">{x.trafficMonthly ? t('board.trafficMonth') : t('board.trafficTotal')}</span>
+          <Pair up={tr?.up} down={tr?.down} byUnit />
         </span>
         <span className="c-net">
-          <span className="m-label">网络</span>
+          <span className="m-label">{t('board.network')}</span>
           <Pair up={st?.net_out} down={st?.net_in} rate tickUp tickDown byUnit />
         </span>
         <span className="c-tags">
           <Tags tags={r.node.tags} max={2} />
         </span>
         <span className="c-seen">
-          <time className="num" dateTime={r.lastSeen ? new Date(r.lastSeen).toISOString() : undefined}>{ago(r.lastSeen, x.now)}</time>
+          <Ago t={r.lastSeen} />
           <ChevronRight className="row-arrow" size={14} aria-hidden="true" />
         </span>
       </Link>
@@ -165,63 +165,74 @@ const QuoteRow = forwardRef<HTMLAnchorElement, { r: Row; x: BoardExtras; showSpa
   )
 })
 
-interface Group {
-  key: string
-  label: string
-  code?: string
-  rows: Row[]
+const SORT_KEYS: SortKey[] = ['cpu', 'ram', 'disk', 'load', 'net', 'traffic', 'uptime', 'seen', 'name']
+
+/**
+ * Phones hide the column headers, so the sort lives behind a button beside the search box:
+ * pick what to order by, then the direction. Hidden on wider screens, where headers sort.
+ */
+function SortMenu({ sort, grouped, onChange }: { sort: Sort; grouped: boolean; onChange: (s: Sort) => void }) {
+  const { t, i18n } = useTranslation()
+  const [open, setOpen] = useState(false)
+  const dirLabel = useId()
+  const dirText = (d: 'asc' | 'desc') => t(`sort.${d}`)
+  // Names are lower case for use inside sentences (by name, descending); as options they start a line.
+  const cap = (s: string) => s.charAt(0).toLocaleUpperCase(i18n.language) + s.slice(1)
+  return (
+    <Popover.Root open={open} onOpenChange={setOpen}>
+      <Popover.Trigger asChild>
+        <button type="button" className={clsx('tool-btn sort-btn', sort && 'is-on')} aria-label={sort ? t('sort.current', { key: t(`sort.key.${sort.key}`), dir: dirText(sort.dir) }) : t('sort.button')}>
+          <ArrowDownUp size={14} aria-hidden="true" />
+        </button>
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Content className="sort-menu" side="bottom" align="end" sideOffset={6} collisionPadding={12} aria-label={t('sort.button')}>
+          <RadioGroup.Root
+            className="sort-list"
+            value={sort?.key ?? 'none'}
+            onValueChange={(v) => {
+              onChange(v === 'none' ? null : { key: v as SortKey, dir: sort?.key === v ? sort.dir : firstDir(v as SortKey) })
+              // Back to the default order there is no direction to pick, so the menu is done.
+              if (v === 'none') setOpen(false)
+            }}
+            aria-label={t('sort.by')}
+            loop
+          >
+            {(['none', ...SORT_KEYS] as const).map((k) => (
+              <RadioGroup.Item key={k} value={k} className="sort-opt">
+                {k === 'none' ? (grouped ? t('sort.defaultGrouped') : t('sort.default')) : cap(t(`sort.key.${k}`))}
+                <RadioGroup.Indicator asChild>
+                  <Check size={14} aria-hidden="true" />
+                </RadioGroup.Indicator>
+              </RadioGroup.Item>
+            ))}
+          </RadioGroup.Root>
+          {sort && (
+            <div className="sort-dir">
+              <span id={dirLabel}>{t('sort.direction')}</span>
+              <Segmented className="seg-fill" value={sort.dir} options={['desc', 'asc'] as const} format={(d) => cap(dirText(d))} labelledBy={dirLabel} onChange={(dir) => onChange({ ...sort, dir })} />
+            </div>
+          )}
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
+  )
 }
 
-function groupRows(rows: Row[], by: ThemeSettings['groupBy']): Group[] {
-  if (by === 'none') return [{ key: 'all', label: '全部', rows }]
-  const map = new Map<string, Row[]>()
-  for (const r of rows) {
-    const k = by === 'continent' ? r.region.continent : r.node.group?.trim() || '未分组'
-    map.set(k, [...(map.get(k) ?? []), r])
-  }
-  if (by === 'continent') {
-    return CONTINENTS.filter((c) => map.has(c.code)).map((c) => ({ key: c.code, label: continentName(c.code), code: c.code === 'OT' ? undefined : c.code, rows: map.get(c.code)! }))
-  }
-  return [...map.entries()].map(([k, rs]) => ({ key: k, label: k, rows: rs }))
-}
-
-export function QuoteBoard({ rows, settings, x, loading, searchRef }: { rows: Row[]; settings: ThemeSettings; x: BoardExtras; loading: boolean; searchRef: React.RefObject<HTMLInputElement | null> }) {
-  const [query, setQuery] = useState('')
-  const [filter, setFilter] = useState('all')
-  const [sort, setSort] = useState<Sort>(null)
+// Memoized: the app re-renders every second for its clocks, the board only when its data does.
+export const QuoteBoard = memo(function QuoteBoard({ rows, view, onHold, hiddenCount, showHidden, onToggleHidden, settings, x, loading, searchRef }: { rows: Row[]; view: BoardView; onHold: (hold: boolean) => void; hiddenCount: number; showHidden: boolean; onToggleHidden: () => void; settings: ThemeSettings; x: BoardExtras; loading: boolean; searchRef: React.RefObject<HTMLInputElement | null> }) {
+  const { t } = useTranslation()
+  const [{ q: query, quick, sort }, setBoard, flushQuery] = useBoardQuery()
+  const { search } = useLocation()
   const listRef = useRef<HTMLDivElement>(null)
   const showSpark = settings.showSparkline
 
-  const allGroups = useMemo(() => groupRows(rows, settings.groupBy), [rows, settings.groupBy])
-  const q = query.trim().toLowerCase()
-  const visible = useMemo(() => {
-    const match = (r: Row) =>
-      !q ||
-      [r.node.name, r.region.name, r.region.code ?? '', r.code.area, r.code.hash, r.node.group, ...parseTags(r.node.tags).map((t) => t.text)].some((s) => s?.toLowerCase().includes(q))
-    return allGroups
-      .filter((g) => filter === 'all' || g.key === filter)
-      .map((g) => ({ ...g, rows: g.rows.filter(match) }))
-      .filter((g) => g.rows.length)
-  }, [allGroups, filter, q])
+  const { allGroups, filter, groups: visible, flat } = view
+  const count = view.order.length
 
-  const flat = useMemo(() => {
-    if (!sort) return null
-    const list = visible.flatMap((g) => g.rows)
-    const dir = sort.dir === 'asc' ? 1 : -1
-    return [...list].sort((a, b) => {
-      const va = sortValue(a, sort.key, x)
-      const vb = sortValue(b, sort.key, x)
-      if (va === null && vb === null) return 0
-      if (va === null) return 1
-      if (vb === null) return -1
-      return (va < vb ? -1 : va > vb ? 1 : 0) * dir
-    })
-  }, [visible, sort, x])
-
-  const count = visible.reduce((a, g) => a + g.rows.length, 0)
-
+  // First click: the natural direction; second: reversed; third: back to the grouped board.
   const cycleSort = (key: SortKey) =>
-    setSort((s) => (s?.key !== key ? { key, dir: key === 'name' ? 'asc' : 'desc' } : s.dir === (key === 'name' ? 'asc' : 'desc') ? { key, dir: key === 'name' ? 'desc' : 'asc' } : null))
+    setBoard({ sort: sort?.key !== key ? { key, dir: firstDir(key) } : sort.dir === firstDir(key) ? { key, dir: firstDir(key) === 'asc' ? 'desc' : 'asc' } : null })
 
   // ↑/↓ moves between rows like a quote list; Enter follows the link.
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -235,41 +246,124 @@ export function QuoteBoard({ rows, settings, x, loading, searchRef }: { rows: Ro
     e.preventDefault()
   }
 
+  // In the search box: Esc clears and leaves, ↓ steps into the list (the first matching row).
+  const onSearchKey = (e: KeyboardEvent<HTMLInputElement>) => {
+    // Keys pressed while an IME is composing belong to the IME (Esc cancels the candidate).
+    if (e.nativeEvent.isComposing) return
+    if (e.key === 'Escape') {
+      setBoard({ q: '' })
+      e.currentTarget.blur()
+      e.preventDefault()
+    } else if (e.key === 'ArrowDown') {
+      const first = listRef.current?.querySelector<HTMLAnchorElement>('a.qrow')
+      if (!first) return
+      first.focus()
+      first.scrollIntoView({ block: 'nearest' })
+      e.preventDefault()
+    }
+  }
+
+  // A focused row that leaves the list (filtered out, or the board unmounts) never fires blur,
+  // so release the hold whenever the rows change and neither the mouse nor a row holds it.
+  useEffect(() => {
+    const el = listRef.current
+    if (!el || (!el.matches(':hover') && !el.querySelector('a.qrow:focus-visible'))) onHold(false)
+  }, [view.order, onHold])
+  useEffect(() => () => onHold(false), [onHold])
+
   const cols = clsx('board', !showSpark && 'no-spark')
+  const headLabel = (col: (typeof HEAD)[number]['col']) => (col === 'traffic' ? (x.trafficMonthly ? t('board.col.trafficMonth') : t('board.col.trafficTotal')) : t(`board.col.${col}`))
 
   return (
     <section className="panel board-panel" aria-labelledby="board-title">
       <div className="panel-head">
         <div className="panel-title">
           <span className="slot num">01</span>
-          <h1 id="board-title">全部节点</h1>
-          <span className="count num">{count} 台</span>
+          <h1 id="board-title">{t('board.title')}</h1>
+          <span className="count num">{t('board.count', { count })}</span>
+          {/* What is narrowing or reordering the board, each one click from undone. */}
+          {quick && (
+            <button type="button" className="chip" onClick={() => setBoard({ quick: null })} aria-label={t('board.clearQuick', { label: t(`board.quick.${quick}`) })}>
+              {t(`board.quick.${quick}`)}
+              <X size={12} aria-hidden="true" />
+            </button>
+          )}
+          {/* Only a logged-in session gets hidden nodes, so only it sees this toggle. */}
+          {hiddenCount > 0 &&
+            (showHidden ? (
+              <button type="button" className="chip chip-quiet" onClick={onToggleHidden} aria-label={t('board.hideHidden', { count: hiddenCount })} title={t('board.hiddenHint')}>
+                <Eye size={12} aria-hidden="true" />
+                {t('board.hiddenCount', { count: hiddenCount })}
+              </button>
+            ) : (
+              <button type="button" className="chip" onClick={onToggleHidden} aria-label={t('board.showHidden', { count: hiddenCount })}>
+                <EyeOff size={12} aria-hidden="true" />
+                {t('board.hiddenOff')}
+                <X size={12} aria-hidden="true" />
+              </button>
+            ))}
+          {sort && (
+            <button type="button" className="chip" onClick={() => setBoard({ sort: null })} aria-label={t('board.clearSort', { key: t(`sort.key.${sort.key}`), dir: t(`sort.${sort.dir}`), restore: settings.groupBy === 'none' ? t('board.restoreOrder') : t('board.restoreGroups') })}>
+              {t('board.sortChip', { key: t(`sort.key.${sort.key}`), dir: t(`sort.${sort.dir}`) })}
+              <X size={12} aria-hidden="true" />
+            </button>
+          )}
         </div>
-        <label className="search">
-          <Search size={14} aria-hidden="true" />
-          <input ref={searchRef} type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜索节点 / 地区 / 标签" aria-label="搜索节点、地区或标签" />
-          <kbd className="num">/</kbd>
-        </label>
+        <div className="board-tools">
+          {/* The label covers icon and input only: a button inside a label is not allowed. */}
+          <div className="search">
+            <label className="search-field">
+              <Search size={14} aria-hidden="true" />
+              <input ref={searchRef} type="search" value={query} onChange={(e) => setBoard({ q: e.target.value })} onKeyDown={onSearchKey} onBlur={flushQuery} placeholder={t('board.searchPlaceholder')} aria-label={t('board.searchLabel')} />
+            </label>
+            {query ? (
+              <button
+                type="button"
+                className="search-clear"
+                aria-label={t('board.clearSearch')}
+                onClick={() => {
+                  setBoard({ q: '' })
+                  searchRef.current?.focus()
+                }}
+              >
+                <X size={13} aria-hidden="true" />
+              </button>
+            ) : (
+              <kbd className="num">/</kbd>
+            )}
+          </div>
+          <SortMenu sort={sort} grouped={settings.groupBy !== 'none'} onChange={(next) => setBoard({ sort: next })} />
+        </div>
       </div>
 
       {settings.groupBy !== 'none' && allGroups.length > 1 && (
-        <div className="tabs" role="tablist" aria-label="按分组筛选">
-          {[{ key: 'all', label: '全部', n: rows.length }, ...allGroups.map((g) => ({ key: g.key, label: g.label, n: g.rows.length }))].map((t) => (
-            <button key={t.key} type="button" role="tab" aria-selected={filter === t.key} className="tab" onClick={() => setFilter(t.key)}>
-              {filter === t.key && <motion.span layoutId="tab-pill" className="tab-pill" transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }} />}
-              <span className="tab-text">{t.label}</span>
-              <span className="tab-n num">{t.n}</span>
+        <div className="tabs" role="tablist" aria-label={t('board.groupTabs')}>
+          {[{ key: 'all', label: t('common.all'), n: rows.length }, ...allGroups.map((g) => ({ key: g.key, label: g.label, n: g.rows.length }))].map((tab) => (
+            <button key={tab.key} type="button" role="tab" aria-selected={filter === tab.key} className="tab" onClick={() => setBoard({ group: tab.key })}>
+              {filter === tab.key && <motion.span layoutId="tab-pill" className="tab-pill" transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }} />}
+              <span className="tab-text">{tab.label}</span>
+              <span className="tab-n num">{tab.n}</span>
             </button>
           ))}
         </div>
       )}
 
-      <div className={cols} ref={listRef} onKeyDown={onKeyDown}>
+      {/* While the mouse is over the list or the keyboard is on a row, a sorted board keeps its order
+          (see useHeldOrder). A clicked header keeps focus but must not hold the board. */}
+      <div
+        className={cols}
+        ref={listRef}
+        onKeyDown={onKeyDown}
+        onPointerEnter={(e) => e.pointerType === 'mouse' && onHold(true)}
+        onPointerLeave={(e) => e.pointerType === 'mouse' && !listRef.current?.querySelector('a.qrow:focus-visible') && onHold(false)}
+        onFocus={(e) => e.target.matches('a.qrow:focus-visible') && onHold(true)}
+        onBlur={(e) => !(e.relatedTarget instanceof Element && e.relatedTarget.matches('a.qrow')) && !listRef.current?.matches(':hover') && onHold(false)}
+      >
         <div className="qhead" role="row">
           {HEAD.map((h) =>
             h.key ? (
               <button key={h.cls} type="button" className={clsx(h.cls, 'th', sort?.key === h.key && 'is-sorted')} onClick={() => cycleSort(h.key!)} aria-sort={sort?.key === h.key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
-                {h.key === 'traffic' ? `${x.trafficMonthly ? '月流量' : '累计流量'} ↑/↓` : h.label}
+                <span className="th-text">{headLabel(h.col)}</span>
                 {h.trail && showSpark && <small className="th-sub">1h</small>}
                 <span className="sort-mark" aria-hidden="true">
                   {sort?.key === h.key ? (sort.dir === 'asc' ? '▲' : '▼') : '⇅'}
@@ -277,7 +371,7 @@ export function QuoteBoard({ rows, settings, x, loading, searchRef }: { rows: Ro
               </button>
             ) : (
               <span key={h.cls} className={clsx(h.cls, 'th')}>
-                {h.label}
+                <span className="th-text">{headLabel(h.col)}</span>
               </span>
             ),
           )}
@@ -290,14 +384,21 @@ export function QuoteBoard({ rows, settings, x, loading, searchRef }: { rows: Ro
             ))}
           </div>
         ) : count === 0 ? (
-          <p className="empty">{rows.length ? '没有匹配的节点' : '暂无公开节点'}</p>
+          rows.length ? (
+            <div className="empty">
+              <p>{t('board.noMatch')}</p>
+              <button type="button" className="tool-btn" onClick={() => setBoard({ q: '', group: 'all', quick: null })}>
+                {t('board.clearFilters')}
+              </button>
+            </div>
+          ) : (
+            <p className="empty">{t('board.empty')}</p>
+          )
         ) : flat ? (
           <div className="group-body">
-            <AnimatePresence initial={false}>
-              {flat.map((r) => (
-                <QuoteRow key={r.node.uuid} r={r} x={x} showSpark={showSpark} />
-              ))}
-            </AnimatePresence>
+            {flat.map((r, i) => (
+              <QuoteRow key={r.node.uuid} r={r} x={x} showSpark={showSpark} search={search} rank={i} />
+            ))}
           </div>
         ) : (
           visible.map((g) => {
@@ -314,18 +415,18 @@ export function QuoteBoard({ rows, settings, x, loading, searchRef }: { rows: Ro
                     <span className="group-meta num">
                       {finite(cpuAvg) && (
                         <span className="group-cpu">
-                          平均 CPU 使用率 <b>{cpuAvg.toFixed(1)}%</b>
+                          {t('board.groupCpu')} <b>{cpuAvg.toFixed(1)}%</b>
                         </span>
                       )}
                       <span>
-                        <b className={online.length ? 'good' : 'dim'}>{online.length}</b> 在线 / {g.rows.length} 台
+                        <Trans t={t} i18nKey="board.groupOnline" values={{ online: online.length, count: g.rows.length }} components={{ b: <b className={online.length ? 'good' : 'dim'} /> }} />
                       </span>
                     </span>
                   </div>
                 )}
                 <div className="group-body">
                   {g.rows.map((r) => (
-                    <QuoteRow key={r.node.uuid} r={r} x={x} showSpark={showSpark} />
+                    <QuoteRow key={r.node.uuid} r={r} x={x} showSpark={showSpark} search={search} rank={null} />
                   ))}
                 </div>
               </section>
@@ -335,4 +436,4 @@ export function QuoteBoard({ rows, settings, x, loading, searchRef }: { rows: Ro
       </div>
     </section>
   )
-}
+})

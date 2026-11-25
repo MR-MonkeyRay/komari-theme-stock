@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
+import { flushSync } from 'react-dom'
 
 // `appearance` is the localStorage key shared with Komari's default theme.
 export type Appearance = 'light' | 'dark' | 'system'
@@ -39,11 +40,23 @@ export function useAppearance() {
     } catch {
       /* storage may be unavailable */
     }
-    // Brief cross-fade between palettes; skipped when reduced motion is preferred.
-    const root = document.documentElement
-    root.classList.add('theme-transition')
-    window.setTimeout(() => root.classList.remove('theme-transition'), 400)
-    setState(a)
+    // Cross-fade the whole page, charts included: a view transition snapshots the canvases too,
+    // which per-element CSS transitions cannot. Without support, or with reduced motion, switch at once.
+    // Also switch at once when the colors stay the same (e.g. light → system on a light system).
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const same = resolveTheme(a) === document.documentElement.dataset.theme
+    if (reduce || same || !document.startViewTransition) {
+      apply(a)
+      setState(a)
+      return
+    }
+    // Rendering is paused until the callback returns, so it must not wait for frames (that stalls
+    // until the browser's timeout). Commit React synchronously; the new side of the transition is
+    // live, so the charts' repaint on the next frame still lands inside the fade.
+    document.startViewTransition(() => {
+      apply(a)
+      flushSync(() => setState(a))
+    })
   }, [])
 
   return [appearance, set] as const

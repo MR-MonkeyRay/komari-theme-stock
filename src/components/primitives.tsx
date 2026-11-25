@@ -2,6 +2,7 @@ import * as RadioGroup from '@radix-ui/react-radio-group'
 import clsx from 'clsx'
 import { motion } from 'motion/react'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { finite, levelOf, sizeParts } from '../lib/format'
 import type { MetricTrail } from '../lib/model'
 
@@ -98,9 +99,10 @@ const SPARK_H = 24
  * `minSpan` (pp) keeps steady metrics flat instead of amplifying noise; `stopped` draws a hollow end for offline nodes.
  */
 export function Sparkline({ trail, minSpan = 6, stopped = false }: { trail: MetricTrail; minSpan?: number; stopped?: boolean }) {
+  const { t } = useTranslation()
   const gid = 'spk' + useId().replace(/[^a-zA-Z0-9_-]/g, '')
   const { points, avg, dir } = trail
-  if (points.length < 2 || avg === null) return <span className="spark spark-empty" title="近 1 小时无上报数据" />
+  if (points.length < 2 || avg === null) return <span className="spark spark-empty" title={t('spark.empty')} />
   const vs = points.map((p) => p.v)
   const lo = Math.min(...vs, avg)
   const hi = Math.max(...vs, avg)

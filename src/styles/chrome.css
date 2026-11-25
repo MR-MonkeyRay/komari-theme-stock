@@ -47,8 +47,9 @@
 
 .panel-title {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 6px 10px;
 }
 .panel-title h1 {
   margin: 0;
@@ -75,6 +76,38 @@
   border: 1px solid var(--line-strong);
   border-radius: 10px;
 }
+/* An active filter or sort on the board; clicking it removes it. */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 6px 0 9px;
+  font-size: 11.5px;
+  white-space: nowrap;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: 11px;
+  transition: background-color 150ms ease;
+}
+.chip:hover {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.chip svg {
+  opacity: 0.75;
+}
+/* A toggle that is not narrowing anything yet. */
+.chip-quiet {
+  padding-right: 9px;
+  color: var(--text-2);
+  background: transparent;
+  border-color: var(--line-strong);
+}
+.chip-quiet:hover {
+  color: var(--text-1);
+  background: var(--bg-hover);
+}
 
 /* ---------- top bar ---------- */
 
@@ -96,7 +129,7 @@
 .brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
 }
 .brand strong {
@@ -110,22 +143,30 @@
   text-overflow: ellipsis;
 }
 .crumb {
+  margin-left: 2px;
   font-size: 12px;
   color: var(--text-3);
   white-space: nowrap;
 }
+/* The mark draws its own amber tile (see Logomark); public/favicon.svg is the same drawing. */
 .logomark {
-  position: relative;
-  display: inline-grid;
-  place-items: center;
+  display: inline-flex;
+  flex: none;
   width: 26px;
   height: 26px;
-  font-family: var(--font-mono);
-  font-weight: 800;
-  font-size: 14px;
-  color: var(--bg-app);
-  background: var(--brand);
-  border-radius: 3px;
+  color: var(--brand);
+}
+.logomark svg {
+  width: 100%;
+  height: 100%;
+}
+/* Set here, not as a fill="var()" attribute, which not every browser resolves. */
+.logomark-k {
+  fill: var(--bg-app);
+}
+/* Pure white on the darker light-theme amber, as in public/favicon.svg. */
+:root[data-theme='light'] .logomark-k {
+  fill: #fff;
 }
 .topbar-tools {
   display: flex;
@@ -160,8 +201,8 @@
   border-radius: 50%;
   background: var(--online);
 }
-.market.is-live i::after,
-.sb-conn.is-live i::after {
+/* Only the top-bar badge pulses; the status-bar light stays steady so two dots do not beat at once. */
+.market.is-live i::after {
   content: '';
   position: absolute;
   inset: 0;
@@ -169,8 +210,37 @@
   background: var(--online);
   animation: heartbeat 2400ms cubic-bezier(0, 0, 0.2, 1) infinite;
 }
+.market.is-connecting i,
+.sb-conn.is-connecting i {
+  background: var(--offline);
+}
 .market.is-stale i,
 .sb-conn.is-stale i {
+  background: var(--warn);
+}
+.market.is-stale .market-text {
+  color: var(--warn);
+}
+button.market,
+button.sb-conn {
+  font: inherit;
+  cursor: pointer;
+}
+button.market:disabled,
+button.sb-conn:disabled {
+  cursor: progress;
+}
+button.market:hover {
+  border-color: var(--alert);
+}
+button.sb-conn:hover .sb-conn-text {
+  color: var(--text-1);
+}
+.market.is-down .market-text {
+  color: var(--alert);
+}
+.market.is-down i,
+.sb-conn.is-down i {
   background: var(--alert);
 }
 @keyframes heartbeat {
@@ -219,6 +289,15 @@
 .tool-btn:hover {
   color: var(--text-1);
   border-color: color-mix(in srgb, var(--accent) 45%, var(--line-strong));
+}
+.tool-btn:disabled {
+  color: var(--text-4);
+  cursor: default;
+}
+.tool-btn.is-primary {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line-strong));
+  background: var(--accent-soft);
 }
 .admin-link.is-in {
   color: var(--text-1);
@@ -309,6 +388,53 @@
 }
 .ix:first-child {
   border-left: 0;
+}
+/* Index cells that filter the board (high load) and the offline count. */
+button.ix {
+  align-items: stretch;
+  text-align: left;
+  transition: background-color 150ms ease;
+}
+.ix-pick {
+  margin: -2px -5px;
+  padding: 2px 5px;
+  font: inherit;
+  letter-spacing: inherit;
+  border-radius: var(--radius-sm);
+  transition: background-color 150ms ease;
+}
+button.ix:hover:not(:disabled),
+.ix-pick:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+button.ix:disabled,
+.ix-pick:disabled {
+  cursor: default;
+}
+/* Pressed: the same accent as the board's filter chips, a ring rather than a line, so it does not
+   crowd the red bar under the offline count. */
+button.ix.is-on,
+.ix-pick.is-on {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+/* Dotted underline hints that the count is clickable (NumberFlow ignores text-decoration). */
+.ix-pick:not(:disabled, .is-on) {
+  background-image: linear-gradient(to right, color-mix(in srgb, currentColor 60%, transparent) 50%, transparent 0);
+  background-position: 0 100%;
+  background-size: 4px 1px;
+  background-repeat: repeat-x;
+  background-origin: content-box;
+  background-clip: content-box;
+}
+/* A finger-sized hit area without a bigger box. */
+.ix-pick {
+  position: relative;
+}
+.ix-pick::after {
+  content: '';
+  position: absolute;
+  inset: -8px -6px;
 }
 .ix-label {
   font-size: 11px;
@@ -562,6 +688,36 @@
   transform: translateX(16px);
 }
 
+/* The language list: a native select, which behaves the same for mouse, keys and screen readers. */
+.pref-select {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.pref-select select {
+  width: 100%;
+  height: 28px;
+  padding: 0 28px 0 9px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text-1);
+  background: var(--bg-inset);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  appearance: none;
+  cursor: pointer;
+  transition: border-color 150ms ease;
+}
+.pref-select select:hover {
+  border-color: var(--text-3);
+}
+.pref-select svg {
+  position: absolute;
+  right: 8px;
+  color: var(--text-3);
+  pointer-events: none;
+}
+
 /* Segmented control stretched to the panel width, options of equal width. */
 .seg.seg-fill {
   display: grid;
@@ -811,6 +967,11 @@
 .sb-news-item.is-bad {
   color: var(--alert);
 }
+.sb-news-item a:hover,
+.sb-news-item a:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 .sb-hints {
   margin-right: 14px;
   font-size: 10.5px;
@@ -869,9 +1030,18 @@
     justify-content: center;
     border: 0;
   }
+  /* Only the dot shows on phones; the retry button still needs a finger-sized target. */
+  button.market {
+    width: 28px;
+    height: 28px;
+  }
   .brand strong {
     font-size: 12.5px;
     letter-spacing: 0.06em;
+  }
+  .logomark {
+    width: 24px;
+    height: 24px;
   }
   .tool-btn {
     width: 28px;

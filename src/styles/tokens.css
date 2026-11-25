@@ -52,17 +52,33 @@
   --meter-track: #1a1f28;
 
   --net-up: #38bdf8;
-  --net-up-bar: rgb(56 189 248 / 0.46);
   --net-down: #f59e0b;
-  --net-down-bar: rgb(245 158 11 / 0.44);
+  /* VOL bars under the CPU candles: rising buckets hollow (stroke + faint fill), falling ones a
+     half-strength solid, so the bars sit a step behind the candles. */
+  --vol-red-stroke: rgb(255 77 82 / 0.82);
+  --vol-red-fill: rgb(255 77 82 / 0.12);
+  --vol-red-solid: rgb(255 77 82 / 0.54);
+  --vol-green-stroke: rgb(0 200 120 / 0.82);
+  --vol-green-fill: rgb(0 200 120 / 0.12);
+  --vol-green-solid: rgb(0 200 120 / 0.56);
+  --vol-flat: rgb(136 144 158 / 0.45);
+  /* 分时 view: a light price line over a fading fill, with the MA20 in gold as the average line. */
+  --chart-line: #dfe3ea;
+  --chart-area-top: rgb(223 227 234 / 0.16);
+  --chart-area-bottom: rgb(223 227 234 / 0);
+  /* Connection lines in the sub-pane: categorical slots 1 and 2 (see --ping-*), which stay apart
+     under color-vision deficiency, unlike blue and violet. */
+  --conn-tcp: var(--ping-1);
+  --conn-udp: var(--ping-2);
   /* Size units on the home board's traffic and network columns, more salient as they grow
-     (terminal white / cyan / yellow / magenta; red and green stay reserved for moves and alerts). */
+     (white / indigo / lime / orchid / amethyst). Hues keep clear of red and green (moves, alerts)
+     and of the sky-blue upload and amber download colors. */
   --unit-b: var(--text-3);
   --unit-k: #dfe3ea;
-  --unit-m: #2dd4e6;
-  --unit-g: #e5d24a;
-  --unit-t: #e27bf2;
-  --unit-p: #a99bfa;
+  --unit-m: #9395f8;
+  --unit-g: #c2da4c;
+  --unit-t: #ec7ce4;
+  --unit-p: #c386fa;
 
   --chart-grid: #171b23;
   --chart-grid-strong: #262b37;
@@ -71,8 +87,20 @@
   --chart-cross-bg: #2a303c;
   --ma5: rgb(230 233 239 / 0.72);
   --ma20: #e6b34b;
+  /* Ping lines, by task order: cobalt / rose / ochre for the usual three carriers (validated for
+     every pair under color-vision deficiency), then teal / violet / orange (adjacent pairs).
+     Red and green stay with rises and falls. Loss bars are neutral: their height is the signal. */
+  --ping-1: #4d8dff;
+  --ping-2: #d55181;
+  --ping-3: #ad8c22;
+  --ping-4: #1aa3b0;
+  --ping-5: #8f6ff0;
+  --ping-6: #d9692a;
+  --ping-loss: rgb(132 141 158 / 0.5);
 
   --map-dot: #2e3542;
+  /* Offline rows fade their figures to this opacity. */
+  --offline-fade: 0.5;
   --shadow-drawer: -24px 0 64px rgb(0 0 0 / 0.55);
   --shadow-popover: 0 16px 40px rgb(0 0 0 / 0.52), inset 0 1px 0 rgb(255 255 255 / 0.04);
 }
@@ -95,7 +123,7 @@
 
   --text-1: #11141a;
   --text-2: #4f5868;
-  --text-3: #768092;
+  --text-3: #636c7e;
   --text-4: #a8b0be;
 
   --brand: #b4690e;
@@ -123,15 +151,25 @@
   --meter-track: #e6eaf0;
 
   --net-up: #0284c7;
-  --net-up-bar: rgb(2 132 199 / 0.5);
   --net-down: #c2610c;
-  --net-down-bar: rgb(229 142 26 / 0.5);
+  --vol-red-stroke: rgb(225 37 54 / 0.82);
+  --vol-red-fill: rgb(225 37 54 / 0.1);
+  --vol-red-solid: rgb(225 37 54 / 0.52);
+  --vol-green-stroke: rgb(0 138 82 / 0.82);
+  --vol-green-fill: rgb(0 138 82 / 0.1);
+  --vol-green-solid: rgb(0 138 82 / 0.54);
+  --vol-flat: rgb(107 116 133 / 0.42);
+  --chart-line: #1f2430;
+  --chart-area-top: rgb(31 36 48 / 0.12);
+  --chart-area-bottom: rgb(31 36 48 / 0);
+  --conn-tcp: var(--ping-1);
+  --conn-udp: var(--ping-2);
   --unit-b: #626c7e;
   --unit-k: #1f2430;
-  --unit-m: #0b7285;
-  --unit-g: #8a6a00;
-  --unit-t: #a3239f;
-  --unit-p: #6741d9;
+  --unit-m: #4b4dc7;
+  --unit-g: #5e6c00;
+  --unit-t: #a8249d;
+  --unit-p: #8031c7;
 
   --chart-grid: #e2e7f0;
   --chart-grid-strong: #d6dde7;
@@ -140,8 +178,16 @@
   --chart-cross-bg: #1e2430;
   --ma5: rgb(55 65 81 / 0.75);
   --ma20: #c97a10;
+  --ping-1: #2563eb;
+  --ping-2: #c2417a;
+  --ping-3: #9a7400;
+  --ping-4: #00899c;
+  --ping-5: #7c5ce8;
+  --ping-6: #c4561a;
+  --ping-loss: rgb(99 108 126 / 0.4);
 
   --map-dot: #a8b3c5;
+  --offline-fade: 0.62;
   --shadow-drawer: -16px 0 48px rgb(15 23 42 / 0.18);
   --shadow-popover: 0 12px 32px rgb(15 23 42 / 0.14), 0 2px 6px rgb(15 23 42 / 0.06);
 }
@@ -153,16 +199,33 @@
   --down: var(--green);
   --down-soft: var(--green-soft);
   --down-line: var(--green-line);
+  --vol-up-stroke: var(--vol-red-stroke);
+  --vol-up-fill: var(--vol-red-fill);
+  --vol-up-solid: var(--vol-red-solid);
+  --vol-down: var(--vol-green-solid);
 
-  --font-sans: 'Inter Variable', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'HarmonyOS Sans SC', 'Hiragino Sans GB',
-    'Microsoft YaHei', 'Noto Sans CJK SC', 'Noto Sans SC', sans-serif;
-  --font-mono: 'JetBrains Mono Variable', ui-monospace, 'SFMono-Regular', 'Cascadia Mono', Consolas, 'PingFang SC',
-    'Microsoft YaHei', monospace;
+  /* Faces for Han, kana and hangul: Simplified Chinese ones unless the page language picks its own below. */
+  --font-cjk: 'PingFang SC', 'HarmonyOS Sans SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Noto Sans SC';
+  --font-sans: 'Inter Variable', -apple-system, BlinkMacSystemFont, var(--font-cjk), sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, 'SFMono-Regular', 'Cascadia Mono', Consolas, var(--font-cjk), monospace;
 
   --radius: 4px;
   --radius-sm: 2px;
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-flash: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Traditional Chinese: its own glyph forms. */
+:root:lang(zh-TW) {
+  --font-cjk: 'PingFang TC', 'Microsoft JhengHei', 'Noto Sans CJK TC', 'Noto Sans TC';
+}
+/* Japanese: its own glyph forms. */
+:root:lang(ja) {
+  --font-cjk: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic UI', 'Meiryo', 'Noto Sans CJK JP', 'Noto Sans JP';
+}
+/* Korean: faces with hangul. */
+:root:lang(ko) {
+  --font-cjk: 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans CJK KR', 'Noto Sans KR';
 }
 
 :root[data-convention='green-up'] {
@@ -172,4 +235,8 @@
   --down: var(--red);
   --down-soft: var(--red-soft);
   --down-line: var(--red-line);
+  --vol-up-stroke: var(--vol-green-stroke);
+  --vol-up-fill: var(--vol-green-fill);
+  --vol-up-solid: var(--vol-green-solid);
+  --vol-down: var(--vol-red-solid);
 }

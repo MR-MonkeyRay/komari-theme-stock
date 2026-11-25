@@ -15,8 +15,9 @@ export default function WorldMap({ lat, lng, online }: { lat: number | null; lng
       <div className="world-dots" dangerouslySetInnerHTML={{ __html: svg }} />
       {pin && (
         <svg className="world-pins" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-          <circle className="pin-halo" cx={pin.x} cy={pin.y} r="1.6" />
-          <circle className="pin-ring" cx={pin.x} cy={pin.y} r="3" />
+          <circle className={online ? 'pin-halo' : 'pin-halo is-off'} cx={pin.x} cy={pin.y} r="1.6" />
+          {/* The pulse means "reporting now"; an offline node keeps a still, grey pin. */}
+          {online && <circle className="pin-ring" cx={pin.x} cy={pin.y} r="3" />}
           <circle className={online ? 'pin-on' : 'pin-off'} cx={pin.x} cy={pin.y} r="1" />
         </svg>
       )}

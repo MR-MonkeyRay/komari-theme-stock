@@ -1,40 +1,46 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react'
-import { monthStart, useLatestStatus, useMe, useMetricDefinitions, useMonthlyTraffic, useNodes, usePublicSettings, useSparklines } from './lib/api'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { monthStart, useExpiryLeadDays, useIsAdmin, useLatestStatus, useMe, useMetricDefinitions, useMonthlyTraffic, useNodes, usePublicSettings, useSparklines } from './lib/api'
 import { useAppearance } from './lib/appearance'
-import { buildRows, useNow, type Row } from './lib/model'
-import { CONTINENTS } from './lib/region'
+import { buildRows, connState, useNow, type Row } from './lib/model'
 import { useShallow } from 'zustand/react/shallow'
 import { readSiteSettings, usePrefs, type ThemeSettings } from './lib/settings'
 import { IndexStrip, StatusBar, TopBar } from './components/Chrome'
 import { bulletins, summarize } from './lib/market'
+import { boardView, useBoardQuery, useHeldOrder, type Quick } from './lib/board'
 import { QuoteBoard, type BoardExtras } from './components/QuoteBoard'
 import { NodeDetail } from './components/detail/NodeDetail'
 
 export default function App() {
+  const { t, i18n } = useTranslation()
+  const lang = i18n.language
   const [appearance, setAppearance] = useAppearance()
   const pub = usePublicSettings()
   const site = useMemo(() => readSiteSettings(pub.data), [pub.data])
-  const prefs = usePrefs(useShallow(({ redUp, showSparkline, refreshSeconds, defaultRange, showEvents }) => ({ redUp, showSparkline, refreshSeconds, defaultRange, showEvents })))
+  const prefs = usePrefs(useShallow(({ redUp, showSparkline, refreshSeconds, defaultRange, showEvents, chartStyle }) => ({ redUp, showSparkline, refreshSeconds, defaultRange, showEvents, chartStyle })))
   const settings: ThemeSettings = useMemo(() => ({ ...site, ...prefs }), [site, prefs])
   const nodes = useNodes()
   const status = useLatestStatus(settings.refreshSeconds)
   const defs = useMetricDefinitions()
   const now = useNow(1000)
   const me = useMe()
+  const leadDays = useExpiryLeadDays(useIsAdmin())
   const searchRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     document.documentElement.dataset.convention = settings.redUp ? 'red-up' : 'green-up'
   }, [settings.redUp])
 
-  const rows = useMemo(() => buildRows(nodes.data, status.data), [nodes.data, status.data])
-  // Same order as the grouped board, so [ / ] in the drawer pages through what is on screen.
-  const navRows = useMemo(() => {
-    if (settings.groupBy === 'none') return rows
-    const key = (r: Row) => (settings.groupBy === 'continent' ? r.region.continent : r.node.group?.trim() || '未分组')
-    const order = settings.groupBy === 'continent' ? CONTINENTS.map((c) => c.code as string) : [...new Set(rows.map(key))]
-    return [...rows].sort((a, b) => order.indexOf(key(a)) - order.indexOf(key(b)))
-  }, [rows, settings.groupBy])
+  // Hidden nodes only reach a logged-in session. The admin can leave them out for a while (say, for
+  // a screenshot to share) without changing anything in Komari; a reload brings them back.
+  const [showHidden, setShowHidden] = useState(true)
+  const toggleHidden = useCallback(() => setShowHidden((v) => !v), [])
+  // Gated on the login too: after logging out in another tab, the node list may still hold hidden
+  // nodes until its next refresh.
+  const admin = me.data?.logged_in === true
+  const hiddenCount = useMemo(() => (admin ? (nodes.data ?? []).filter((n) => n.hidden).length : 0), [nodes.data, admin])
+  const shownNodes = useMemo(() => (admin && showHidden ? nodes.data : nodes.data?.filter((n) => !n.hidden)), [nodes.data, admin, showHidden])
+  const rows = useMemo(() => buildRows(shownNodes, status.data, lang), [shownNodes, status.data, lang])
   const uuids = useMemo(() => (nodes.data ?? []).map((n) => n.uuid), [nodes.data])
   const sparks = useSparklines(uuids, settings.showSparkline)
 
@@ -53,7 +59,16 @@ export default function App() {
     [useMonthly, monthly.data],
   )
 
-  const extras: BoardExtras = useMemo(() => ({ sparks: sparks.data, traffic, trafficMonthly: useMonthly, now }), [sparks.data, traffic, useMonthly, now])
+  // Grouping, tab, search and sort are applied once here: the board renders this view and the
+  // drawer's [ / ] steps through the same on-screen order.
+  const [query, setBoard] = useBoardQuery()
+  const liveView = useMemo(() => boardView(rows, settings.groupBy, query, traffic, t), [rows, settings.groupBy, query, traffic, t])
+  const onQuick = useCallback((quick: Quick) => setBoard({ quick }), [setBoard])
+  const [holdOrder, setHoldOrder] = useState(false)
+  const view = useHeldOrder(liveView, query, holdOrder)
+
+  const minute = useNow(60_000)
+  const extras: BoardExtras = useMemo(() => ({ sparks: sparks.data, traffic, trafficMonthly: useMonthly, minute }), [sparks.data, traffic, useMonthly, minute])
 
   const market = useMemo(() => {
     const totals = rows.map(traffic).filter((t): t is { up: number; down: number } => !!t)
@@ -65,7 +80,7 @@ export default function App() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== '/' || e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
-      if (document.querySelector('.drawer, .settings-panel')) return
+      if (document.querySelector('.drawer, .settings-panel, .sort-menu')) return
       e.preventDefault()
       searchRef.current?.focus()
     }
@@ -73,21 +88,36 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  const live = status.isSuccess && !status.isError
+  const conn = connState(status, settings.refreshSeconds, now)
+  const retrying = conn === 'down' && status.isFetching
+  const refetchStatus = status.refetch
+  const retry = useCallback(() => void refetchStatus(), [refetchStatus])
   const siteName = pub.data?.sitename || 'Komari'
+  const base = import.meta.env.BASE_URL
+  const loginHref = `${base}admin/login?redirect=${encodeURIComponent(base)}`
 
   return (
     <>
-      <TopBar siteName={siteName} live={live} refreshSeconds={settings.refreshSeconds} me={me.data} mePending={me.isPending} appearance={appearance} onAppearance={setAppearance} />
-      <IndexStrip m={market} loading={nodes.isLoading} />
+      <TopBar siteName={siteName} conn={conn} retrying={retrying} updatedAt={status.dataUpdatedAt} onRetry={retry} refreshSeconds={settings.refreshSeconds} me={me.data} mePending={me.isPending} appearance={appearance} onAppearance={setAppearance} />
+      <IndexStrip m={market} loading={nodes.isLoading} quick={query.quick} onQuick={onQuick} />
       <main className="page">
         {nodes.isError ? (
           <section className="panel error-panel">
-            <h1>无法加载节点</h1>
-            <p className="dim">{(nodes.error as Error)?.message || '请检查 Komari 后端是否可访问，或站点是否开启了私有模式。'}</p>
+            <h1>{t('app.loadFailed')}</h1>
+            <p className="dim">{(nodes.error as Error)?.message || t('app.loadFailedHint')}</p>
+            <div className="error-actions">
+              <button type="button" className="tool-btn" onClick={() => void nodes.refetch()} disabled={nodes.isFetching}>
+                {nodes.isFetching ? t('common.retrying') : t('common.retry')}
+              </button>
+              {pub.data?.private_site && !me.data?.logged_in && (
+                <a className="tool-btn is-primary" href={loginHref}>
+                  {t('app.loginToView')}
+                </a>
+              )}
+            </div>
           </section>
         ) : (
-          <QuoteBoard rows={rows} settings={settings} x={extras} loading={nodes.isLoading} searchRef={searchRef} />
+          <QuoteBoard rows={rows} view={view} onHold={setHoldOrder} hiddenCount={hiddenCount} showHidden={showHidden} onToggleHidden={toggleHidden} settings={settings} x={extras} loading={nodes.isLoading} searchRef={searchRef} />
         )}
         {/* Phones have no room in the status bar for the credit Komari requires. */}
         <p className="page-credit">
@@ -96,8 +126,8 @@ export default function App() {
           </a>
         </p>
       </main>
-      <StatusBar live={live} items={bulletins(rows)} now={now} />
-      <NodeDetail rows={navRows} settings={settings} traffic={traffic} monthly={useMonthly} now={now} ready={nodes.isSuccess} />
+      <StatusBar conn={conn} retrying={retrying} onRetry={retry} items={bulletins(rows, leadDays !== null ? { now, leadDays } : null)} now={now} />
+      <NodeDetail rows={rows} order={view.order} settings={settings} traffic={traffic} monthly={useMonthly} now={now} ready={nodes.isSuccess} />
     </>
   )
 }

@@ -33,7 +33,11 @@ export interface Prefs {
   refreshSeconds: number
   defaultRange: Range
   showEvents: boolean
+  /** Detail charts as candles (K 线) or as a line of bucket averages (分时). */
+  chartStyle: ChartStyle
 }
+
+export type ChartStyle = 'candle' | 'line'
 
 export const defaultPrefs: Prefs = {
   redUp: true,
@@ -41,6 +45,7 @@ export const defaultPrefs: Prefs = {
   refreshSeconds: 2,
   defaultRange: '24h',
   showEvents: true,
+  chartStyle: 'candle',
 }
 
 export type ThemeSettings = SiteSettings & Prefs
@@ -52,6 +57,7 @@ function sanitize(raw: unknown): Partial<Prefs> {
   for (const key of ['redUp', 'showSparkline', 'showEvents'] as const) if (typeof s[key] === 'boolean') out[key] = s[key]
   if (REFRESH_OPTIONS.includes(s.refreshSeconds as never)) out.refreshSeconds = s.refreshSeconds as number
   if (RANGES.includes(s.defaultRange as never)) out.defaultRange = s.defaultRange as Range
+  if (s.chartStyle === 'candle' || s.chartStyle === 'line') out.chartStyle = s.chartStyle
   return out
 }
 
@@ -70,7 +76,7 @@ export const usePrefs = create<PrefsStore>()(
     {
       name: 'komari-theme-stock.prefs',
       version: 1,
-      partialize: ({ redUp, showSparkline, refreshSeconds, defaultRange, showEvents }) => ({ redUp, showSparkline, refreshSeconds, defaultRange, showEvents }),
+      partialize: ({ redUp, showSparkline, refreshSeconds, defaultRange, showEvents, chartStyle }) => ({ redUp, showSparkline, refreshSeconds, defaultRange, showEvents, chartStyle }),
       merge: (stored, current) => ({ ...current, ...sanitize(stored) }),
     },
   ),

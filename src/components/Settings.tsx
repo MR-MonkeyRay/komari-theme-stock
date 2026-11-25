@@ -2,10 +2,12 @@ import * as Dialog from '@radix-ui/react-dialog'
 import * as Popover from '@radix-ui/react-popover'
 import * as RadioGroup from '@radix-ui/react-radio-group'
 import * as Switch from '@radix-ui/react-switch'
-import { RotateCcw, SlidersHorizontal, X } from 'lucide-react'
+import { ChevronDown, RotateCcw, SlidersHorizontal, X } from 'lucide-react'
 import { useId, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
+import { LANGUAGES, setLanguageChoice, useLanguageChoice, type Lang } from '../i18n'
 import { fitRange, useAvailableRanges } from '../lib/api'
-import { isDefaultPrefs, REFRESH_OPTIONS, usePrefs, type Range } from '../lib/settings'
+import { isDefaultPrefs, REFRESH_OPTIONS, usePrefs, type ChartStyle, type Range } from '../lib/settings'
 import { Segmented } from './primitives'
 
 // Visitor display preferences: a popover under the top-bar button on desktop, a bottom sheet on
@@ -24,6 +26,7 @@ function useIsPhone() {
 }
 
 const REFRESH = REFRESH_OPTIONS.map(String)
+const CHART_STYLES: ChartStyle[] = ['candle', 'line']
 
 function Field({ label, note, children }: { label: string; note?: string; children: (ids: { label: string; note?: string }) => ReactNode }) {
   const id = useId()
@@ -60,7 +63,33 @@ function SwitchField({ label, note, checked, onChange }: { label: string; note: 
   )
 }
 
+/** The page language: automatic (the browser's) or one picked here; names are in their own language. */
+function LanguageField() {
+  const { t } = useTranslation()
+  const choice = useLanguageChoice()
+  const id = useId()
+  return (
+    <div className="pref-field">
+      <label className="pref-label" htmlFor={id}>
+        {t('settings.language')}
+      </label>
+      <span className="pref-select">
+        <select id={id} value={choice} onChange={(e) => setLanguageChoice(e.target.value as Lang | 'auto')}>
+          <option value="auto">{t('settings.languageAuto')}</option>
+          {LANGUAGES.map((l) => (
+            <option key={l.code} value={l.code} lang={l.code}>
+              {l.name}
+            </option>
+          ))}
+        </select>
+        <ChevronDown size={13} aria-hidden="true" />
+      </span>
+    </div>
+  )
+}
+
 function ConventionCards({ redUp, onChange, labelledBy, describedBy }: { redUp: boolean; onChange: (redUp: boolean) => void; labelledBy: string; describedBy?: string }) {
+  const { t } = useTranslation()
   const card = (value: 'red-up' | 'green-up', name: string, market: string) => (
     <RadioGroup.Item value={value} className="conv-card">
       <span className="conv-name">
@@ -75,40 +104,48 @@ function ConventionCards({ redUp, onChange, labelledBy, describedBy }: { redUp: 
   )
   return (
     <RadioGroup.Root className="conv-cards" value={redUp ? 'red-up' : 'green-up'} onValueChange={(v) => onChange(v === 'red-up')} orientation="horizontal" loop aria-labelledby={labelledBy} aria-describedby={describedBy}>
-      {card('red-up', '红涨绿跌', 'A 股')}
-      {card('green-up', '绿涨红跌', '欧美')}
+      {card('red-up', t('settings.redUp'), t('settings.redUpMarket'))}
+      {card('green-up', t('settings.greenUp'), t('settings.greenUpMarket'))}
     </RadioGroup.Root>
   )
 }
 
 function PrefsForm() {
+  const { t } = useTranslation()
   const p = usePrefs()
   // Only ranges this site keeps data for; a stored longer one shows as the longest available.
   const available = useAvailableRanges()
   return (
     <div className="settings-body">
-      <section className="pref-section" aria-label="行情">
-        <h3 className="pref-section-title">行情</h3>
-        <Field label="涨跌配色" note="高负载告警始终为红色">
+      <section className="pref-section">
+        <LanguageField />
+      </section>
+      <section className="pref-section" aria-label={t('settings.market')}>
+        <h3 className="pref-section-title">{t('settings.market')}</h3>
+        <Field label={t('settings.convention')} note={t('settings.conventionNote')}>
           {(ids) => <ConventionCards redUp={p.redUp} onChange={(redUp) => p.update({ redUp })} labelledBy={ids.label} describedBy={ids.note} />}
         </Field>
-        <SwitchField label="1 小时走势曲线" note="关闭后显示占用条，减少一次请求" checked={p.showSparkline} onChange={(showSparkline) => p.update({ showSparkline })} />
-        <Field label="实时刷新间隔">
+        <SwitchField label={t('settings.sparkline')} note={t('settings.sparklineNote')} checked={p.showSparkline} onChange={(showSparkline) => p.update({ showSparkline })} />
+        <Field label={t('settings.refresh')}>
           {(ids) => <Segmented className="seg-fill" value={String(p.refreshSeconds)} options={REFRESH} onChange={(v) => p.update({ refreshSeconds: Number(v) })} labelledBy={ids.label} format={(v) => `${v}s`} />}
         </Field>
       </section>
-      <section className="pref-section" aria-label="节点详情">
-        <h3 className="pref-section-title">节点详情</h3>
-        <Field label="默认时间范围" note="详情页内可临时切换">
+      <section className="pref-section" aria-label={t('settings.detail')}>
+        <h3 className="pref-section-title">{t('settings.detail')}</h3>
+        <Field label={t('settings.range')} note={t('settings.rangeNote')}>
           {(ids) => <Segmented<Range> className="seg-fill" value={fitRange(p.defaultRange, available)} options={available.ranges} onChange={(defaultRange) => p.update({ defaultRange })} labelledBy={ids.label} />}
         </Field>
-        <SwitchField label="显示节点事件" note="由样本推断的升高、回落与缺测" checked={p.showEvents} onChange={(showEvents) => p.update({ showEvents })} />
+        <Field label={t('settings.chartStyle')} note={t('settings.chartStyleNote')}>
+          {(ids) => <Segmented<ChartStyle> className="seg-fill" value={p.chartStyle} options={CHART_STYLES} onChange={(chartStyle) => p.update({ chartStyle })} labelledBy={ids.label} format={(v) => (v === 'line' ? t('common.line') : t('common.candle'))} />}
+        </Field>
+        <SwitchField label={t('settings.events')} note={t('settings.eventsNote')} checked={p.showEvents} onChange={(showEvents) => p.update({ showEvents })} />
       </section>
     </div>
   )
 }
 
 function Panel({ title, close }: { title: ReactNode; close: ReactNode }) {
+  const { t } = useTranslation()
   const custom = usePrefs((s) => !isDefaultPrefs(s))
   const reset = usePrefs((s) => s.reset)
   return (
@@ -119,27 +156,27 @@ function Panel({ title, close }: { title: ReactNode; close: ReactNode }) {
       </header>
       <PrefsForm />
       <footer className="settings-foot">
-        <span>仅保存在当前浏览器</span>
+        <span>{t('settings.localOnly')}</span>
         <button type="button" className="settings-reset" onClick={reset} disabled={!custom}>
           <RotateCcw size={12} strokeWidth={2} aria-hidden="true" />
-          恢复默认
+          {t('settings.reset')}
         </button>
       </footer>
     </>
   )
 }
 
-const TITLE = '显示设置'
-
 export function SettingsButton() {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const phone = useIsPhone()
   const custom = usePrefs((s) => !isDefaultPrefs(s))
-  const hint = custom ? `${TITLE}（已自定义）` : TITLE
+  const title = t('settings.title')
+  const hint = custom ? t('settings.titleCustom') : title
   const trigger = (
     <button type="button" className="tool-btn settings-btn" title={hint} aria-label={hint}>
       <SlidersHorizontal size={14} strokeWidth={2} aria-hidden="true" />
-      <span className="tool-btn-label">设置</span>
+      <span className="tool-btn-label">{t('settings.button')}</span>
       {custom && <i className="settings-dot" aria-hidden="true" />}
     </button>
   )
@@ -153,9 +190,9 @@ export function SettingsButton() {
           <Dialog.Overlay className="sheet-overlay" />
           <Dialog.Content className="settings-panel is-sheet" aria-describedby={undefined}>
             <Panel
-              title={<Dialog.Title className="settings-title">{TITLE}</Dialog.Title>}
+              title={<Dialog.Title className="settings-title">{title}</Dialog.Title>}
               close={
-                <Dialog.Close className="settings-close" aria-label="关闭">
+                <Dialog.Close className="settings-close" aria-label={t('common.close')}>
                   {closeIcon}
                 </Dialog.Close>
               }
@@ -169,11 +206,11 @@ export function SettingsButton() {
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger asChild>{trigger}</Popover.Trigger>
       <Popover.Portal>
-        <Popover.Content className="settings-panel is-popover" side="bottom" align="end" sideOffset={8} collisionPadding={12} aria-label={TITLE}>
+        <Popover.Content className="settings-panel is-popover" side="bottom" align="end" sideOffset={8} collisionPadding={12} aria-label={title}>
           <Panel
-            title={<h2 className="settings-title">{TITLE}</h2>}
+            title={<h2 className="settings-title">{title}</h2>}
             close={
-              <Popover.Close className="settings-close" aria-label="关闭">
+              <Popover.Close className="settings-close" aria-label={t('common.close')}>
                 {closeIcon}
               </Popover.Close>
             }

@@ -12,6 +12,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router'
 import App from './App.tsx'
+import { i18nReady } from './i18n'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -19,14 +20,17 @@ const queryClient = new QueryClient({
   },
 })
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter basename={import.meta.env.BASE_URL}>
-        <MotionConfig reducedMotion="user">
-          <App />
-        </MotionConfig>
-      </BrowserRouter>
-    </QueryClientProvider>
-  </StrictMode>,
+// The first render waits for the visitor's language (a small chunk), so no text changes under them.
+void i18nReady.then(() =>
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter basename={import.meta.env.BASE_URL}>
+          <MotionConfig reducedMotion="user">
+            <App />
+          </MotionConfig>
+        </BrowserRouter>
+      </QueryClientProvider>
+    </StrictMode>,
+  ),
 )

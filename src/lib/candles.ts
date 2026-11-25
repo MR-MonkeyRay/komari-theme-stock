@@ -1,4 +1,5 @@
 import type { HistoryKey, HistoryResult } from './api'
+import { CPU_EVENT, HOT } from './thresholds'
 
 export interface Candle {
   time: number // seconds (UTC)
@@ -64,6 +65,41 @@ export function buildVolume(h: HistoryResult, uuid: string): Volume[] {
     .map((t) => ({ time: t / 1000, up: up?.get(t) ?? 0, down: down?.get(t) ?? 0 }))
 }
 
+/** One bar of the VOL pane: total throughput, its split, and the direction of the CPU candle above. */
+export interface VolBar extends Volume {
+  total: number
+  dir: 'up' | 'down' | 'flat'
+  ma5?: number
+  ma10?: number
+}
+
+/**
+ * The traffic pane drawn like a stock chart's volume: bars of up + down, each taking the direction
+ * of the candle in the same bucket (as volume follows price there), with 5- and 10-bucket averages.
+ */
+export function volumeBars(volume: Volume[], candles: Candle[], line = false): VolBar[] {
+  const byTime = new Map(candles.map((c) => [c.time, c]))
+  const prevAvg = new Map(candles.map((c, i) => [c.time, i > 0 ? candles[i - 1].avg : null]))
+  const totals: number[] = []
+  const avg = (n: number) => (totals.length >= n ? totals.slice(-n).reduce((a, b) => a + b, 0) / n : undefined)
+  // As candles: the candle's own rise or fall. As a line (分时): the average against the bucket
+  // before, as a stock's intraday volume follows the price tick.
+  const direction = (c: Candle | undefined): VolBar['dir'] => {
+    if (!c) return 'flat'
+    const from = line ? prevAvg.get(c.time) : c.open
+    const to = line ? c.avg : c.close
+    return from === null || from === undefined || to === from ? 'flat' : to > from ? 'up' : 'down'
+  }
+  // The averages start over after a gap, like the price MAs: a bucket hours apart is no neighbor.
+  const step = Math.min(...volume.slice(1).map((v, i) => v.time - volume[i].time))
+  return volume.map((v, i) => {
+    if (i > 0 && v.time - volume[i - 1].time > step * 1.5) totals.length = 0
+    const total = v.up + v.down
+    totals.push(total)
+    return { ...v, total, dir: direction(byTime.get(v.time)), ma5: avg(5), ma10: avg(10) }
+  })
+}
+
 export function movingAverage(slots: Slot[], n: number) {
   const out: { time: number; value?: number }[] = []
   const win: number[] = []
@@ -112,14 +148,17 @@ export function rangeStats(slots: Slot[]): RangeStats | null {
   }
 }
 
-export interface NodeEvent {
-  time: number // ms
-  kind: 'rise' | 'fall' | 'gap' | 'high-mem'
-  label: string
-  text: string
-}
+/** An event inferred from the samples; the events panel puts it into words. */
+export type NodeEvent = { time: number /* ms */ } & (
+  /** `value`: the closing CPU percent, or memory's peak percent. */
+  | { kind: 'rise' | 'fall' | 'high-mem'; value: number }
+  /** A run of empty buckets inside the range. */
+  | { kind: 'gap'; buckets: number; minutes: number }
+  /** No live samples since the last report. */
+  | { kind: 'offline' }
+)
 
-/** Events inferred from samples (not alerts): sustained CPU ≥ 80%, recovery < 75%, memory ≥ 90%, report gaps. */
+/** Events inferred from samples (not alerts): sustained high CPU, its recovery, memory reaching HOT.ram, report gaps. */
 export function inferEvents(cpu: Slot[], mem: Slot[], memTotalGiB: number | null, online: boolean, lastSeen: number | null): NodeEvent[] {
   const events: NodeEvent[] = []
   let run = 0
@@ -131,32 +170,38 @@ export function inferEvents(cpu: Slot[], mem: Slot[], memTotalGiB: number | null
       cool = 0
       continue
     }
-    if (s.close >= 80) {
+    if (s.close >= CPU_EVENT.rise) {
       run++
       cool = 0
       if (run === 3 && !hot) {
         hot = true
-        events.push({ time: s.time * 1000, kind: 'rise', label: '升高', text: `CPU 连续 3 个区间 ≥ 80%（收 ${s.close.toFixed(1)}%）` })
+        events.push({ time: s.time * 1000, kind: 'rise', value: s.close })
       }
     } else {
       run = 0
-      if (hot && s.close < 75) {
+      if (hot && s.close < CPU_EVENT.fall) {
         cool++
         if (cool === 2) {
           hot = false
-          events.push({ time: s.time * 1000, kind: 'fall', label: '回落', text: `CPU 连续 2 个区间 < 75%（收 ${s.close.toFixed(1)}%）` })
+          events.push({ time: s.time * 1000, kind: 'fall', value: s.close })
         }
       }
     }
   }
   if (memTotalGiB) {
-    const peak = mem.filter(isCandle).find((s) => s.high / memTotalGiB >= 0.9)
-    if (peak) events.push({ time: peak.time * 1000, kind: 'high-mem', label: '高位', text: `内存触及 ${((peak.high / memTotalGiB) * 100).toFixed(1)}%` })
+    const peak = mem.filter(isCandle).find((s) => (s.high / memTotalGiB) * 100 >= HOT.ram)
+    if (peak) events.push({ time: peak.time * 1000, kind: 'high-mem', value: (peak.high / memTotalGiB) * 100 })
   }
-  for (let i = 1; i < cpu.length - 1; i++) {
-    const s = cpu[i]
-    if (!isCandle(s) && isCandle(cpu[i - 1])) events.push({ time: s.time * 1000, kind: 'gap', label: '缺测', text: '该区间无上报样本' })
+  // One event per run of empty buckets; a run reaching the end of the range is the offline case below.
+  for (let i = 1; i < cpu.length; i++) {
+    if (isCandle(cpu[i]) || !isCandle(cpu[i - 1])) continue
+    let j = i
+    while (j < cpu.length && !isCandle(cpu[j])) j++
+    if (j === cpu.length) break
+    const minutes = Math.max(1, Math.round((cpu[j].time - cpu[i].time) / 60))
+    events.push({ time: cpu[i].time * 1000, kind: 'gap', buckets: j - i, minutes })
+    i = j
   }
-  if (!online) events.push({ time: lastSeen ?? Date.now(), kind: 'gap', label: '离线', text: '最后上报后无实时样本' })
+  if (!online) events.push({ time: lastSeen ?? Date.now(), kind: 'offline' })
   return events.sort((a, b) => b.time - a.time).slice(0, 8)
 }
