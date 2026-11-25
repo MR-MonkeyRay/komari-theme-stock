@@ -1571,6 +1571,9 @@
   .drawer {
     width: 100vw;
     border-left: 0;
+    /* The sticky bar (48px) covers the top of the page: what scrolls into view, such as the charts
+       after "show in charts", stops below it. */
+    scroll-padding-top: 56px;
   }
   .detail {
     gap: 8px;
