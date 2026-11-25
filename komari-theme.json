@@ -11,7 +11,7 @@
   "version": "0.4.0",
   "author": "MonkeyRay",
   "url": "https://github.com/MR-MonkeyRay/komari-theme-stock",
-  "preview": "preview.png",
+  "preview": "docs/images/preview.png",
   "configuration": {
     "type": "managed",
     "name": {
