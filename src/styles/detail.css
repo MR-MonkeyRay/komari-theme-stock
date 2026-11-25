@@ -532,9 +532,16 @@
 .chart-ping .panel-head {
   gap: 8px;
 }
-.ping-chips {
+.ping-pick {
   display: flex;
   flex: 1 1 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  min-width: 0;
+}
+.ping-chips {
+  display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 4px;
@@ -573,21 +580,71 @@
   font-weight: 650;
   color: var(--text-1);
 }
-.ping-chip em {
-  font-style: normal;
-  font-size: 10.5px;
+/* The chip's figure keeps one width (up to 9999ms) as it follows the crosshair. */
+.ping-chip .chip-v {
+  min-width: 6ch;
+  text-align: right;
+}
+.ping-chip .chip-v.warn {
   color: var(--warn);
 }
-.ping-means {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 12px;
+
+/* Legend: the same slots in every state, each reading at a fixed width, so the crosshair changes
+   figures and never positions. The first slot holds either its label or a time, sized for both. */
+.ping-legend .lg-ctx {
+  display: inline-grid;
+  color: var(--text-3);
 }
-.ping-means > span {
+.ping-legend .lg-ctx > * {
+  grid-area: 1 / 1;
+  white-space: nowrap;
+}
+.ping-legend .lg-ctx > .off {
+  visibility: hidden;
+}
+.ping-legend .lg-ctx.is-time {
+  color: var(--text-2);
+}
+/* A reading and its label stay together, and a slot's spare room falls after the figure, between
+   readings. */
+.ping-legend > span {
+  white-space: nowrap;
+}
+.ping-legend .lg-v {
+  display: inline-block;
+  text-align: left;
+}
+.ping-legend .lg-ms {
+  min-width: 6ch;
+}
+.ping-legend .lg-spread {
+  min-width: 8ch;
+}
+.ping-legend .lg-loss {
+  min-width: 5ch;
+}
+.ping-legend .lg-sd {
+  min-width: 3.5ch;
+}
+.ping-legend .lg-v.quiet {
+  font-weight: 500;
+  color: var(--text-3);
+}
+.ping-legend .lg-v.warn {
+  color: var(--warn);
+}
+.ping-legend .lg-line {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  white-space: nowrap;
+}
+.ping-legend .lg-sub {
+  margin-left: 2px;
+}
+.ping-legend .lg-since {
+  margin-left: auto;
+  white-space: nowrap;
 }
 .ping-more {
   flex: none;
@@ -1239,6 +1296,36 @@
     gap: 8px;
     overflow: hidden;
     white-space: nowrap;
+  }
+  /* Ping: the title on its own line, then the chips on one line that scrolls sideways; the legend
+     scrolls too instead of cutting its last readings off. Neither changes height on hover. */
+  .chart-ping .panel-head {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+  .ping-pick {
+    flex: 1 0 100%;
+    justify-content: flex-start;
+  }
+  .ping-chips,
+  .ping-legend {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  /* The legend fades at its right edge where it runs on, and its end clears the fade. */
+  .ping-legend {
+    padding-right: 24px;
+    mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent);
+  }
+  .ping-chip {
+    flex: none;
+    padding: 0 7px;
+  }
+  /* Up to 999ms: three carriers and 全部 then fit a phone without scrolling. */
+  .ping-chip .chip-v {
+    min-width: 5.5ch;
   }
 }
 

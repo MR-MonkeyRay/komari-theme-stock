@@ -1,14 +1,18 @@
 import * as Popover from '@radix-ui/react-popover'
 import * as RadioGroup from '@radix-ui/react-radio-group'
+import clsx from 'clsx'
 import { ChevronDown } from 'lucide-react'
 import type { TFunction } from 'i18next'
-import { lazy, Suspense, useMemo, useState } from 'react'
+import type { Time } from 'lightweight-charts'
+import { lazy, Suspense, useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { usePingHistory, usePingStats, usePingTasks } from '../../lib/api'
-import { monthDayTime } from '../../lib/format'
-import { buildPingLines, lossText, ms, PING_SLOTS, type PingLineData } from '../../lib/ping'
+import { finite, monthDayTime } from '../../lib/format'
+import { buildPingLines, lossText, ms, PING_SLOTS, type PingLineData, type PingPoint } from '../../lib/ping'
 import type { Range } from '../../lib/settings'
 import type { PingTask, PingTaskStats } from '../../lib/types'
+import { crosshairLabel } from './chartBase'
+import { bucketAt } from './chartSync'
 
 const PingChart = lazy(() => import('./PingChart'))
 
@@ -27,30 +31,92 @@ function statsTitle(task: PingTask, s: PingTaskStats | undefined, t: TFunction) 
   return `${task.name} · ${how}\n${t('ping.stats', { latest: ms(s.latest), avg: ms(s.avg), min: ms(s.min), max: ms(s.max), sd: ms(s.stddev), loss: lossText(s.loss) })}`
 }
 
-function Summary({ s }: { s: PingTaskStats | undefined }) {
+// The legend under the chips reads the same slots whatever it shows (the range, or the bucket under
+// the crosshair), and every reading sits in a slot of fixed width: only the figures change, nothing
+// moves. See .ping-legend in detail.css for the widths.
+
+/** A latency in ms, or a quiet dash; `lost` marks where every probe was lost (the dash in warning). */
+function Ms({ v, lost }: { v: number | null | undefined; lost?: boolean }) {
+  return <b className={clsx('lg-v lg-ms', lost ? 'warn' : !finite(v) && 'quiet')}>{finite(v) ? `${ms(v)}ms` : '—'}</b>
+}
+
+/** Loss in percent: quiet at 0, highlighted above it. */
+function Loss({ pct }: { pct: number | null | undefined }) {
+  return <b className={clsx('lg-v lg-loss', finite(pct) && pct > 0 ? 'warn' : 'quiet')}>{finite(pct) ? lossText(pct) : '—'}</b>
+}
+
+/** A range's loss: also for a carrier that lost every probe (no valid sample, but probes sent). */
+const rangeLoss = (s: PingTaskStats | undefined) => (s && s.total > 0 ? s.loss : null)
+const rangeLost = (s: PingTaskStats | undefined) => !!s && s.total > 0 && !s.valid && s.loss > 0
+
+// The widest month/day and time, to size the slot that shows either a label or a time.
+const WIDEST_TIME = new Date(2000, 11, 28, 23, 59).getTime() / 1000
+
+/** The legend's first slot: what the readings are (the range) or the bucket's time, at one width. */
+function Context({ label, time }: { label: string; time: number | null }) {
+  return (
+    <span className={clsx('lg-ctx', time !== null && 'is-time')}>
+      <span className={clsx(time !== null && 'off')}>{label}</span>
+      <span className={clsx(time === null && 'off')}>{crosshairLabel((time ?? WIDEST_TIME) as Time)}</span>
+    </span>
+  )
+}
+
+/** One carrier's readings: the range from the stats, or the bucket `p` while one is read. */
+function OneLegend({ s, p, reading }: { s: PingTaskStats | undefined; p: PingPoint | undefined; reading: boolean }) {
   const { t } = useTranslation()
-  if (!s || !s.valid) return <span className="dim">{t('ping.noSamples')}</span>
+  const ok = !!s?.valid
+  const lost = reading ? !!p && p.avg === null && !!p.loss : rangeLost(s)
+  const spread = reading ? (p?.min != null && p.max != null ? `${ms(p.min)}–${ms(p.max)}` : null) : ok ? `${ms(s!.min)}–${ms(s!.max)}` : null
+  // Jitter is a figure of the whole range; a single bucket has none.
+  const sd = !reading && ok ? ms(s!.stddev) : null
   return (
     <>
       <span>
-        {t('ping.latest')} <b>{ms(s.latest)}</b>ms
+        {t('chart.avg')} <Ms v={reading ? p?.avg : ok ? s!.avg : null} lost={lost} />
       </span>
       <span>
-        {t('ping.mean')} <b>{ms(s.avg)}</b>
+        {t('ping.spread')} <b className={clsx('lg-v lg-spread', spread === null && 'quiet')}>{spread ?? '—'}</b>
       </span>
       <span>
-        {t('ping.min')} <b>{ms(s.min)}</b>
+        {t('ping.loss')} <Loss pct={reading ? (p && p.loss !== null ? p.loss * 100 : null) : rangeLoss(s)} />
       </span>
       <span>
-        {t('ping.max')} <b>{ms(s.max)}</b>
-      </span>
-      <span>
-        {t('ping.jitter')} <b>{ms(s.stddev)}</b>
-      </span>
-      <span className={s.loss > 0 ? 'warn' : undefined}>
-        {t('ping.loss')} <b>{lossText(s.loss)}</b>
+        {t('ping.jitter')} <b className={clsx('lg-v lg-sd', sd === null && 'quiet')}>{sd ?? '—'}</b>
       </span>
     </>
+  )
+}
+
+/** Every carrier: its mean and loss over the range, or in the bucket `at` while one is read (a time
+ *  outside the buckets, `at` -1, reads as a gap). */
+function AllLegend({ lines, stats, at, reading }: { lines: PingLineData[]; stats: Map<string, PingTaskStats> | undefined; at: number; reading: boolean }) {
+  const { t } = useTranslation()
+  return (
+    <>
+      {lines.map((l) => {
+        const s = stats?.get(l.id)
+        const p = at >= 0 ? l.points[at] : undefined
+        return (
+          <span key={l.id} className="lg-line">
+            <i className="ping-dot" style={{ background: `var(--ping-${l.slot + 1})` }} aria-hidden="true" />
+            {l.name} <Ms v={reading ? p?.avg : s?.valid ? s.avg : null} lost={reading ? !!p && p.avg === null && !!p.loss : rangeLost(s)} />
+            <span className="lg-sub">{t('ping.lossShort')}</span>
+            <Loss pct={reading ? (p && p.loss !== null ? p.loss * 100 : null) : rangeLoss(s)} />
+          </span>
+        )
+      })}
+    </>
+  )
+}
+
+/** A chip's figure in a slot of fixed width, so the chips keep their places as it changes. Left out
+ *  of the chip's name, which stays the carrier's while the figure follows the crosshair. */
+function ChipValue({ v }: { v: { text: string; lost?: boolean } }) {
+  return (
+    <b className={clsx('num chip-v', v.lost && 'warn')} aria-hidden="true">
+      {v.text}
+    </b>
   )
 }
 
@@ -61,17 +127,19 @@ export function PingPanel({ uuid, range, refreshSeconds, offline, pick, onPick }
   const history = usePingHistory(uuid, range, refreshSeconds, on)
   const stats = usePingStats(uuid, range, refreshSeconds, on)
   const [hover, setHover] = useState<number | null>(null)
-  // A new node starts without a hovered time (its chart may not have been mounted to clear it).
-  const [hoverNode, setHoverNode] = useState(uuid)
-  if (hoverNode !== uuid) {
-    setHoverNode(uuid)
-    setHover(null)
-  }
 
   // Colors follow the task's place in Komari's whole list, so 电信 has the same color on every node.
   const slots = useMemo(() => new Map(tasks.map((t) => [String(t.id), (place.get(String(t.id)) ?? 0) % PING_SLOTS])), [tasks, place])
   const h = history.data
   const lines: PingLineData[] = useMemo(() => (h ? buildPingLines(h, tasks, slots) : []), [h, tasks, slots])
+  // New data (another node or range) starts without a hovered time (its chart may not have been
+  // mounted to clear it).
+  const dataKey = `${uuid}-${h?.range}`
+  const [hoverData, setHoverData] = useState(dataKey)
+  if (hoverData !== dataKey) {
+    setHoverData(dataKey)
+    setHover(null)
+  }
 
   if (!on) return null
 
@@ -84,15 +152,19 @@ export function PingPanel({ uuid, range, refreshSeconds, offline, pick, onPick }
     onPick(!t || id === selected ? null : { id, name: t.name })
   }
 
-  const at = (l: PingLineData | undefined) => (hover !== null && l ? l.points.find((p) => p.time === hover) : undefined)
-  const chipValue = (task: PingTask) => {
+  // The bucket being read: the one under the crosshair. The lines share one bucket grid; a time
+  // outside it (before ping retention) reads as a gap.
+  const times = lines[0]?.points.map((p) => p.time) ?? []
+  const at = hover === null ? -1 : bucketAt(times, hover)
+  /** A chip's figure: the latest latency, or the bucket's while one is read (a dash where all was lost). */
+  const chipValue = (task: PingTask): { text: string; lost?: boolean } => {
     const id = String(task.id)
     if (hover !== null) {
-      const p = at(lines.find((l) => l.id === id))
-      return p?.avg !== null && p?.avg !== undefined ? `${ms(p.avg)}ms` : p?.loss ? t('ping.loss') : '—'
+      const p = at >= 0 ? lines.find((l) => l.id === id)?.points[at] : undefined
+      return finite(p?.avg) ? { text: `${ms(p.avg)}ms` } : { text: '—', lost: !!p?.loss }
     }
     const s = stats.data?.get(id)
-    return s?.valid ? `${ms(s.latest)}ms` : '—'
+    return { text: s?.valid ? `${ms(s.latest)}ms` : '—', lost: rangeLost(s) }
   }
 
   // Up to MAX_CHIPS chips; the chosen one always among them.
@@ -102,51 +174,64 @@ export function PingPanel({ uuid, range, refreshSeconds, offline, pick, onPick }
   const stale = !!history.isPlaceholderData
   const from = h?.retainedFrom
 
+  const one = single ? lines.find((l) => l.id === String(single.id)) : undefined
+  const legend: ReactNode = (
+    <>
+      <Context label={single ? t('ping.rangeStats') : t('ping.rangeMean')} time={hover !== null ? (at >= 0 ? times[at] : hover) : null} />
+      {single ? <OneLegend s={stats.data?.get(String(single.id))} p={at >= 0 ? one?.points[at] : undefined} reading={hover !== null} /> : <AllLegend lines={lines} stats={stats.data} at={at} reading={hover !== null} />}
+      {from && <span className="lg-since">{t('ping.since', { time: monthDayTime(from) })}</span>}
+    </>
+  )
+
   return (
     <section className="panel chart-panel chart-ping">
       <div className="panel-head compact">
         <h3>
           {t('ping.title')} <small>ms</small>
         </h3>
-        <RadioGroup.Root className="ping-chips" value={selected ?? 'all'} onValueChange={(v) => onPick(v === 'all' ? null : { id: v, name: tasks.find((t) => String(t.id) === v)?.name ?? '' })} orientation="horizontal" loop aria-label={t('ping.lines')}>
-          {tasks.length > 1 && (
-            <RadioGroup.Item value="all" className="ping-chip">
-              {t('common.all')}
-            </RadioGroup.Item>
-          )}
-          {chips.map((task) => {
-            const id = String(task.id)
-            const s = stats.data?.get(id)
-            return (
-              <RadioGroup.Item key={id} value={id} className="ping-chip" title={statsTitle(task, s, t)} onClick={() => id === selected && tasks.length > 1 && choose(id)}>
-                <i style={{ background: `var(--ping-${(slots.get(id) ?? 0) + 1})` }} aria-hidden="true" />
-                {task.name}
-                <b className="num">{chipValue(task)}</b>
-                {hover === null && !!s?.loss && <em className="num">{t('ping.lossTag', { loss: lossText(s.loss) })}</em>}
+        <div className="ping-pick">
+          <RadioGroup.Root className="ping-chips" value={selected ?? 'all'} onValueChange={(v) => onPick(v === 'all' ? null : { id: v, name: tasks.find((t) => String(t.id) === v)?.name ?? '' })} orientation="horizontal" loop aria-label={t('ping.lines')}>
+            {tasks.length > 1 && (
+              <RadioGroup.Item value="all" className="ping-chip">
+                {t('common.all')}
               </RadioGroup.Item>
-            )
-          })}
-        </RadioGroup.Root>
-        {rest.length > 0 && (
-          <Popover.Root>
-            <Popover.Trigger className="ping-chip ping-more" aria-label={t('ping.more', { count: rest.length })}>
-              +{rest.length} <ChevronDown size={12} aria-hidden="true" />
-            </Popover.Trigger>
-            <Popover.Portal>
-              <Popover.Content className="sort-menu ping-menu" align="end" sideOffset={6}>
-                {rest.map((task) => (
-                  <Popover.Close asChild key={task.id}>
-                    <button type="button" className="sort-opt ping-opt" onClick={() => choose(String(task.id))}>
-                      <i className="ping-dot" style={{ background: `var(--ping-${(slots.get(String(task.id)) ?? 0) + 1})` }} aria-hidden="true" />
-                      {task.name}
-                      <span className="num dim">{chipValue(task)}</span>
-                    </button>
-                  </Popover.Close>
-                ))}
-              </Popover.Content>
-            </Popover.Portal>
-          </Popover.Root>
-        )}
+            )}
+            {chips.map((task) => {
+              const id = String(task.id)
+              const s = stats.data?.get(id)
+              return (
+                <RadioGroup.Item key={id} value={id} className="ping-chip" aria-label={task.name} title={statsTitle(task, s, t)} onClick={() => id === selected && tasks.length > 1 && choose(id)}>
+                  <i style={{ background: `var(--ping-${(slots.get(id) ?? 0) + 1})` }} aria-hidden="true" />
+                  {task.name}
+                  <ChipValue v={chipValue(task)} />
+                </RadioGroup.Item>
+              )
+            })}
+          </RadioGroup.Root>
+          {rest.length > 0 && (
+            <Popover.Root>
+              <Popover.Trigger className="ping-chip ping-more" aria-label={t('ping.more', { count: rest.length })}>
+                +{rest.length} <ChevronDown size={12} aria-hidden="true" />
+              </Popover.Trigger>
+              <Popover.Portal>
+                <Popover.Content className="sort-menu ping-menu" align="end" sideOffset={6}>
+                  {rest.map((task) => {
+                    const v = chipValue(task)
+                    return (
+                      <Popover.Close asChild key={task.id}>
+                        <button type="button" className="sort-opt ping-opt" onClick={() => choose(String(task.id))}>
+                          <i className="ping-dot" style={{ background: `var(--ping-${(slots.get(String(task.id)) ?? 0) + 1})` }} aria-hidden="true" />
+                          {task.name}
+                          <span className={clsx('num', v.lost ? 'warn' : 'dim')}>{v.text}</span>
+                        </button>
+                      </Popover.Close>
+                    )
+                  })}
+                </Popover.Content>
+              </Popover.Portal>
+            </Popover.Root>
+          )}
+        </div>
       </div>
       <Suspense fallback={<div className="kline skeleton" />}>
         <PingChart
@@ -157,29 +242,7 @@ export function PingPanel({ uuid, range, refreshSeconds, offline, pick, onPick }
           offline={offline}
           rangeKey={`${uuid}-${h?.range}`}
           onHover={setHover}
-          summary={
-            <>
-              {single ? (
-                <Summary s={stats.data?.get(String(single.id))} />
-              ) : (
-                // Every line: the range mean (the chips carry the latest value).
-                <span className="ping-means">
-                  {t('ping.rangeMean')}
-                  {tasks.map((task) => {
-                    const id = String(task.id)
-                    const s = stats.data?.get(id)
-                    return (
-                      <span key={id}>
-                        <i className="ping-dot" style={{ background: `var(--ping-${(slots.get(id) ?? 0) + 1})` }} aria-hidden="true" />
-                        {task.name} <b>{s?.valid ? ms(s.avg) : '—'}</b>
-                      </span>
-                    )
-                  })}
-                </span>
-              )}
-              {from && <span className="dim">{t('ping.since', { time: monthDayTime(from) })}</span>}
-            </>
-          }
+          legend={legend}
         />
       </Suspense>
     </section>

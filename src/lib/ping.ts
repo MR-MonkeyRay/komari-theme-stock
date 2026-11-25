@@ -50,5 +50,5 @@ export function buildPingLines(h: PingHistory, tasks: PingTask[], slots: Map<str
 
 export const ms = (v: number | null | undefined) => (v === null || v === undefined || !Number.isFinite(v) ? '—' : v < 10 ? v.toFixed(1) : v.toFixed(0))
 
-/** Loss as a short percentage: 0.4%, 3%, 12%. */
-export const lossText = (pct: number) => `${pct < 1 ? pct.toFixed(1) : Math.round(pct)}%`
+/** Loss as a short percentage: 0%, <0.1%, 0.4%, 3%, 12% (a loss too small to show is not 0). */
+export const lossText = (pct: number) => (pct <= 0 ? '0%' : pct < 0.1 ? '<0.1%' : `${pct < 0.95 ? pct.toFixed(1) : Math.round(pct)}%`)
