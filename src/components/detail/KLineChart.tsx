@@ -523,7 +523,7 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
               {t('chart.close')} <b className={dir}>{format(shown.close)}</b>
             </span>
             {shown.open > 0 && (
-              <span>
+              <span className="lg-chg">
                 {t('chart.change')} <b className={dir}>{((chg / shown.open) * 100).toFixed(2)}%</b>
               </span>
             )}
