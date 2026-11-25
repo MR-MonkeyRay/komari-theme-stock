@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { monthStart, useExpiryLeadDays, useIsAdmin, useLatestStatus, useMe, useMetricDefinitions, useMonthlyTraffic, useNodes, usePublicSettings, useSparklines } from './lib/api'
 import { useAppearance } from './lib/appearance'
 import { buildRows, connState, useNow, type Row } from './lib/model'
@@ -11,6 +12,8 @@ import { QuoteBoard, type BoardExtras } from './components/QuoteBoard'
 import { NodeDetail } from './components/detail/NodeDetail'
 
 export default function App() {
+  const { t, i18n } = useTranslation()
+  const lang = i18n.language
   const [appearance, setAppearance] = useAppearance()
   const pub = usePublicSettings()
   const site = useMemo(() => readSiteSettings(pub.data), [pub.data])
@@ -37,7 +40,7 @@ export default function App() {
   const admin = me.data?.logged_in === true
   const hiddenCount = useMemo(() => (admin ? (nodes.data ?? []).filter((n) => n.hidden).length : 0), [nodes.data, admin])
   const shownNodes = useMemo(() => (admin && showHidden ? nodes.data : nodes.data?.filter((n) => !n.hidden)), [nodes.data, admin, showHidden])
-  const rows = useMemo(() => buildRows(shownNodes, status.data), [shownNodes, status.data])
+  const rows = useMemo(() => buildRows(shownNodes, status.data, lang), [shownNodes, status.data, lang])
   const uuids = useMemo(() => (nodes.data ?? []).map((n) => n.uuid), [nodes.data])
   const sparks = useSparklines(uuids, settings.showSparkline)
 
@@ -59,7 +62,7 @@ export default function App() {
   // Grouping, tab, search and sort are applied once here: the board renders this view and the
   // drawer's [ / ] steps through the same on-screen order.
   const [query, setBoard] = useBoardQuery()
-  const liveView = useMemo(() => boardView(rows, settings.groupBy, query, traffic), [rows, settings.groupBy, query, traffic])
+  const liveView = useMemo(() => boardView(rows, settings.groupBy, query, traffic, t), [rows, settings.groupBy, query, traffic, t])
   const onQuick = useCallback((quick: Quick) => setBoard({ quick }), [setBoard])
   const [holdOrder, setHoldOrder] = useState(false)
   const view = useHeldOrder(liveView, query, holdOrder)
@@ -100,15 +103,15 @@ export default function App() {
       <main className="page">
         {nodes.isError ? (
           <section className="panel error-panel">
-            <h1>无法加载节点</h1>
-            <p className="dim">{(nodes.error as Error)?.message || '请检查 Komari 后端是否可访问，或站点是否开启了私有模式。'}</p>
+            <h1>{t('app.loadFailed')}</h1>
+            <p className="dim">{(nodes.error as Error)?.message || t('app.loadFailedHint')}</p>
             <div className="error-actions">
               <button type="button" className="tool-btn" onClick={() => void nodes.refetch()} disabled={nodes.isFetching}>
-                {nodes.isFetching ? '正在重试…' : '重试'}
+                {nodes.isFetching ? t('common.retrying') : t('common.retry')}
               </button>
               {pub.data?.private_site && !me.data?.logged_in && (
                 <a className="tool-btn is-primary" href={loginHref}>
-                  登录后查看
+                  {t('app.loginToView')}
                 </a>
               )}
             </div>

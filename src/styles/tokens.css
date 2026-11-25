@@ -204,10 +204,10 @@
   --vol-up-solid: var(--vol-red-solid);
   --vol-down: var(--vol-green-solid);
 
-  --font-sans: 'Inter Variable', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'HarmonyOS Sans SC', 'Hiragino Sans GB',
-    'Microsoft YaHei', 'Noto Sans CJK SC', 'Noto Sans SC', sans-serif;
-  --font-mono: 'JetBrains Mono Variable', ui-monospace, 'SFMono-Regular', 'Cascadia Mono', Consolas, 'PingFang SC',
-    'Microsoft YaHei', monospace;
+  /* Faces for Han, kana and hangul: Simplified Chinese ones unless the page language picks its own below. */
+  --font-cjk: 'PingFang SC', 'HarmonyOS Sans SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Noto Sans SC';
+  --font-sans: 'Inter Variable', -apple-system, BlinkMacSystemFont, var(--font-cjk), sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, 'SFMono-Regular', 'Cascadia Mono', Consolas, var(--font-cjk), monospace;
 
   --radius: 4px;
   --radius-sm: 2px;

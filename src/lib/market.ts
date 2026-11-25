@@ -1,3 +1,4 @@
+import i18n from '../i18n'
 import { finite, parseTime } from './format'
 import type { Row } from './model'
 import type { NodeInfo } from './types'
@@ -64,7 +65,7 @@ export function daysLeft(n: NodeInfo, now: number) {
 
 /** Short note on a plan's state, from `daysLeft`. */
 export function expiryNote(left: number) {
-  return left < 0 ? `已过期 ${-left} 天` : left === 0 ? '今天到期' : `剩 ${left} 天`
+  return left < 0 ? i18n.t('expiry.expired', { count: -left }) : left === 0 ? i18n.t('expiry.today') : i18n.t('expiry.left', { count: left })
 }
 
 /**
@@ -74,25 +75,24 @@ export function expiryNote(left: number) {
 export function bulletins(rows: Row[], expiry?: { now: number; leadDays: number } | null): Bulletin[] {
   const out: Bulletin[] = []
   for (const r of rows) {
-    const n = r.node.name
+    const name = r.node.name
     const uuid = r.node.uuid
-    if (!r.online) out.push({ id: `off-${uuid}`, level: 'bad', text: `${n} 离线`, uuid })
+    if (!r.online) out.push({ id: `off-${uuid}`, level: 'bad', text: i18n.t('bulletin.offline', { name }), uuid })
     else {
-      if ((r.cpu ?? 0) >= ALERT.cpu) out.push({ id: `cpu-${uuid}`, level: 'warn', text: `${n} CPU ${r.cpu!.toFixed(1)}%`, uuid })
-      if ((r.ram ?? 0) >= ALERT.ram) out.push({ id: `ram-${uuid}`, level: 'warn', text: `${n} 内存 ${r.ram!.toFixed(1)}%`, uuid })
-      if ((r.disk ?? 0) >= ALERT.disk) out.push({ id: `disk-${uuid}`, level: 'warn', text: `${n} 磁盘 ${r.disk!.toFixed(1)}%`, uuid })
+      if ((r.cpu ?? 0) >= ALERT.cpu) out.push({ id: `cpu-${uuid}`, level: 'warn', text: i18n.t('bulletin.cpu', { name, value: r.cpu!.toFixed(1) }), uuid })
+      if ((r.ram ?? 0) >= ALERT.ram) out.push({ id: `ram-${uuid}`, level: 'warn', text: i18n.t('bulletin.memory', { name, value: r.ram!.toFixed(1) }), uuid })
+      if ((r.disk ?? 0) >= ALERT.disk) out.push({ id: `disk-${uuid}`, level: 'warn', text: i18n.t('bulletin.disk', { name, value: r.disk!.toFixed(1) }), uuid })
     }
   }
   if (expiry) {
     for (const r of rows) {
       const left = daysLeft(r.node, expiry.now)
       if (left === null || left > expiry.leadDays) continue
-      const n = r.node.name
       const uuid = r.node.uuid
       // An auto-renewing plan only needs a heads-up; one that has run out is the urgent case.
       const level = left <= 0 ? 'bad' : r.node.auto_renewal ? 'info' : 'warn'
-      const what = left <= 0 ? expiryNote(left) : r.node.auto_renewal ? `${left} 天后自动续费` : `${left} 天后到期`
-      out.push({ id: `exp-${uuid}`, level, text: `${n} ${what}`, uuid })
+      const note = left <= 0 ? expiryNote(left) : r.node.auto_renewal ? i18n.t('bulletin.renewIn', { count: left }) : i18n.t('bulletin.expireIn', { count: left })
+      out.push({ id: `exp-${uuid}`, level, text: i18n.t('bulletin.expiry', { name: r.node.name, note }), uuid })
     }
   }
   return out

@@ -148,14 +148,15 @@ export function rangeStats(slots: Slot[]): RangeStats | null {
   }
 }
 
-export interface NodeEvent {
-  time: number // ms
-  kind: 'rise' | 'fall' | 'gap' | 'high-mem'
-  label: string
-  text: string
-}
-
-const spell = (minutes: number) => (minutes >= 120 ? `${Math.round(minutes / 60)} 小时` : `${minutes} 分钟`)
+/** An event inferred from the samples; the events panel puts it into words. */
+export type NodeEvent = { time: number /* ms */ } & (
+  /** `value`: the closing CPU percent, or memory's peak percent. */
+  | { kind: 'rise' | 'fall' | 'high-mem'; value: number }
+  /** A run of empty buckets inside the range. */
+  | { kind: 'gap'; buckets: number; minutes: number }
+  /** No live samples since the last report. */
+  | { kind: 'offline' }
+)
 
 /** Events inferred from samples (not alerts): sustained high CPU, its recovery, memory reaching HOT.ram, report gaps. */
 export function inferEvents(cpu: Slot[], mem: Slot[], memTotalGiB: number | null, online: boolean, lastSeen: number | null): NodeEvent[] {
@@ -174,7 +175,7 @@ export function inferEvents(cpu: Slot[], mem: Slot[], memTotalGiB: number | null
       cool = 0
       if (run === 3 && !hot) {
         hot = true
-        events.push({ time: s.time * 1000, kind: 'rise', label: '升高', text: `CPU 连续 3 区间 ≥ ${CPU_EVENT.rise}%，收 ${s.close.toFixed(1)}%` })
+        events.push({ time: s.time * 1000, kind: 'rise', value: s.close })
       }
     } else {
       run = 0
@@ -182,14 +183,14 @@ export function inferEvents(cpu: Slot[], mem: Slot[], memTotalGiB: number | null
         cool++
         if (cool === 2) {
           hot = false
-          events.push({ time: s.time * 1000, kind: 'fall', label: '回落', text: `CPU 连续 2 区间 < ${CPU_EVENT.fall}%，收 ${s.close.toFixed(1)}%` })
+          events.push({ time: s.time * 1000, kind: 'fall', value: s.close })
         }
       }
     }
   }
   if (memTotalGiB) {
     const peak = mem.filter(isCandle).find((s) => (s.high / memTotalGiB) * 100 >= HOT.ram)
-    if (peak) events.push({ time: peak.time * 1000, kind: 'high-mem', label: '高位', text: `内存触及 ${((peak.high / memTotalGiB) * 100).toFixed(1)}%` })
+    if (peak) events.push({ time: peak.time * 1000, kind: 'high-mem', value: (peak.high / memTotalGiB) * 100 })
   }
   // One event per run of empty buckets; a run reaching the end of the range is the offline case below.
   for (let i = 1; i < cpu.length; i++) {
@@ -198,10 +199,9 @@ export function inferEvents(cpu: Slot[], mem: Slot[], memTotalGiB: number | null
     while (j < cpu.length && !isCandle(cpu[j])) j++
     if (j === cpu.length) break
     const minutes = Math.max(1, Math.round((cpu[j].time - cpu[i].time) / 60))
-    const n = j - i
-    events.push({ time: cpu[i].time * 1000, kind: 'gap', label: '缺测', text: n === 1 ? `1 个区间无上报（约 ${spell(minutes)}）` : `连续 ${n} 个区间无上报（约 ${spell(minutes)}）` })
+    events.push({ time: cpu[i].time * 1000, kind: 'gap', buckets: j - i, minutes })
     i = j
   }
-  if (!online) events.push({ time: lastSeen ?? Date.now(), kind: 'gap', label: '离线', text: '最后上报后无实时样本' })
+  if (!online) events.push({ time: lastSeen ?? Date.now(), kind: 'offline' })
   return events.sort((a, b) => b.time - a.time).slice(0, 8)
 }

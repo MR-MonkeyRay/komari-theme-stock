@@ -1,4 +1,5 @@
 import { filesize } from 'filesize'
+import i18n, { currentLanguage } from '../i18n'
 import { LEVEL } from './thresholds'
 
 export const finite = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x)
@@ -34,20 +35,22 @@ export function signed(x: number, digits = 1) {
   return x > 0 ? `+${v}` : v
 }
 
-/** Uptime like 18天4时 / 5时12分. */
+/** Uptime like 18天4时 / 18d 4h. */
 export function duration(seconds: number | null | undefined) {
   if (!finite(seconds) || seconds <= 0) return '—'
-  if (seconds >= 86400) return `${Math.floor(seconds / 86400)}天${Math.floor((seconds % 86400) / 3600)}时`
-  if (seconds >= 3600) return `${Math.floor(seconds / 3600)}时${Math.floor((seconds % 3600) / 60)}分`
-  return `${Math.max(1, Math.floor(seconds / 60))}分`
+  const h = Math.floor((seconds % 86400) / 3600)
+  const m = Math.floor((seconds % 3600) / 60)
+  if (seconds >= 86400) return i18n.t('format.dayHour', { d: Math.floor(seconds / 86400), h })
+  if (seconds >= 3600) return i18n.t('format.hourMinute', { h: Math.floor(seconds / 3600), m })
+  return i18n.t('format.minute', { m: Math.max(1, m) })
 }
 
-/** Compact age: 3s前 / 9m前 / 2h前 / 3d前. */
-export function ago(ms: number | null, now: number) {
+/** Compact age: 3s前 / 9m ago; `short` for narrow columns (3s前 / 9m). */
+export function ago(ms: number | null, now: number, short = false) {
   if (ms === null) return '—'
   const t = Math.max(0, Math.floor((now - ms) / 1000))
   const label = t < 60 ? `${t}s` : t < 3600 ? `${Math.floor(t / 60)}m` : t < 86400 ? `${Math.floor(t / 3600)}h` : `${Math.floor(t / 86400)}d`
-  return `${label}前`
+  return i18n.t(short ? 'format.agoShort' : 'format.ago', { t: label })
 }
 
 const two = (n: number) => String(n).padStart(2, '0')
@@ -57,10 +60,19 @@ export function clock(ms: number, seconds = true) {
   return `${two(d.getHours())}:${two(d.getMinutes())}${seconds ? ':' + two(d.getSeconds()) : ''}`
 }
 
+const dayFormats = new Map<string, Intl.DateTimeFormat>()
+
+/** Month and day in the page language's order: 11/24, 24.11., 24/11 (`pad`: two digits each). */
+export function monthDay(ms: number, pad = true) {
+  const key = `${currentLanguage()}|${pad}`
+  let f = dayFormats.get(key)
+  if (!f) dayFormats.set(key, (f = new Intl.DateTimeFormat(currentLanguage(), pad ? { month: '2-digit', day: '2-digit' } : { month: 'numeric', day: 'numeric' })))
+  return f.format(ms)
+}
+
 /** Month/day and time: 11/24 17:30. */
 export function monthDayTime(ms: number) {
-  const d = new Date(ms)
-  return `${two(d.getMonth() + 1)}/${two(d.getDate())} ${clock(ms, false)}`
+  return `${monthDay(ms)} ${clock(ms, false)}`
 }
 
 export function sameDay(a: number, b: number) {

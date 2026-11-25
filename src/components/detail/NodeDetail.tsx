@@ -3,6 +3,7 @@ import clsx from 'clsx'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useLocation, useMatch, useNavigate } from 'react-router'
 import { fitRange, useAvailableRanges, useClientOps, useConnHistory, useExpiryLeadDays, useHistory, useIsAdmin } from '../../lib/api'
 import { buildCandles, buildVolume, inferEvents, rangeStats } from '../../lib/candles'
@@ -27,15 +28,17 @@ const fmtGiB = (v: number) => v.toFixed(v >= 100 ? 1 : 2)
 
 /** Range average and high, beside the current value in a small chart's head. */
 function RangeNote({ stats }: { stats: ReturnType<typeof rangeStats> }) {
+  const { t } = useTranslation()
   if (!stats) return null
   return (
     <span className="range-note">
-      均 <b>{fmtGiB(stats.avg)}</b> 高 <b>{fmtGiB(stats.high)}</b>
+      {t('chart.avg')} <b>{fmtGiB(stats.avg)}</b> {t('chart.high')} <b>{fmtGiB(stats.high)}</b>
     </span>
   )
 }
 
 function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange, ping, onPing, sub, onSub, onStep }: { r: Row; rows: Row[]; settings: ThemeSettings; traffic: { up: number; down: number } | null; monthly: boolean; now: number; picked: Range; onRange: (r: Range) => void; ping: PingPick | null; onPing: (p: PingPick | null) => void; sub: SubPane; onSub: (s: SubPane) => void; onStep: (d: number) => void }) {
+  const { t } = useTranslation()
   const admin = useIsAdmin()
   const ops = useClientOps(admin).data?.[r.node.uuid]
   const leadDays = useExpiryLeadDays(admin)
@@ -114,17 +117,17 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange,
           </div>
           <span className={clsx('badge', r.online ? 'badge-on' : 'badge-off')}>
             <i aria-hidden="true" />
-            {r.online ? '在线' : '离线'}
+            {r.online ? t('common.online') : t('common.offline')}
           </span>
           {r.node.hidden && (
-            <span className="badge badge-hidden" title="后台设为隐藏：只有登录后才看得到">
-              隐藏
+            <span className="badge badge-hidden" title={t('common.hiddenHint')}>
+              {t('common.hidden')}
             </span>
           )}
         </div>
 
         <div className={clsx('qb-price', dir)}>
-          <span className="qb-label">{r.online ? 'CPU' : 'CPU 末值'}</span>
+          <span className="qb-label">{r.online ? 'CPU' : t('detail.cpuLast')}</span>
           <b className="num">
             <Tick value={price} threshold={0.5}>{pct(price)}</Tick>
           </b>
@@ -140,23 +143,23 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange,
 
         <div className="qb-tools">
           <span className="qb-seen">
-            <span>最后上报 <b className="num">{ago(r.lastSeen, now)}</b></span>
+            <span>{t('common.lastSeen')} <b className="num">{ago(r.lastSeen, now)}</b></span>
             <small className="num">{r.lastSeen ? `${clock(r.lastSeen)} ${utcOffset(r.lastSeen)}` : '—'}</small>
           </span>
           <div className="qb-nav">
-            <button type="button" className="icon-btn" onClick={() => onStep(-1)} disabled={rows.length < 2} aria-label="上一个节点" title="上一个节点 [">
+            <button type="button" className="icon-btn" onClick={() => onStep(-1)} disabled={rows.length < 2} aria-label={t('detail.prev')} title={t('detail.prevHint')}>
               <ChevronLeft size={15} />
             </button>
             <span className="num dim">
               {idx + 1}/{rows.length}
             </span>
-            <button type="button" className="icon-btn" onClick={() => onStep(1)} disabled={rows.length < 2} aria-label="下一个节点" title="下一个节点 ]">
+            <button type="button" className="icon-btn" onClick={() => onStep(1)} disabled={rows.length < 2} aria-label={t('detail.next')} title={t('detail.nextHint')}>
               <ChevronRight size={15} />
             </button>
           </div>
           <Dialog.Close asChild>
-            <button type="button" className="close-btn" aria-label="关闭详情">
-              关闭 <X size={14} />
+            <button type="button" className="close-btn" aria-label={t('detail.closeLabel')}>
+              {t('common.close')} <X size={14} />
             </button>
           </Dialog.Close>
         </div>
@@ -168,18 +171,18 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange,
           <section className="panel chart-panel chart-main">
             <div className="panel-head compact">
               <h3>
-                CPU 使用率 <small>{settings.chartStyle === 'line' ? '分时' : 'K 线'} · 副图：{sub === 'vol' ? '网络流量' : '连接数'}</small>
+                {t('detail.cpuTitle')} <small>{settings.chartStyle === 'line' ? t('common.line') : t('common.candle')} · {t('detail.subPane', { name: sub === 'vol' ? t('detail.subVol') : t('detail.subConn') })}</small>
               </h3>
               <div className="chart-tools">
                 <span className="chart-now num">
-                  覆盖 <b>{cpuStats ? `${Math.round(cpuStats.coverage * 100)}%` : '—'}</b>
+                  {t('detail.coverage')} <b>{cpuStats ? `${Math.round(cpuStats.coverage * 100)}%` : '—'}</b>
                 </span>
                 {/* A reading preference: kept in this browser, and the memory and disk charts follow it. */}
-                <Segmented className="range-tabs look-tabs" value={settings.chartStyle} options={LOOKS} format={(v) => (v === 'line' ? '分时' : 'K 线')} onChange={setLook} label="图表形态" />
-                <Segmented className="range-tabs" value={range} options={available.ranges} onChange={onRange} label="时间范围" />
+                <Segmented className="range-tabs look-tabs" value={settings.chartStyle} options={LOOKS} format={(v) => (v === 'line' ? t('common.line') : t('common.candle'))} onChange={setLook} label={t('detail.chartStyle')} />
+                <Segmented className="range-tabs" value={range} options={available.ranges} onChange={onRange} label={t('detail.range')} />
               </div>
             </div>
-            <KLineChart look={settings.chartStyle} marks={marks.cpu} slots={cpu} volume={volume} sub={sub} onSub={onSub} conn={conn} format={fmtPct} percent ma loading={loading} stale={stale} offline={!r.online} label="CPU 使用率" rangeKey={dataKey} />
+            <KLineChart look={settings.chartStyle} marks={marks.cpu} slots={cpu} volume={volume} sub={sub} onSub={onSub} conn={conn} format={fmtPct} percent ma loading={loading} stale={stale} offline={!r.online} label={t('detail.cpuTitle')} rangeKey={dataKey} />
           </section>
 
           <PingPanel uuid={uuid} range={range} refreshSeconds={settings.refreshSeconds} offline={!r.online} pick={ping} onPick={onPing} />
@@ -188,34 +191,34 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange,
             <section className="panel chart-panel chart-mini">
               <div className="panel-head compact">
                 <h3>
-                  内存已用 <small>GiB</small>
+                  {t('detail.memUsed')} <small>GiB</small>
                 </h3>
                 <span className="chart-now num">
-                  当前 <b>{st ? `${fmtGiB(st.ram / GIB)} / ${fmtGiB(memTotal ?? 0)}` : '—'}</b>
+                  {t('detail.current')} <b>{st ? `${fmtGiB(st.ram / GIB)} / ${fmtGiB(memTotal ?? 0)}` : '—'}</b>
                   {st && <em className="dim"> {pct(ratio(st.ram, st.ram_total || r.node.mem_total))}</em>}
                   <RangeNote stats={memStats} />
                 </span>
               </div>
-              <KLineChart look={settings.chartStyle} marks={marks.mem} slots={mem} format={fmtGiB} loading={loading} stale={stale} offline={!r.online} label="内存已用" rangeKey={dataKey} />
+              <KLineChart look={settings.chartStyle} marks={marks.mem} slots={mem} format={fmtGiB} loading={loading} stale={stale} offline={!r.online} label={t('detail.memUsed')} rangeKey={dataKey} />
             </section>
             <section className="panel chart-panel chart-mini">
               <div className="panel-head compact">
                 <h3>
-                  磁盘已用 <small>GiB</small>
+                  {t('detail.diskUsed')} <small>GiB</small>
                 </h3>
                 <span className="chart-now num">
-                  当前 <b>{st ? `${fmtGiB(st.disk / GIB)} / ${fmtGiB(diskTotal ?? 0)}` : '—'}</b>
+                  {t('detail.current')} <b>{st ? `${fmtGiB(st.disk / GIB)} / ${fmtGiB(diskTotal ?? 0)}` : '—'}</b>
                   {st && <em className="dim"> {pct(ratio(st.disk, st.disk_total || r.node.disk_total))}</em>}
                   <RangeNote stats={diskStats} />
                 </span>
               </div>
-              <KLineChart look={settings.chartStyle} slots={disk} format={fmtGiB} loading={loading} stale={stale} offline={!r.online} label="磁盘已用" rangeKey={dataKey} />
+              <KLineChart look={settings.chartStyle} slots={disk} format={fmtGiB} loading={loading} stale={stale} offline={!r.online} label={t('detail.diskUsed')} rangeKey={dataKey} />
             </section>
           </div>
 
         </div>
 
-        <aside className="detail-side" aria-label="节点资料">
+        <aside className="detail-side" aria-label={t('detail.facts')}>
           <LocationPanel r={r} />
           <NetworkPanel r={r} volume={volume} traffic={traffic} monthly={monthly} />
           <SystemPanel r={r} />
@@ -230,6 +233,7 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange,
 }
 
 export function NodeDetail({ rows, order, settings, traffic, monthly, now, ready }: { rows: Row[]; order: Row[]; settings: ThemeSettings; traffic: (r: Row) => { up: number; down: number } | null; monthly: boolean; now: number; ready: boolean }) {
+  const { t } = useTranslation()
   const match = useMatch('/instance/:uuid')
   const navigate = useNavigate()
   const location = useLocation()
@@ -334,10 +338,10 @@ export function NodeDetail({ rows, order, settings, traffic, monthly, now, ready
                   </div>
                 ) : (
                   <div className="detail-missing">
-                    <Dialog.Title>{ready ? '节点不存在或未公开' : '加载中…'}</Dialog.Title>
+                    <Dialog.Title>{ready ? t('detail.missing') : t('common.loading')}</Dialog.Title>
                     <Dialog.Close asChild>
                       <button type="button" className="close-btn">
-                        返回列表 <X size={14} />
+                        {t('detail.back')} <X size={14} />
                       </button>
                     </Dialog.Close>
                   </div>

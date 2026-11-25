@@ -4,9 +4,10 @@ import clsx from 'clsx'
 import { ArrowDownUp, Check, ChevronRight, Eye, EyeOff, Search, X } from 'lucide-react'
 import { motion } from 'motion/react'
 import { memo, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { Link, useLocation } from 'react-router'
 import type { Sparks } from '../lib/api'
-import { firstDir, QUICK_LABEL, SORT_LABEL, useBoardQuery, type BoardView, type Sort, type SortKey } from '../lib/board'
+import { firstDir, useBoardQuery, type BoardView, type Sort, type SortKey } from '../lib/board'
 import { ago, duration, finite, levelOf, parseTags, pct, signed, size } from '../lib/format'
 import { metricTrail, useNow, type BoardMetric, type Row } from '../lib/model'
 import type { ThemeSettings } from '../lib/settings'
@@ -45,25 +46,25 @@ export function Tags({ tags, max }: { tags: string; max?: number }) {
   )
 }
 
-const HEAD: { key: SortKey | null; label: string; cls: string; trail?: boolean }[] = [
-  { key: 'name', label: '节点', cls: 'c-name' },
-  { key: 'uptime', label: '状态', cls: 'c-state' },
-  { key: 'cpu', label: 'CPU', cls: 'c-cpu', trail: true },
-  { key: 'ram', label: '内存', cls: 'c-ram', trail: true },
-  { key: 'disk', label: '磁盘', cls: 'c-disk', trail: true },
-  { key: 'load', label: '负载 1/5/15', cls: 'c-load' },
-  { key: 'traffic', label: '流量 ↑/↓', cls: 'c-traffic' },
-  { key: 'net', label: '网络 ↑/↓', cls: 'c-net' },
-  { key: null, label: '标签', cls: 'c-tags' },
-  { key: 'seen', label: '最后上报', cls: 'c-seen' },
+/** Columns; `col` names the header (board.col.*), the traffic one depends on the period. */
+const HEAD: { key: SortKey | null; col: 'name' | 'state' | 'cpu' | 'ram' | 'disk' | 'load' | 'traffic' | 'net' | 'tags' | 'seen'; cls: string; trail?: boolean }[] = [
+  { key: 'name', col: 'name', cls: 'c-name' },
+  { key: 'uptime', col: 'state', cls: 'c-state' },
+  { key: 'cpu', col: 'cpu', cls: 'c-cpu', trail: true },
+  { key: 'ram', col: 'ram', cls: 'c-ram', trail: true },
+  { key: 'disk', col: 'disk', cls: 'c-disk', trail: true },
+  { key: 'load', col: 'load', cls: 'c-load' },
+  { key: 'traffic', col: 'traffic', cls: 'c-traffic' },
+  { key: 'net', col: 'net', cls: 'c-net' },
+  { key: null, col: 'tags', cls: 'c-tags' },
+  { key: 'seen', col: 'seen', cls: 'c-seen' },
 ]
-
-const METRIC_LABEL: Record<BoardMetric, string> = { cpu: 'CPU', ram: '内存', disk: '磁盘' }
 /** Disk barely moves within an hour; a wider minimum range keeps its trail visibly flat. */
 const MIN_SPAN: Record<BoardMetric, number> = { cpu: 6, ram: 6, disk: 10 }
 
 /** Value, Δ vs. the 1h mean and the 1h trail (or a usage bar when trails are off). */
 function MetricCell({ r, k, x, showSpark, title }: { r: Row; k: BoardMetric; x: BoardExtras; showSpark: boolean; title?: string }) {
+  const { t } = useTranslation()
   const value = r[k]
   // The trail window ends at the node's latest report; a node that stopped reporting drifts left
   // with the minute clock.
@@ -71,13 +72,13 @@ function MetricCell({ r, k, x, showSpark, title }: { r: Row; k: BoardMetric; x: 
   const trail = showSpark ? metricTrail(r, x.sparks?.get(r.node.uuid), k, end) : null
   return (
     <span className={clsx(`c-${k}`, 'metric', trail ? 'has-spark' : 'has-meter', levelOf(value))} title={title}>
-      <span className="m-label">{METRIC_LABEL[k]}</span>
+      <span className="m-label">{t(`board.col.${k}`)}</span>
       <span className="m-nums">
         <b className="m-value num">
           <Tick value={value} threshold={1}>{pct(value)}</Tick>
         </b>
         {trail?.dir && (
-          <span className={clsx('delta num', trail.dir)} title="较近 1 小时均值（曲线中的虚线）">
+          <span className={clsx('delta num', trail.dir)} title={t('board.deltaHint')}>
             {signed(trail.delta!, 1)}
             <small>pp</small>
           </span>
@@ -93,15 +94,16 @@ function Ago({ t }: { t: number | null }) {
   const now = useNow(1000)
   return (
     <time className="num" dateTime={t ? new Date(t).toISOString() : undefined}>
-      {ago(t, now)}
+      {ago(t, now, true)}
     </time>
   )
 }
 
 /** `rank` is the row's place in a sorted board (null when grouped); a change of place slides it. */
 const QuoteRow = memo(function QuoteRow({ r, x, showSpark, search, rank }: { r: Row; x: BoardExtras; showSpark: boolean; search: string; rank: number | null }) {
+  const { t } = useTranslation()
   const st = r.online ? r.status : undefined
-  const t = x.traffic(r)
+  const tr = x.traffic(r)
   const memText = st ? `${size(st.ram)} / ${size(st.ram_total || r.node.mem_total)}` : undefined
   const diskText = st ? `${size(st.disk)} / ${size(st.disk_total || r.node.disk_total)}` : undefined
   return (
@@ -109,7 +111,7 @@ const QuoteRow = memo(function QuoteRow({ r, x, showSpark, search, rank }: { r: 
     // with the rank as its dependency it measures a row only when its place changes (rows are of
     // equal height, so a row that keeps its rank keeps its position).
     <motion.div layout={rank !== null ? 'position' : false} layoutDependency={rank} transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="row-wrap">
-      <Link to={{ pathname: `/instance/${r.node.uuid}`, search }} state={{ fromBoard: true }} className={clsx('qrow', !r.online && 'is-off')} data-uuid={r.node.uuid} aria-label={`${r.node.name} ${r.region.name} ${r.online ? '在线' : '离线'}${r.node.hidden ? '，隐藏节点' : ''}，查看详情`}>
+      <Link to={{ pathname: `/instance/${r.node.uuid}`, search }} state={{ fromBoard: true }} className={clsx('qrow', !r.online && 'is-off')} data-uuid={r.node.uuid} aria-label={t(r.node.hidden ? 'board.rowHidden' : 'board.row', { name: r.node.name, region: r.region.name, state: r.online ? t('common.online') : t('common.offline') })}>
         <span className="c-name">
           <Flag code={r.region.code} title={r.region.name} />
           <span className="name-stack">
@@ -117,8 +119,8 @@ const QuoteRow = memo(function QuoteRow({ r, x, showSpark, search, rank }: { r: 
             <span className="node-code num">
               {r.code.area}·<em>{r.code.hash}</em>
               {r.node.hidden && (
-                <span className="hidden-tag" title="后台设为隐藏：只有登录后才看得到">
-                  隐藏
+                <span className="hidden-tag" title={t('common.hiddenHint')}>
+                  {t('common.hidden')}
                 </span>
               )}
             </span>
@@ -127,15 +129,15 @@ const QuoteRow = memo(function QuoteRow({ r, x, showSpark, search, rank }: { r: 
         <span className="c-state">
           <span className={clsx('state', r.online ? 'on' : 'off')}>
             <i aria-hidden="true" />
-            {r.online ? '在线' : '离线'}
+            {r.online ? t('common.online') : t('common.offline')}
           </span>
-          <span className="uptime num" title="系统运行时长">{duration(st?.uptime)}</span>
+          <span className="uptime num" title={t('board.uptimeHint')}>{duration(st?.uptime)}</span>
         </span>
         <MetricCell r={r} k="cpu" x={x} showSpark={showSpark} />
         <MetricCell r={r} k="ram" x={x} showSpark={showSpark} title={memText} />
         <MetricCell r={r} k="disk" x={x} showSpark={showSpark} title={diskText} />
         <span className="c-load num">
-          <span className="m-label">负载</span>
+          <span className="m-label">{t('board.load')}</span>
           {(['load', 'load5', 'load15'] as const).map((k, i) => (
             <span key={k} className="load-cell">
               <small>{[1, 5, 15][i]}m</small>
@@ -144,11 +146,11 @@ const QuoteRow = memo(function QuoteRow({ r, x, showSpark, search, rank }: { r: 
           ))}
         </span>
         <span className="c-traffic">
-          <span className="m-label">{x.trafficMonthly ? '月流量' : '累计流量'}</span>
-          <Pair up={t?.up} down={t?.down} byUnit />
+          <span className="m-label">{x.trafficMonthly ? t('board.trafficMonth') : t('board.trafficTotal')}</span>
+          <Pair up={tr?.up} down={tr?.down} byUnit />
         </span>
         <span className="c-net">
-          <span className="m-label">网络</span>
+          <span className="m-label">{t('board.network')}</span>
           <Pair up={st?.net_out} down={st?.net_in} rate tickUp tickDown byUnit />
         </span>
         <span className="c-tags">
@@ -164,24 +166,27 @@ const QuoteRow = memo(function QuoteRow({ r, x, showSpark, search, rank }: { r: 
 })
 
 const SORT_KEYS: SortKey[] = ['cpu', 'ram', 'disk', 'load', 'net', 'traffic', 'uptime', 'seen', 'name']
-const dirText = (d: 'asc' | 'desc') => (d === 'asc' ? '升序' : '降序')
 
 /**
  * Phones hide the column headers, so the sort lives behind a button beside the search box:
  * pick what to order by, then the direction. Hidden on wider screens, where headers sort.
  */
 function SortMenu({ sort, grouped, onChange }: { sort: Sort; grouped: boolean; onChange: (s: Sort) => void }) {
+  const { t, i18n } = useTranslation()
   const [open, setOpen] = useState(false)
   const dirLabel = useId()
+  const dirText = (d: 'asc' | 'desc') => t(`sort.${d}`)
+  // Names are lower case for use inside sentences (by name, descending); as options they start a line.
+  const cap = (s: string) => s.charAt(0).toLocaleUpperCase(i18n.language) + s.slice(1)
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger asChild>
-        <button type="button" className={clsx('tool-btn sort-btn', sort && 'is-on')} aria-label={sort ? `排序：按${SORT_LABEL[sort.key]}${dirText(sort.dir)}` : '排序'}>
+        <button type="button" className={clsx('tool-btn sort-btn', sort && 'is-on')} aria-label={sort ? t('sort.current', { key: t(`sort.key.${sort.key}`), dir: dirText(sort.dir) }) : t('sort.button')}>
           <ArrowDownUp size={14} aria-hidden="true" />
         </button>
       </Popover.Trigger>
       <Popover.Portal>
-        <Popover.Content className="sort-menu" side="bottom" align="end" sideOffset={6} collisionPadding={12} aria-label="排序">
+        <Popover.Content className="sort-menu" side="bottom" align="end" sideOffset={6} collisionPadding={12} aria-label={t('sort.button')}>
           <RadioGroup.Root
             className="sort-list"
             value={sort?.key ?? 'none'}
@@ -190,12 +195,12 @@ function SortMenu({ sort, grouped, onChange }: { sort: Sort; grouped: boolean; o
               // Back to the default order there is no direction to pick, so the menu is done.
               if (v === 'none') setOpen(false)
             }}
-            aria-label="排序依据"
+            aria-label={t('sort.by')}
             loop
           >
             {(['none', ...SORT_KEYS] as const).map((k) => (
               <RadioGroup.Item key={k} value={k} className="sort-opt">
-                {k === 'none' ? (grouped ? '默认（按分组）' : '默认顺序') : SORT_LABEL[k]}
+                {k === 'none' ? (grouped ? t('sort.defaultGrouped') : t('sort.default')) : cap(t(`sort.key.${k}`))}
                 <RadioGroup.Indicator asChild>
                   <Check size={14} aria-hidden="true" />
                 </RadioGroup.Indicator>
@@ -204,8 +209,8 @@ function SortMenu({ sort, grouped, onChange }: { sort: Sort; grouped: boolean; o
           </RadioGroup.Root>
           {sort && (
             <div className="sort-dir">
-              <span id={dirLabel}>方向</span>
-              <Segmented className="seg-fill" value={sort.dir} options={['desc', 'asc'] as const} format={dirText} labelledBy={dirLabel} onChange={(dir) => onChange({ ...sort, dir })} />
+              <span id={dirLabel}>{t('sort.direction')}</span>
+              <Segmented className="seg-fill" value={sort.dir} options={['desc', 'asc'] as const} format={(d) => cap(dirText(d))} labelledBy={dirLabel} onChange={(dir) => onChange({ ...sort, dir })} />
             </div>
           )}
         </Popover.Content>
@@ -216,6 +221,7 @@ function SortMenu({ sort, grouped, onChange }: { sort: Sort; grouped: boolean; o
 
 // Memoized: the app re-renders every second for its clocks, the board only when its data does.
 export const QuoteBoard = memo(function QuoteBoard({ rows, view, onHold, hiddenCount, showHidden, onToggleHidden, settings, x, loading, searchRef }: { rows: Row[]; view: BoardView; onHold: (hold: boolean) => void; hiddenCount: number; showHidden: boolean; onToggleHidden: () => void; settings: ThemeSettings; x: BoardExtras; loading: boolean; searchRef: React.RefObject<HTMLInputElement | null> }) {
+  const { t } = useTranslation()
   const [{ q: query, quick, sort }, setBoard, flushQuery] = useBoardQuery()
   const { search } = useLocation()
   const listRef = useRef<HTMLDivElement>(null)
@@ -266,38 +272,39 @@ export const QuoteBoard = memo(function QuoteBoard({ rows, view, onHold, hiddenC
   useEffect(() => () => onHold(false), [onHold])
 
   const cols = clsx('board', !showSpark && 'no-spark')
+  const headLabel = (col: (typeof HEAD)[number]['col']) => (col === 'traffic' ? (x.trafficMonthly ? t('board.col.trafficMonth') : t('board.col.trafficTotal')) : t(`board.col.${col}`))
 
   return (
     <section className="panel board-panel" aria-labelledby="board-title">
       <div className="panel-head">
         <div className="panel-title">
           <span className="slot num">01</span>
-          <h1 id="board-title">全部节点</h1>
-          <span className="count num">{count} 台</span>
+          <h1 id="board-title">{t('board.title')}</h1>
+          <span className="count num">{t('board.count', { count })}</span>
           {/* What is narrowing or reordering the board, each one click from undone. */}
           {quick && (
-            <button type="button" className="chip" onClick={() => setBoard({ quick: null })} aria-label={`取消筛选：${QUICK_LABEL[quick]}`}>
-              {QUICK_LABEL[quick]}
+            <button type="button" className="chip" onClick={() => setBoard({ quick: null })} aria-label={t('board.clearQuick', { label: t(`board.quick.${quick}`) })}>
+              {t(`board.quick.${quick}`)}
               <X size={12} aria-hidden="true" />
             </button>
           )}
           {/* Only a logged-in session gets hidden nodes, so only it sees this toggle. */}
           {hiddenCount > 0 &&
             (showHidden ? (
-              <button type="button" className="chip chip-quiet" onClick={onToggleHidden} aria-label={`暂不显示 ${hiddenCount} 台隐藏节点`} title="这些节点在后台设为隐藏，只有登录后才看得到。点击暂不显示（例如截图分享），刷新页面后恢复">
+              <button type="button" className="chip chip-quiet" onClick={onToggleHidden} aria-label={t('board.hideHidden', { count: hiddenCount })} title={t('board.hiddenHint')}>
                 <Eye size={12} aria-hidden="true" />
-                隐藏节点 {hiddenCount}
+                {t('board.hiddenCount', { count: hiddenCount })}
               </button>
             ) : (
-              <button type="button" className="chip" onClick={onToggleHidden} aria-label={`恢复显示 ${hiddenCount} 台隐藏节点`}>
+              <button type="button" className="chip" onClick={onToggleHidden} aria-label={t('board.showHidden', { count: hiddenCount })}>
                 <EyeOff size={12} aria-hidden="true" />
-                已暂不显示隐藏节点
+                {t('board.hiddenOff')}
                 <X size={12} aria-hidden="true" />
               </button>
             ))}
           {sort && (
-            <button type="button" className="chip" onClick={() => setBoard({ sort: null })} aria-label={`取消排序（按${SORT_LABEL[sort.key]}${sort.dir === 'asc' ? '升序' : '降序'}），${settings.groupBy === 'none' ? '恢复默认顺序' : '恢复分组'}`}>
-              按 {SORT_LABEL[sort.key]} {sort.dir === 'asc' ? '升序' : '降序'}
+            <button type="button" className="chip" onClick={() => setBoard({ sort: null })} aria-label={t('board.clearSort', { key: t(`sort.key.${sort.key}`), dir: t(`sort.${sort.dir}`), restore: settings.groupBy === 'none' ? t('board.restoreOrder') : t('board.restoreGroups') })}>
+              {t('board.sortChip', { key: t(`sort.key.${sort.key}`), dir: t(`sort.${sort.dir}`) })}
               <X size={12} aria-hidden="true" />
             </button>
           )}
@@ -307,13 +314,13 @@ export const QuoteBoard = memo(function QuoteBoard({ rows, view, onHold, hiddenC
           <div className="search">
             <label className="search-field">
               <Search size={14} aria-hidden="true" />
-              <input ref={searchRef} type="search" value={query} onChange={(e) => setBoard({ q: e.target.value })} onKeyDown={onSearchKey} onBlur={flushQuery} placeholder="搜索节点 / 地区 / 标签" aria-label="搜索节点、地区或标签" />
+              <input ref={searchRef} type="search" value={query} onChange={(e) => setBoard({ q: e.target.value })} onKeyDown={onSearchKey} onBlur={flushQuery} placeholder={t('board.searchPlaceholder')} aria-label={t('board.searchLabel')} />
             </label>
             {query ? (
               <button
                 type="button"
                 className="search-clear"
-                aria-label="清除搜索"
+                aria-label={t('board.clearSearch')}
                 onClick={() => {
                   setBoard({ q: '' })
                   searchRef.current?.focus()
@@ -330,12 +337,12 @@ export const QuoteBoard = memo(function QuoteBoard({ rows, view, onHold, hiddenC
       </div>
 
       {settings.groupBy !== 'none' && allGroups.length > 1 && (
-        <div className="tabs" role="tablist" aria-label="按分组筛选">
-          {[{ key: 'all', label: '全部', n: rows.length }, ...allGroups.map((g) => ({ key: g.key, label: g.label, n: g.rows.length }))].map((t) => (
-            <button key={t.key} type="button" role="tab" aria-selected={filter === t.key} className="tab" onClick={() => setBoard({ group: t.key })}>
-              {filter === t.key && <motion.span layoutId="tab-pill" className="tab-pill" transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }} />}
-              <span className="tab-text">{t.label}</span>
-              <span className="tab-n num">{t.n}</span>
+        <div className="tabs" role="tablist" aria-label={t('board.groupTabs')}>
+          {[{ key: 'all', label: t('common.all'), n: rows.length }, ...allGroups.map((g) => ({ key: g.key, label: g.label, n: g.rows.length }))].map((tab) => (
+            <button key={tab.key} type="button" role="tab" aria-selected={filter === tab.key} className="tab" onClick={() => setBoard({ group: tab.key })}>
+              {filter === tab.key && <motion.span layoutId="tab-pill" className="tab-pill" transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }} />}
+              <span className="tab-text">{tab.label}</span>
+              <span className="tab-n num">{tab.n}</span>
             </button>
           ))}
         </div>
@@ -356,7 +363,7 @@ export const QuoteBoard = memo(function QuoteBoard({ rows, view, onHold, hiddenC
           {HEAD.map((h) =>
             h.key ? (
               <button key={h.cls} type="button" className={clsx(h.cls, 'th', sort?.key === h.key && 'is-sorted')} onClick={() => cycleSort(h.key!)} aria-sort={sort?.key === h.key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
-                {h.key === 'traffic' ? `${x.trafficMonthly ? '月流量' : '累计流量'} ↑/↓` : h.label}
+                <span className="th-text">{headLabel(h.col)}</span>
                 {h.trail && showSpark && <small className="th-sub">1h</small>}
                 <span className="sort-mark" aria-hidden="true">
                   {sort?.key === h.key ? (sort.dir === 'asc' ? '▲' : '▼') : '⇅'}
@@ -364,7 +371,7 @@ export const QuoteBoard = memo(function QuoteBoard({ rows, view, onHold, hiddenC
               </button>
             ) : (
               <span key={h.cls} className={clsx(h.cls, 'th')}>
-                {h.label}
+                <span className="th-text">{headLabel(h.col)}</span>
               </span>
             ),
           )}
@@ -379,13 +386,13 @@ export const QuoteBoard = memo(function QuoteBoard({ rows, view, onHold, hiddenC
         ) : count === 0 ? (
           rows.length ? (
             <div className="empty">
-              <p>没有匹配的节点</p>
+              <p>{t('board.noMatch')}</p>
               <button type="button" className="tool-btn" onClick={() => setBoard({ q: '', group: 'all', quick: null })}>
-                清除筛选
+                {t('board.clearFilters')}
               </button>
             </div>
           ) : (
-            <p className="empty">暂无公开节点</p>
+            <p className="empty">{t('board.empty')}</p>
           )
         ) : flat ? (
           <div className="group-body">
@@ -408,11 +415,11 @@ export const QuoteBoard = memo(function QuoteBoard({ rows, view, onHold, hiddenC
                     <span className="group-meta num">
                       {finite(cpuAvg) && (
                         <span className="group-cpu">
-                          平均 CPU 使用率 <b>{cpuAvg.toFixed(1)}%</b>
+                          {t('board.groupCpu')} <b>{cpuAvg.toFixed(1)}%</b>
                         </span>
                       )}
                       <span>
-                        <b className={online.length ? 'good' : 'dim'}>{online.length}</b> 在线 / {g.rows.length} 台
+                        <Trans t={t} i18nKey="board.groupOnline" values={{ online: online.length, count: g.rows.length }} components={{ b: <b className={online.length ? 'good' : 'dim'} /> }} />
                       </span>
                     </span>
                   </div>

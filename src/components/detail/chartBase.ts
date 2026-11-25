@@ -1,5 +1,6 @@
 import { ColorType, CrosshairMode, LineStyle, TickMarkType, type ChartOptions, type DeepPartial, type Time, type UTCTimestamp } from 'lightweight-charts'
 import { cssVar } from '../../lib/appearance'
+import { monthDay } from '../../lib/format'
 
 // Shared by the detail charts (K line and ping) so they read and behave as one set.
 
@@ -9,13 +10,13 @@ export const asTs = (t: number) => t as UTCTimestamp
 export function localLabel(time: Time, type?: TickMarkType) {
   const d = new Date((time as number) * 1000)
   if (type === TickMarkType.Year) return String(d.getFullYear())
-  if (type === TickMarkType.Month || type === TickMarkType.DayOfMonth) return `${d.getMonth() + 1}/${d.getDate()}`
+  if (type === TickMarkType.Month || type === TickMarkType.DayOfMonth) return monthDay(d.getTime(), false)
   return `${two(d.getHours())}:${two(d.getMinutes())}`
 }
 
 export function crosshairLabel(time: Time) {
   const d = new Date((time as number) * 1000)
-  return `${d.getMonth() + 1}/${d.getDate()} ${two(d.getHours())}:${two(d.getMinutes())}`
+  return `${monthDay(d.getTime(), false)} ${two(d.getHours())}:${two(d.getMinutes())}`
 }
 
 /**

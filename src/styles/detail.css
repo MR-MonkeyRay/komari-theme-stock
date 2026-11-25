@@ -1079,14 +1079,15 @@
 }
 .event {
   display: grid;
-  grid-template-columns: 40px 34px minmax(0, 1fr);
+  /* Time and label take what the language needs, at least what Chinese needs. */
+  grid-template-columns: minmax(40px, max-content) minmax(34px, max-content) minmax(0, 1fr);
   align-items: center;
   gap: 8px;
   padding: 5px 12px;
   font-size: 11.5px;
 }
 .events.with-date .event {
-  grid-template-columns: 78px 34px minmax(0, 1fr);
+  grid-template-columns: minmax(78px, max-content) minmax(34px, max-content) minmax(0, 1fr);
 }
 /* Pointing at an event moves the charts' crosshairs to it; the row shows it is the one. */
 .event:hover {
@@ -1098,7 +1099,19 @@
 .event b {
   font-weight: 700;
 }
-.event span {
+/* Every label of the language sits in the same cell, only the row's own one visible, so each row's
+   label column is as wide as the longest label and the texts line up. */
+.ev-label {
+  display: grid;
+  white-space: nowrap;
+}
+.ev-label > span {
+  grid-area: 1 / 1;
+}
+.ev-ghost {
+  visibility: hidden;
+}
+.event .ev-text {
   overflow: hidden;
   color: var(--text-2);
   text-overflow: ellipsis;
@@ -1110,7 +1123,8 @@
 .ev-fall b {
   color: var(--down);
 }
-.ev-gap b {
+.ev-gap b,
+.ev-offline b {
   color: var(--offline);
 }
 .ev-high-mem b {

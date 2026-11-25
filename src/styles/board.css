@@ -232,6 +232,11 @@
   white-space: nowrap;
   text-align: left;
 }
+/* A header longer than its column (some languages) ends in an ellipsis instead of running on. */
+.th-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 /* Header cells share column classes with row cells; keep them single-line. */
 .qhead .th {
   display: flex;

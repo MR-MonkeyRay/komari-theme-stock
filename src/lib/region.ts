@@ -1,19 +1,12 @@
 import countries from 'virtual:geo/countries'
+import i18n from '../i18n'
 
 // Komari stores `region` as a flag emoji (🇭🇰). Some setups use a plain ISO code.
 
-export const CONTINENTS = [
-  { code: 'AS', name: '亚洲' },
-  { code: 'EU', name: '欧洲' },
-  { code: 'NA', name: '北美洲' },
-  { code: 'SA', name: '南美洲' },
-  { code: 'OC', name: '大洋洲' },
-  { code: 'AF', name: '非洲' },
-  { code: 'AN', name: '南极洲' },
-  { code: 'OT', name: '未设置' },
-] as const
+/** In board order; OT is a node without a known region. */
+export const CONTINENTS = ['AS', 'EU', 'NA', 'SA', 'OC', 'AF', 'AN', 'OT'] as const
 
-export type ContinentCode = (typeof CONTINENTS)[number]['code']
+export type ContinentCode = (typeof CONTINENTS)[number]
 
 export function regionCode(region: string | undefined): string | null {
   if (!region) return null
@@ -34,13 +27,23 @@ export interface RegionInfo {
   lng: number | null
 }
 
-export function regionInfo(region: string | undefined): RegionInfo {
+const regionNames = new Map<string, Intl.DisplayNames>()
+
+/** The country or region's short name in `lang` (香港, Hong Kong, Hongkong). */
+function countryName(code: string, lang: string) {
+  let names = regionNames.get(lang)
+  if (!names) regionNames.set(lang, (names = new Intl.DisplayNames(lang, { type: 'region', style: 'short', fallback: 'code' })))
+  return names.of(code) ?? code
+}
+
+/** `lang`: the language of the name. */
+export function regionInfo(region: string | undefined, lang: string): RegionInfo {
   const code = regionCode(region)
   const row = code ? countries[code] : undefined
-  if (!code || !row) return { code, continent: 'OT', name: region?.trim() || '未设置', lat: null, lng: null }
-  return { code, continent: row[0] as ContinentCode, name: row[1], lat: row[2], lng: row[3] }
+  if (!code || !row) return { code, continent: 'OT', name: region?.trim() || continentName('OT'), lat: null, lng: null }
+  return { code, continent: row[0] as ContinentCode, name: countryName(code, lang), lat: row[1], lng: row[2] }
 }
 
 export function continentName(code: string) {
-  return CONTINENTS.find((c) => c.code === code)?.name ?? code
+  return (CONTINENTS as readonly string[]).includes(code) ? i18n.t(`continent.${code as ContinentCode}`) : code
 }

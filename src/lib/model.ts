@@ -17,12 +17,13 @@ export interface Row {
   lastSeen: number | null
 }
 
-export function buildRows(nodes: NodeInfo[] | undefined, statuses: Record<string, NodeStatus> | undefined): Row[] {
+/** `lang`: the language of the region names. */
+export function buildRows(nodes: NodeInfo[] | undefined, statuses: Record<string, NodeStatus> | undefined, lang: string): Row[] {
   if (!nodes) return []
   return nodes.map((node) => {
     const status = statuses?.[node.uuid]
     const online = status?.online === true
-    const region = regionInfo(node.region)
+    const region = regionInfo(node.region, lang)
     const live = online ? status : undefined
     return {
       node,

@@ -7,7 +7,7 @@ const countries = createRequire(import.meta.url)('world-countries/countries.json
 
 // Build-time extraction from world-countries (1.4 MB JSON) and dotted-map,
 // so the bundle only carries what the theme actually reads.
-//   virtual:geo/countries -> { [ISO2]: [continent, zhName, lat, lng] }
+//   virtual:geo/countries -> { [ISO2]: [continent, lat, lng] } (names come from Intl.DisplayNames)
 //   virtual:geo/world-map -> precomputed dotted-map grid (lazy loaded by the map panel)
 
 const COUNTRIES_ID = 'virtual:geo/countries'
@@ -40,11 +40,8 @@ export function geoPlugin(): Plugin {
     },
     load(id) {
       if (id === '\0' + COUNTRIES_ID) {
-        const table: Record<string, [string, string, number, number]> = {}
-        for (const c of countries) {
-          const zh = c.translations?.zho?.common ?? c.name.common
-          table[c.cca2] = [continentOf(c.region, c.subregion), zh, c.latlng[0], c.latlng[1]]
-        }
+        const table: Record<string, [string, number, number]> = {}
+        for (const c of countries) table[c.cca2] = [continentOf(c.region, c.subregion), c.latlng[0], c.latlng[1]]
         return `export default ${JSON.stringify(table)}`
       }
       if (id === '\0' + MAP_ID) {

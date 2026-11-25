@@ -1,8 +1,8 @@
 /// <reference types="vite/client" />
 
 declare module 'virtual:geo/countries' {
-  /** ISO2 -> [continent, zhName, lat, lng] */
-  const countries: Record<string, [string, string, number, number]>
+  /** ISO2 -> [continent, lat, lng] */
+  const countries: Record<string, [string, number, number]>
   export default countries
 }
 

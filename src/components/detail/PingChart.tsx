@@ -18,9 +18,11 @@ import {
   type WhitespaceData,
 } from 'lightweight-charts'
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
+import i18next from '../../i18n'
 import { cssVar, usePaletteVersion } from '../../lib/appearance'
 import { lossText, ms, type PingLineData } from '../../lib/ping'
-import { asTs, baseChartOptions, breakAtGaps, chartPalette, crosshairLabel, HIDE_LINE } from './chartBase'
+import { asTs, baseChartOptions, breakAtGaps, chartPalette, crosshairLabel, HIDE_LINE, localLabel } from './chartBase'
 import { bucketAt, releaseTime, shareRange, sharedRangeFor, shareTime, useChartSync, userGesture, type SharedRange } from './chartSync'
 
 // --- min–max band -------------------------------------------------------------------------------
@@ -160,6 +162,7 @@ export interface PingChartProps {
 }
 
 export default function PingChart({ lines, selected, loading, stale, offline, rangeKey, summary, onHover }: PingChartProps) {
+  const { t, i18n } = useTranslation()
   const host = useRef<HTMLDivElement>(null)
   const chart = useRef<IChartApi | null>(null)
   const band = useRef<ISeriesApi<'Custom', Time, BandData | WhitespaceData<Time>> | null>(null)
@@ -201,7 +204,7 @@ export default function PingChart({ lines, selected, loading, stale, offline, ra
       priceScaleId: 'loss',
       priceLineVisible: false,
       lastValueVisible: false,
-      priceFormat: { type: 'custom', formatter: (v: number) => `${lossText(v)} 丢包`, minMove: 0.1 },
+      priceFormat: { type: 'custom', formatter: (v: number) => i18next.t('ping.lossAxis', { value: lossText(v) }), minMove: 0.1 },
       autoscaleInfoProvider: () => ({ priceRange: { minValue: 0, maxValue: 100 } }),
     })
     c.priceScale('loss').applyOptions({ visible: false, scaleMargins: { top: 0.8, bottom: 0 } })
@@ -279,6 +282,11 @@ export default function PingChart({ lines, selected, loading, stale, offline, ra
     loss.current?.applyOptions({ color: cssVar('--ping-loss') })
   }, [palette])
 
+  // Axis dates and labels follow the page language; re-applying the formatters redraws them.
+  useEffect(() => {
+    chart.current?.applyOptions({ timeScale: { tickMarkFormatter: localLabel }, localization: { timeFormatter: crosshairLabel } })
+  }, [i18n.language])
+
   // Data and what is shown for the current selection.
   useEffect(() => {
     const c = chart.current
@@ -346,7 +354,7 @@ export default function PingChart({ lines, selected, loading, stale, offline, ra
     <div className={clsx('kline ping-chart', offline && 'is-offline', stale && 'is-stale')}>
       <div className="kline-legend num" aria-hidden="true">
         {!hasData ? (
-          <span className="dim">{loading ? '加载中…' : '所选范围内无延迟样本'}</span>
+          <span className="dim">{loading ? t('common.loading') : t('ping.noSamples')}</span>
         ) : hover !== null ? (
           <>
             <span className="lg-time">{crosshairLabel(hover as Time)}</span>
@@ -354,21 +362,21 @@ export default function PingChart({ lines, selected, loading, stale, offline, ra
               (p?.avg !== null && p?.avg !== undefined ? (
                 <>
                   <span>
-                    均 <b>{ms(p.avg)}</b>ms
+                    {t('chart.avg')} <b>{ms(p.avg)}</b>ms
                   </span>
                   {p.min !== null && p.max !== null && (
                     <span>
-                      范围 <b>{ms(p.min)}–{ms(p.max)}</b>
+                      {t('ping.range')} <b>{ms(p.min)}–{ms(p.max)}</b>
                     </span>
                   )}
                   {!!p.loss && (
                     <span className="warn">
-                      丢包 <b>{lossText(p.loss * 100)}</b>
+                      {t('ping.loss')} <b>{lossText(p.loss * 100)}</b>
                     </span>
                   )}
                 </>
               ) : (
-                <span className="warn">{p?.loss ? '全部丢包' : '无上报样本'}</span>
+                <span className="warn">{p?.loss ? t('ping.allLost') : t('chart.noSamples')}</span>
               ))}
             {/* Every line: the chips carry the latency; the loss of this bucket is read here. */}
             {!one &&
@@ -378,7 +386,7 @@ export default function PingChart({ lines, selected, loading, stale, offline, ra
                 if (!q?.loss) return null
                 return (
                   <span key={l.id} className="warn">
-                    {l.name} 丢包 <b>{q.avg === null ? '全部' : lossText(q.loss * 100)}</b>
+                    {t('ping.lineLoss', { name: l.name })} <b>{q.avg === null ? t('common.all') : lossText(q.loss * 100)}</b>
                   </span>
                 )
               })}
@@ -392,7 +400,7 @@ export default function PingChart({ lines, selected, loading, stale, offline, ra
         className="kline-canvas"
         tabIndex={0}
         role="img"
-        aria-label={`网络延迟折线图${one ? `，${one.name}` : `，${lines.map((l) => l.name).join('、')}`}；按左右方向键逐个查看时段`}
+        aria-label={t('ping.chartLabel', { names: one ? one.name : new Intl.ListFormat(i18n.language, { type: 'unit' }).format(lines.map((l) => l.name)) })}
         onKeyDown={onKey}
         onBlur={onBlur}
         // Capture: these must be known before the chart handles the same event.
@@ -405,7 +413,7 @@ export default function PingChart({ lines, selected, loading, stale, offline, ra
         }}
       />
       {loading && !hasData && <div className="kline-skeleton skeleton" aria-hidden="true" />}
-      {offline && <span className="kline-watermark">离线 · 历史快照</span>}
+      {offline && <span className="kline-watermark">{t('chart.offline')}</span>}
     </div>
   )
 }

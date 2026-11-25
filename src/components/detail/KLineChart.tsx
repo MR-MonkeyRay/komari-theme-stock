@@ -2,12 +2,13 @@ import * as RadioGroup from '@radix-ui/react-radio-group'
 import clsx from 'clsx'
 import { AreaSeries, CandlestickSeries, createChart, createSeriesMarkers, LineSeries, LineStyle, type IChartApi, type IPriceLine, type ISeriesApi, type ISeriesMarkersPluginApi, type MouseEventParams, type SeriesMarker, type Time } from 'lightweight-charts'
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { ConnPoint } from '../../lib/api'
 import { cssVar, usePaletteVersion } from '../../lib/appearance'
 import { isCandle, movingAverage, volumeBars, type Candle, type Slot, type Volume } from '../../lib/candles'
 import { size } from '../../lib/format'
 import type { ChartStyle } from '../../lib/settings'
-import { asTs, baseChartOptions, breakAtGaps, chartPalette, crosshairLabel, HIDE_AREA, HIDE_LINE, onGrid } from './chartBase'
+import { asTs, baseChartOptions, breakAtGaps, chartPalette, crosshairLabel, HIDE_AREA, HIDE_LINE, localLabel, onGrid } from './chartBase'
 import { bucketAt, releaseTime, shareRange, sharedRangeFor, shareTime, useChartSync, userGesture, type SharedRange } from './chartSync'
 
 const VOL_FORMAT = { type: 'custom' as const, formatter: (v: number) => (v > 0 ? size(v, true) : '0'), minMove: 1 }
@@ -62,6 +63,7 @@ interface Hover {
 }
 
 export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, look = 'candle', marks, format, percent, ma, loading, stale, offline, label, rangeKey }: KLineProps) {
+  const { t, i18n } = useTranslation()
   const host = useRef<HTMLDivElement>(null)
   const chart = useRef<IChartApi | null>(null)
   const series = useRef<{
@@ -232,6 +234,11 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Axis dates and labels follow the page language; re-applying the formatters redraws them.
+  useEffect(() => {
+    chart.current?.applyOptions({ timeScale: { tickMarkFormatter: localLabel }, localization: { timeFormatter: crosshairLabel } })
+  }, [i18n.language])
 
   // Palette (theme or up/down convention changed).
   useEffect(() => {
@@ -414,19 +421,19 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
         {gap ? (
           <>
             <span className="lg-time">{crosshairLabel(hover.time as Time)}</span>
-            <span className="dim">无上报样本</span>
+            <span className="dim">{t('chart.noSamples')}</span>
           </>
         ) : shown && line ? (
           <>
             <span className="lg-time">{crosshairLabel(shown.time as Time)}</span>
             <span>
-              均 <b>{format(shown.avg)}</b>
+              {t('chart.avg')} <b>{format(shown.avg)}</b>
             </span>
             <span>
-              高 <b>{format(shown.high)}</b>
+              {t('chart.high')} <b>{format(shown.high)}</b>
             </span>
             <span>
-              低 <b>{format(shown.low)}</b>
+              {t('chart.low')} <b>{format(shown.low)}</b>
             </span>
             {ma && (
               <span className="lg-ma">
@@ -439,20 +446,20 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
           <>
             <span className="lg-time">{crosshairLabel(shown.time as Time)}</span>
             <span>
-              开 <b className={dir}>{format(shown.open)}</b>
+              {t('chart.open')} <b className={dir}>{format(shown.open)}</b>
             </span>
             <span>
-              高 <b className={dir}>{format(shown.high)}</b>
+              {t('chart.high')} <b className={dir}>{format(shown.high)}</b>
             </span>
             <span>
-              低 <b className={dir}>{format(shown.low)}</b>
+              {t('chart.low')} <b className={dir}>{format(shown.low)}</b>
             </span>
             <span>
-              收 <b className={dir}>{format(shown.close)}</b>
+              {t('chart.close')} <b className={dir}>{format(shown.close)}</b>
             </span>
             {shown.open > 0 && (
               <span>
-                幅 <b className={dir}>{((chg / shown.open) * 100).toFixed(2)}%</b>
+                {t('chart.change')} <b className={dir}>{((chg / shown.open) * 100).toFixed(2)}%</b>
               </span>
             )}
             {ma && (
@@ -464,7 +471,7 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
             )}
           </>
         ) : (
-          <span className="dim">{loading ? '加载中…' : '所选范围内没有样本'}</span>
+          <span className="dim">{loading ? t('common.loading') : t('chart.noneInRange')}</span>
         )}
       </div>
       <div
@@ -472,7 +479,7 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
         className="kline-canvas"
         tabIndex={0}
         role="img"
-        aria-label={line ? `${label}分时图，每个时段的均值连成折线；按左右方向键逐个查看时段` : `${label} K 线图，空心为区间上升、实心为区间下降；按左右方向键逐个查看区间`}
+        aria-label={line ? t('chart.lineLabel', { label }) : t('chart.candleLabel', { label })}
         onKeyDown={onKey}
         onBlur={onBlur}
         // Capture: these must be known before the chart handles the same event.
@@ -487,9 +494,9 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
       {volume && subTop !== null && candles.length > 0 && (
         <div className="kline-sublegend num" style={{ top: subTop }}>
           {onSub && (
-            <RadioGroup.Root className="sub-switch" value={sub} onValueChange={(v) => onSub(v as SubPane)} orientation="horizontal" loop aria-label="副图">
-              <RadioGroup.Item value="vol">网速</RadioGroup.Item>
-              <RadioGroup.Item value="conn">连接</RadioGroup.Item>
+            <RadioGroup.Root className="sub-switch" value={sub} onValueChange={(v) => onSub(v as SubPane)} orientation="horizontal" loop aria-label={t('chart.sub')}>
+              <RadioGroup.Item value="vol">{t('chart.subVol')}</RadioGroup.Item>
+              <RadioGroup.Item value="conn">{t('chart.subConn')}</RadioGroup.Item>
             </RadioGroup.Root>
           )}
           {sub === 'conn' ? (
@@ -506,7 +513,7 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
                   </span>
                 </>
               ) : (
-                <span className="dim">{conn ? '无连接数样本' : conn === null ? '连接数获取失败' : '加载中…'}</span>
+                <span className="dim">{conn ? t('chart.noConn') : conn === null ? t('chart.connFailed') : t('common.loading')}</span>
               )}
             </span>
           ) : (
@@ -532,14 +539,14 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
               )}
             </>
           ) : (
-            <span className="dim">无流量样本</span>
+            <span className="dim">{t('chart.noTraffic')}</span>
           )}
           </span>
           )}
         </div>
       )}
       {loading && !candles.length && <div className="kline-skeleton skeleton" aria-hidden="true" />}
-      {offline && <span className="kline-watermark">离线 · 历史快照</span>}
+      {offline && <span className="kline-watermark">{t('chart.offline')}</span>}
     </div>
   )
 }

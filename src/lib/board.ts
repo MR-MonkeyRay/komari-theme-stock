@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useSearchParams } from 'react-router'
 import { create } from 'zustand'
+import type { TFunction } from 'i18next'
 import { parseTags } from './format'
 import { isHot } from './market'
 import type { Row } from './model'
-import { CONTINENTS, continentName } from './region'
+import { CONTINENTS } from './region'
 import type { SiteSettings } from './settings'
 
 // Board view state (search, group tab, quick filter, sort) lives in the URL query, so a reload or a
@@ -15,8 +16,6 @@ export type Sort = { key: SortKey; dir: 'asc' | 'desc' } | null
 
 /** Quick filters from the index strip: only offline nodes, or only high-load ones. */
 export type Quick = 'offline' | 'hot' | null
-
-export const QUICK_LABEL = { offline: '仅离线', hot: '仅高负载' } as const
 
 export interface BoardQuery {
   /** Search text. */
@@ -33,19 +32,6 @@ function parseSort(raw: string | null): Sort {
   const [key, dir] = (raw ?? '').split('-')
   if (!SORT_KEYS.includes(key as SortKey) || (dir !== 'asc' && dir !== 'desc')) return null
   return { key: key as SortKey, dir }
-}
-
-/** What each sort orders by, for the "按 CPU 降序" chip. */
-export const SORT_LABEL: Record<SortKey, string> = {
-  name: '名称',
-  uptime: '运行时长',
-  cpu: 'CPU',
-  ram: '内存',
-  disk: '磁盘',
-  load: '负载',
-  traffic: '流量',
-  net: '网速',
-  seen: '最后上报',
 }
 
 /** Default direction when a column is first sorted: names A→Z, numbers high→low. */
@@ -149,17 +135,21 @@ export interface Group {
   rows: Row[]
 }
 
-export function groupRows(rows: Row[], by: SiteSettings['groupBy']): Group[] {
-  if (by === 'none') return [{ key: 'all', label: '全部', rows }]
+/** Key of the admin-group tab for nodes without a group; kept as is so old links still open it. */
+const UNGROUPED = '未分组'
+
+/** `t` gives the labels. */
+export function groupRows(rows: Row[], by: SiteSettings['groupBy'], t: TFunction): Group[] {
+  if (by === 'none') return [{ key: 'all', label: t('common.all'), rows }]
   const map = new Map<string, Row[]>()
   for (const r of rows) {
-    const k = by === 'continent' ? r.region.continent : r.node.group?.trim() || '未分组'
+    const k = by === 'continent' ? r.region.continent : r.node.group?.trim() || UNGROUPED
     map.set(k, [...(map.get(k) ?? []), r])
   }
   if (by === 'continent') {
-    return CONTINENTS.filter((c) => map.has(c.code)).map((c) => ({ key: c.code, label: continentName(c.code), code: c.code === 'OT' ? undefined : c.code, rows: map.get(c.code)! }))
+    return CONTINENTS.filter((c) => map.has(c)).map((c) => ({ key: c, label: t(`continent.${c}`), code: c === 'OT' ? undefined : c, rows: map.get(c)! }))
   }
-  return [...map.entries()].map(([k, rs]) => ({ key: k, label: k, rows: rs }))
+  return [...map.entries()].map(([k, rs]) => ({ key: k, label: k === UNGROUPED ? t('board.ungrouped') : k, rows: rs }))
 }
 
 type Traffic = (r: Row) => { up: number; down: number } | null
@@ -203,8 +193,9 @@ export interface BoardView {
   order: Row[]
 }
 
-export function boardView(rows: Row[], by: SiteSettings['groupBy'], query: BoardQuery, traffic: Traffic): BoardView {
-  const allGroups = groupRows(rows, by)
+/** `t` gives the group labels. */
+export function boardView(rows: Row[], by: SiteSettings['groupBy'], query: BoardQuery, traffic: Traffic, t: TFunction): BoardView {
+  const allGroups = groupRows(rows, by, t)
   // A tab from an old link that no longer exists (or grouping switched off) shows everything.
   const filter = by !== 'none' && allGroups.some((g) => g.key === query.group) ? query.group : 'all'
   const q = query.q.trim().toLowerCase()

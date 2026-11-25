@@ -1,7 +1,9 @@
 import * as Popover from '@radix-ui/react-popover'
 import * as RadioGroup from '@radix-ui/react-radio-group'
 import { ChevronDown } from 'lucide-react'
+import type { TFunction } from 'i18next'
 import { lazy, Suspense, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { usePingHistory, usePingStats, usePingTasks } from '../../lib/api'
 import { monthDayTime } from '../../lib/format'
 import { buildPingLines, lossText, ms, PING_SLOTS, type PingLineData } from '../../lib/ping'
@@ -19,39 +21,41 @@ export interface PingPick {
 // Chips that fit the panel head beside the title; more tasks fold into a menu.
 const MAX_CHIPS = 4
 
-function statsTitle(task: PingTask, s: PingTaskStats | undefined) {
-  const how = `${task.type.toUpperCase()} 每 ${task.interval} 秒探测`
-  if (!s || !s.valid) return `${task.name} · ${how}\n所选范围内无延迟样本`
-  return `${task.name} · ${how}\n最新 ${ms(s.latest)}ms · 均值 ${ms(s.avg)} · 最低 ${ms(s.min)} · 最高 ${ms(s.max)} · 抖动 σ ${ms(s.stddev)} · 丢包 ${lossText(s.loss)}`
+function statsTitle(task: PingTask, s: PingTaskStats | undefined, t: TFunction) {
+  const how = t('ping.probe', { type: task.type.toUpperCase(), count: task.interval })
+  if (!s || !s.valid) return `${task.name} · ${how}\n${t('ping.noSamples')}`
+  return `${task.name} · ${how}\n${t('ping.stats', { latest: ms(s.latest), avg: ms(s.avg), min: ms(s.min), max: ms(s.max), sd: ms(s.stddev), loss: lossText(s.loss) })}`
 }
 
 function Summary({ s }: { s: PingTaskStats | undefined }) {
-  if (!s || !s.valid) return <span className="dim">所选范围内无延迟样本</span>
+  const { t } = useTranslation()
+  if (!s || !s.valid) return <span className="dim">{t('ping.noSamples')}</span>
   return (
     <>
       <span>
-        最新 <b>{ms(s.latest)}</b>ms
+        {t('ping.latest')} <b>{ms(s.latest)}</b>ms
       </span>
       <span>
-        均值 <b>{ms(s.avg)}</b>
+        {t('ping.mean')} <b>{ms(s.avg)}</b>
       </span>
       <span>
-        最低 <b>{ms(s.min)}</b>
+        {t('ping.min')} <b>{ms(s.min)}</b>
       </span>
       <span>
-        最高 <b>{ms(s.max)}</b>
+        {t('ping.max')} <b>{ms(s.max)}</b>
       </span>
       <span>
-        抖动 σ <b>{ms(s.stddev)}</b>
+        {t('ping.jitter')} <b>{ms(s.stddev)}</b>
       </span>
       <span className={s.loss > 0 ? 'warn' : undefined}>
-        丢包 <b>{lossText(s.loss)}</b>
+        {t('ping.loss')} <b>{lossText(s.loss)}</b>
       </span>
     </>
   )
 }
 
 export function PingPanel({ uuid, range, refreshSeconds, offline, pick, onPick }: { uuid: string; range: Range; refreshSeconds: number; offline: boolean; pick: PingPick | null; onPick: (p: PingPick | null) => void }) {
+  const { t } = useTranslation()
   const { tasks, place } = usePingTasks(uuid)
   const on = tasks.length > 0
   const history = usePingHistory(uuid, range, refreshSeconds, on)
@@ -81,11 +85,11 @@ export function PingPanel({ uuid, range, refreshSeconds, offline, pick, onPick }
   }
 
   const at = (l: PingLineData | undefined) => (hover !== null && l ? l.points.find((p) => p.time === hover) : undefined)
-  const chipValue = (t: PingTask) => {
-    const id = String(t.id)
+  const chipValue = (task: PingTask) => {
+    const id = String(task.id)
     if (hover !== null) {
       const p = at(lines.find((l) => l.id === id))
-      return p?.avg !== null && p?.avg !== undefined ? `${ms(p.avg)}ms` : p?.loss ? '丢包' : '—'
+      return p?.avg !== null && p?.avg !== undefined ? `${ms(p.avg)}ms` : p?.loss ? t('ping.loss') : '—'
     }
     const s = stats.data?.get(id)
     return s?.valid ? `${ms(s.latest)}ms` : '—'
@@ -102,40 +106,40 @@ export function PingPanel({ uuid, range, refreshSeconds, offline, pick, onPick }
     <section className="panel chart-panel chart-ping">
       <div className="panel-head compact">
         <h3>
-          网络延迟 <small>ms</small>
+          {t('ping.title')} <small>ms</small>
         </h3>
-        <RadioGroup.Root className="ping-chips" value={selected ?? 'all'} onValueChange={(v) => onPick(v === 'all' ? null : { id: v, name: tasks.find((t) => String(t.id) === v)?.name ?? '' })} orientation="horizontal" loop aria-label="延迟线路">
+        <RadioGroup.Root className="ping-chips" value={selected ?? 'all'} onValueChange={(v) => onPick(v === 'all' ? null : { id: v, name: tasks.find((t) => String(t.id) === v)?.name ?? '' })} orientation="horizontal" loop aria-label={t('ping.lines')}>
           {tasks.length > 1 && (
             <RadioGroup.Item value="all" className="ping-chip">
-              全部
+              {t('common.all')}
             </RadioGroup.Item>
           )}
-          {chips.map((t) => {
-            const id = String(t.id)
+          {chips.map((task) => {
+            const id = String(task.id)
             const s = stats.data?.get(id)
             return (
-              <RadioGroup.Item key={id} value={id} className="ping-chip" title={statsTitle(t, s)} onClick={() => id === selected && tasks.length > 1 && choose(id)}>
+              <RadioGroup.Item key={id} value={id} className="ping-chip" title={statsTitle(task, s, t)} onClick={() => id === selected && tasks.length > 1 && choose(id)}>
                 <i style={{ background: `var(--ping-${(slots.get(id) ?? 0) + 1})` }} aria-hidden="true" />
-                {t.name}
-                <b className="num">{chipValue(t)}</b>
-                {hover === null && !!s?.loss && <em className="num">{lossText(s.loss)}丢</em>}
+                {task.name}
+                <b className="num">{chipValue(task)}</b>
+                {hover === null && !!s?.loss && <em className="num">{t('ping.lossTag', { loss: lossText(s.loss) })}</em>}
               </RadioGroup.Item>
             )
           })}
         </RadioGroup.Root>
         {rest.length > 0 && (
           <Popover.Root>
-            <Popover.Trigger className="ping-chip ping-more" aria-label={`其余 ${rest.length} 条线路`}>
+            <Popover.Trigger className="ping-chip ping-more" aria-label={t('ping.more', { count: rest.length })}>
               +{rest.length} <ChevronDown size={12} aria-hidden="true" />
             </Popover.Trigger>
             <Popover.Portal>
               <Popover.Content className="sort-menu ping-menu" align="end" sideOffset={6}>
-                {rest.map((t) => (
-                  <Popover.Close asChild key={t.id}>
-                    <button type="button" className="sort-opt ping-opt" onClick={() => choose(String(t.id))}>
-                      <i className="ping-dot" style={{ background: `var(--ping-${(slots.get(String(t.id)) ?? 0) + 1})` }} aria-hidden="true" />
-                      {t.name}
-                      <span className="num dim">{chipValue(t)}</span>
+                {rest.map((task) => (
+                  <Popover.Close asChild key={task.id}>
+                    <button type="button" className="sort-opt ping-opt" onClick={() => choose(String(task.id))}>
+                      <i className="ping-dot" style={{ background: `var(--ping-${(slots.get(String(task.id)) ?? 0) + 1})` }} aria-hidden="true" />
+                      {task.name}
+                      <span className="num dim">{chipValue(task)}</span>
                     </button>
                   </Popover.Close>
                 ))}
@@ -160,20 +164,20 @@ export function PingPanel({ uuid, range, refreshSeconds, offline, pick, onPick }
               ) : (
                 // Every line: the range mean (the chips carry the latest value).
                 <span className="ping-means">
-                  区间均值
-                  {tasks.map((t) => {
-                    const id = String(t.id)
+                  {t('ping.rangeMean')}
+                  {tasks.map((task) => {
+                    const id = String(task.id)
                     const s = stats.data?.get(id)
                     return (
                       <span key={id}>
                         <i className="ping-dot" style={{ background: `var(--ping-${(slots.get(id) ?? 0) + 1})` }} aria-hidden="true" />
-                        {t.name} <b>{s?.valid ? ms(s.avg) : '—'}</b>
+                        {task.name} <b>{s?.valid ? ms(s.avg) : '—'}</b>
                       </span>
                     )
                   })}
                 </span>
               )}
-              {from && <span className="dim">延迟数据自 {monthDayTime(from)} 起</span>}
+              {from && <span className="dim">{t('ping.since', { time: monthDayTime(from) })}</span>}
             </>
           }
         />
