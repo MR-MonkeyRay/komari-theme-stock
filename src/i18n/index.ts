@@ -5,13 +5,14 @@ import { useSyncExternalStore } from 'react'
 import { initReactI18next } from 'react-i18next'
 
 // UI language: the visitor's own choice in the settings, else the first browser language the theme
-// has, else Simplified Chinese. Each language is a separate chunk, fetched before the first render.
+// has, else English. Each language is a separate chunk, fetched before the first render.
 //
 // Komari's admin keeps its language under `language` in the same origin, but it also writes there
 // the language it fell back to (English for a Korean browser, say), so it is not read here.
 
 export const LANGUAGES = [
   { code: 'zh-CN', name: '简体中文' },
+  { code: 'en', name: 'English' },
 ] as const
 
 export type Lang = (typeof LANGUAGES)[number]['code']
@@ -47,8 +48,9 @@ export const i18nReady = i18n
   .init({
     supportedLngs: CODES,
     load: 'currentOnly',
-    // Simplified Chinese is the source; any other language falls back to it.
-    fallbackLng: 'zh-CN',
+    // Simplified Chinese is the source and English is complete; Traditional Chinese falls back to
+    // Simplified, everything else to English.
+    fallbackLng: (code) => (code === 'zh-TW' ? ['zh-CN'] : code === 'zh-CN' || code === 'en' ? [] : ['en']),
     detection: { order: ['localStorage', 'navigator'], lookupLocalStorage: KEY, caches: [], convertDetectedLanguage: toSupported },
     interpolation: { escapeValue: false },
     // An empty text is a real one (a unit some languages leave out), not a missing key.

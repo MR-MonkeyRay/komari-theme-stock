@@ -27,7 +27,7 @@
         },
         "help": {
           "zh-CN": "选择首页分组方式。「后台分组」使用节点设置中的「分组」字段。",
-          "en": "Choose how nodes are grouped on the home page. “Admin group” uses each node’s Group field."
+          "en": "Choose how nodes are grouped on the home page: “大洲” by continent, “后台分组” by each node’s Group field, “不分组” not at all."
         }
       }
     ]
