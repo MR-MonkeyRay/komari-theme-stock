@@ -15,6 +15,7 @@ export const LANGUAGES = [
   { code: 'zh-TW', name: '繁體中文' },
   { code: 'en', name: 'English' },
   { code: 'ja', name: '日本語' },
+  { code: 'ko', name: '한국어' },
 ] as const
 
 export type Lang = (typeof LANGUAGES)[number]['code']

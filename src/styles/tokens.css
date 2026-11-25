@@ -223,6 +223,10 @@
 :root:lang(ja) {
   --font-cjk: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic UI', 'Meiryo', 'Noto Sans CJK JP', 'Noto Sans JP';
 }
+/* Korean: faces with hangul. */
+:root:lang(ko) {
+  --font-cjk: 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans CJK KR', 'Noto Sans KR';
+}
 
 :root[data-convention='green-up'] {
   --up: var(--green);
