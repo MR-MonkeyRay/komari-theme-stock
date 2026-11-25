@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMatch } from 'react-router'
-import { monthStart, useExpiryLeadDays, useIsAdmin, useLatestStatus, useMe, useMetricDefinitions, useMonthlyTraffic, useNodes, usePublicSettings, useSparklines } from './lib/api'
+import { useExpiryLeadDays, useIsAdmin, useLatestStatus, useMe, useMetricDefinitions, useNodes, usePublicSettings, useSparklines, useTraffic, type TrafficSum } from './lib/api'
 import { useAppearance } from './lib/appearance'
-import { buildRows, connState, useHeld, useNow, type Row } from './lib/model'
+import { buildRows, connState, useHeld, useNow } from './lib/model'
 import { useShallow } from 'zustand/react/shallow'
 import { readSiteSettings, usePrefs, type ThemeSettings } from './lib/settings'
 import { IndexStrip, StatusBar, TopBar } from './components/Chrome'
@@ -49,20 +49,10 @@ export default function App() {
   // Only the board draws the 1h trails: no requests for them while it is covered.
   const sparks = useSparklines(uuids, settings.showSparkline && !detailOpen)
 
-  // Natural-month traffic needs metric retention covering the month so far.
-  const trafficRetention = defs.data?.find((d) => d.name === 'traffic.up')?.retention_days ?? 0
-  const monthCovered = trafficRetention * 86400_000 >= now - monthStart(new Date(now)).getTime()
-  const monthly = useMonthlyTraffic(uuids, monthCovered)
-  const useMonthly = monthCovered && !!monthly.data
-
-  const traffic = useCallback(
-    (r: Row) => {
-      if (useMonthly) return monthly.data?.get(r.node.uuid) ?? null
-      const st = r.status
-      return st && (st.net_total_up || st.net_total_down) ? { up: st.net_total_up, down: st.net_total_down } : null
-    },
-    [useMonthly, monthly.data],
-  )
+  // This month's and all-time traffic, from the per-report deltas Komari keeps.
+  const hasTraffic = !!defs.data?.some((d) => d.name === 'traffic.up')
+  const trafficQuery = useTraffic(nodes.data, hasTraffic, now)
+  const traffic = trafficQuery.data
 
   // Grouping, tab, search and sort are applied once here: the board renders this view and the
   // drawer's [ / ] steps through the same on-screen order.
@@ -72,20 +62,20 @@ export default function App() {
   const [holdOrder, setHoldOrder] = useState(false)
   const view = useHeldOrder(liveView, query, holdOrder)
   // A drawer opened from a link holds the board once it has filled in: nodes, their first status,
-  // and the month's traffic where the board shows it.
-  const holdBoard = detailOpen && rows.length > 0 && status.isSuccess && defs.isSuccess && (!monthCovered || !monthly.isPending)
+  // and the traffic sums.
+  const holdBoard = detailOpen && rows.length > 0 && status.isSuccess && defs.isSuccess && trafficQuery.settled
   const shownView = useHeld(view, holdBoard)
   const boardRows = useHeld(rows, holdBoard)
 
   const minute = useNow(60_000)
-  const liveExtras: BoardExtras = useMemo(() => ({ sparks: sparks.data, traffic, trafficMonthly: useMonthly, minute }), [sparks.data, traffic, useMonthly, minute])
+  const liveExtras: BoardExtras = useMemo(() => ({ sparks: sparks.data, traffic, minute }), [sparks.data, traffic, minute])
   const extras = useHeld(liveExtras, holdBoard)
 
   const liveMarket = useMemo(() => {
-    const totals = rows.map(traffic).filter((t): t is { up: number; down: number } => !!t)
-    const sum = totals.length ? { up: totals.reduce((a, t) => a + t.up, 0), down: totals.reduce((a, t) => a + t.down, 0), monthly: useMonthly } : null
+    const months = rows.map((r) => traffic?.month.get(r.node.uuid)).filter((v): v is TrafficSum => !!v)
+    const sum = months.length ? { up: months.reduce((a, v) => a + v.up, 0), down: months.reduce((a, v) => a + v.down, 0), since: months.find((v) => v.since !== null)?.since ?? null } : null
     return summarize(rows, sum)
-  }, [rows, traffic, useMonthly])
+  }, [rows, traffic])
   const market = useHeld(liveMarket, holdBoard)
   const news = useHeld(bulletins(rows, leadDays !== null ? { now, leadDays } : null), holdBoard)
 
@@ -140,7 +130,7 @@ export default function App() {
         </p>
       </main>
       <StatusBar conn={conn} retrying={retrying} onRetry={retry} items={news} now={now} covered={detailOpen} />
-      <NodeDetail rows={rows} order={view.order} settings={settings} traffic={traffic} monthly={useMonthly} now={now} ready={nodes.isSuccess} />
+      <NodeDetail rows={rows} order={view.order} settings={settings} traffic={traffic} now={now} ready={nodes.isSuccess} />
     </>
   )
 }

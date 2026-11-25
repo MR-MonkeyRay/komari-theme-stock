@@ -91,9 +91,7 @@
     "down": "总下行",
     "downShort": "下行",
     "trafficMonth": "本月流量 ↑ / ↓",
-    "trafficMonthShort": "本月流量",
-    "trafficTotal": "累计流量 ↑ / ↓",
-    "trafficTotalShort": "累计流量"
+    "trafficMonthShort": "本月流量"
   },
   "status": {
     "calm": "全部节点运行平稳",
@@ -138,16 +136,19 @@
       "cpu": "CPU",
       "ram": "内存",
       "disk": "磁盘",
-      "load": "负载 1/5/15",
-      "trafficMonth": "月流量 ↑/↓",
-      "trafficTotal": "累计流量 ↑/↓",
+      "load": "负载",
       "net": "网络 ↑/↓",
+      "trafficMonth": "本月流量",
+      "trafficTotal": "累计流量",
+      "trafficMonthHint": "本月 1 日 0 点至今的上行 / 下行流量。数值显示为橙色时，Komari 保留的数据没有覆盖整个月，只统计了保留期内的部分。",
+      "trafficTotalHint": "节点添加到 Komari 以来的上行 / 下行流量。数值显示为橙色时，更早的数据已超出 Komari 的保留期，只统计了保留期内的部分；在 Komari 后台调大指标数据的保留时长后可完整统计。",
       "tags": "标签",
       "seen": "最后上报"
     },
     "load": "负载",
     "trafficMonth": "月流量",
     "trafficTotal": "累计流量",
+    "partialSince": "自 {{date}} 起统计，更早的数据已超出保留期",
     "network": "网络",
     "deltaHint": "较近 1 小时均值（曲线中的虚线）",
     "row": "{{name}} {{region}} {{state}}，查看详情",
@@ -186,8 +187,9 @@
       "ram": "内存",
       "disk": "磁盘",
       "load": "负载",
-      "traffic": "流量",
       "net": "网速",
+      "month": "本月流量",
+      "total": "累计流量",
       "seen": "最后上报"
     },
     "asc": "升序",
@@ -302,6 +304,7 @@
     "rangePeak": "区间峰值 ↑ / ↓",
     "month": "本月 ↑ / ↓",
     "cumulative": "累计 ↑ / ↓",
+    "since": "自 {{date}} 起",
     "quota": "流量配额",
     "cycle": {
       "month": "月付",

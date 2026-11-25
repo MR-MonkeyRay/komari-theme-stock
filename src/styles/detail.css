@@ -941,6 +941,22 @@
   flex-direction: row;
   gap: 10px;
 }
+/* A traffic sum, and from when it counts when older data has passed retention. */
+.traffic-fact {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 2px 10px;
+}
+.is-partial .traffic-fact {
+  cursor: help;
+}
+.traffic-since {
+  font-size: 10.5px;
+  color: var(--warn);
+  white-space: nowrap;
+}
 .fact .pair-line {
   font-size: 12px;
 }

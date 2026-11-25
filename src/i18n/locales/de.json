@@ -96,9 +96,7 @@
     "down": "Download gesamt",
     "downShort": "Download",
     "trafficMonth": "Traffic diesen Monat ↑ / ↓",
-    "trafficMonthShort": "Traffic diesen Monat",
-    "trafficTotal": "Traffic gesamt ↑ / ↓",
-    "trafficTotalShort": "Traffic gesamt"
+    "trafficMonthShort": "Traffic diesen Monat"
   },
   "status": {
     "calm": "Alle Knoten laufen normal",
@@ -148,16 +146,19 @@
       "cpu": "CPU",
       "ram": "Speicher",
       "disk": "Disk",
-      "load": "Last 1/5/15",
-      "trafficMonth": "Monat ↑/↓",
-      "trafficTotal": "Gesamt ↑/↓",
+      "load": "Last",
       "net": "Netz ↑/↓",
+      "trafficMonth": "Monat",
+      "trafficTotal": "Gesamt",
+      "trafficMonthHint": "Upload / download traffic since 00:00 on the 1st of this month. An orange value means the data Komari keeps does not reach back to the start of the month, so only the retained part is counted.",
+      "trafficTotalHint": "Upload / download traffic since the node was added to Komari. An orange value means older data has passed Komari's retention period, so only the retained part is counted; raise the metric retention in the Komari admin panel to count it all.",
       "tags": "Tags",
       "seen": "Zuletzt"
     },
     "load": "Last",
     "trafficMonth": "Monatstraffic",
     "trafficTotal": "Traffic gesamt",
+    "partialSince": "Counted from {{date}}; older data has passed the retention period",
     "network": "Netzwerk",
     "deltaHint": "Gegenüber dem Mittel der letzten Stunde (gestrichelte Linie)",
     "row": "{{name}} {{region}} {{state}}: Details anzeigen",
@@ -199,8 +200,9 @@
       "ram": "Speicher",
       "disk": "Disk",
       "load": "Last",
-      "traffic": "Traffic",
       "net": "Tempo",
+      "month": "Traffic diesen Monat",
+      "total": "Traffic gesamt",
       "seen": "Zuletzt"
     },
     "asc": "aufsteigend",
@@ -317,6 +319,7 @@
     "rangePeak": "Spitze Zeitraum ↑ / ↓",
     "month": "Diesen Monat ↑ / ↓",
     "cumulative": "Gesamt ↑ / ↓",
+    "since": "since {{date}}",
     "quota": "Traffic-Kontingent",
     "cycle": {
       "month": "Monatlich",

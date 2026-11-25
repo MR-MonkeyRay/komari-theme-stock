@@ -10,7 +10,7 @@ import { SettingsButton } from './Settings'
 import type { Me } from '../lib/api'
 import type { Quick } from '../lib/board'
 import { resolveTheme, type Appearance } from '../lib/appearance'
-import { clock, dateText, finite, sizeParts, utcOffset } from '../lib/format'
+import { clock, dateText, finite, monthDay, sizeParts, utcOffset } from '../lib/format'
 import type { Conn } from '../lib/model'
 import type { Bulletin, MarketSummary } from '../lib/market'
 import { lastLatency } from '../lib/rpc'
@@ -285,8 +285,8 @@ export const IndexStrip = memo(function IndexStrip({ m, loading, quick, onQuick 
           <LiveSize bytes={m.down} rate />
         </span>
       </div>
-      <div className="ix ix-traffic">
-        <IxLabel text={m.traffic?.monthly ? t('index.trafficMonth') : t('index.trafficTotal')} short={m.traffic?.monthly ? t('index.trafficMonthShort') : t('index.trafficTotalShort')} />
+      <div className={clsx('ix ix-traffic', m.traffic?.since != null && 'is-partial')} title={m.traffic?.since != null ? t('board.partialSince', { date: monthDay(m.traffic.since) }) : undefined}>
+        <IxLabel text={t('index.trafficMonth')} short={t('index.trafficMonthShort')} />
         <span className="ix-value num ix-small">
           {m.traffic ? (
             <>

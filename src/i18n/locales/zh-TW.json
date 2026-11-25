@@ -91,9 +91,7 @@
     "down": "總下行",
     "downShort": "下行",
     "trafficMonth": "本月流量 ↑ / ↓",
-    "trafficMonthShort": "本月流量",
-    "trafficTotal": "累計流量 ↑ / ↓",
-    "trafficTotalShort": "累計流量"
+    "trafficMonthShort": "本月流量"
   },
   "status": {
     "calm": "全部節點運作平穩",
@@ -138,16 +136,19 @@
       "cpu": "CPU",
       "ram": "記憶體",
       "disk": "磁碟",
-      "load": "負載 1/5/15",
-      "trafficMonth": "月流量 ↑/↓",
-      "trafficTotal": "累計流量 ↑/↓",
+      "load": "負載",
       "net": "網路 ↑/↓",
+      "trafficMonth": "本月流量",
+      "trafficTotal": "累計流量",
+      "trafficMonthHint": "Upload / download traffic since 00:00 on the 1st of this month. An orange value means the data Komari keeps does not reach back to the start of the month, so only the retained part is counted.",
+      "trafficTotalHint": "Upload / download traffic since the node was added to Komari. An orange value means older data has passed Komari's retention period, so only the retained part is counted; raise the metric retention in the Komari admin panel to count it all.",
       "tags": "標籤",
       "seen": "最後回報"
     },
     "load": "負載",
     "trafficMonth": "月流量",
     "trafficTotal": "累計流量",
+    "partialSince": "Counted from {{date}}; older data has passed the retention period",
     "network": "網路",
     "deltaHint": "較近 1 小時均值（曲線中的虛線）",
     "row": "{{name}} {{region}} {{state}}，查看詳情",
@@ -186,8 +187,9 @@
       "ram": "記憶體",
       "disk": "磁碟",
       "load": "負載",
-      "traffic": "流量",
       "net": "網速",
+      "month": "本月流量",
+      "total": "累計流量",
       "seen": "最後回報"
     },
     "asc": "遞增",
@@ -302,6 +304,7 @@
     "rangePeak": "區間峰值 ↑ / ↓",
     "month": "本月 ↑ / ↓",
     "cumulative": "累計 ↑ / ↓",
+    "since": "since {{date}}",
     "quota": "流量配額",
     "cycle": {
       "month": "月付",

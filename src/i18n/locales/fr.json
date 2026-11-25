@@ -96,9 +96,7 @@
     "down": "Réception totale",
     "downShort": "Réception",
     "trafficMonth": "Trafic du mois ↑ / ↓",
-    "trafficMonthShort": "Trafic du mois",
-    "trafficTotal": "Trafic total ↑ / ↓",
-    "trafficTotalShort": "Trafic total"
+    "trafficMonthShort": "Trafic du mois"
   },
   "status": {
     "calm": "Tous les nœuds fonctionnent normalement",
@@ -148,16 +146,19 @@
       "cpu": "CPU",
       "ram": "Mémoire",
       "disk": "Disque",
-      "load": "Charge 1/5/15",
-      "trafficMonth": "Mois ↑/↓",
-      "trafficTotal": "Total ↑/↓",
+      "load": "Charge",
       "net": "Réseau ↑/↓",
+      "trafficMonth": "Mois",
+      "trafficTotal": "Total",
+      "trafficMonthHint": "Upload / download traffic since 00:00 on the 1st of this month. An orange value means the data Komari keeps does not reach back to the start of the month, so only the retained part is counted.",
+      "trafficTotalHint": "Upload / download traffic since the node was added to Komari. An orange value means older data has passed Komari's retention period, so only the retained part is counted; raise the metric retention in the Komari admin panel to count it all.",
       "tags": "Étiquettes",
       "seen": "Signal"
     },
     "load": "Charge",
     "trafficMonth": "Trafic mensuel",
     "trafficTotal": "Trafic total",
+    "partialSince": "Counted from {{date}}; older data has passed the retention period",
     "network": "Réseau",
     "deltaHint": "Par rapport à la moyenne de la dernière heure (la ligne en pointillés)",
     "row": "{{name}} {{region}} {{state}} : voir les détails",
@@ -199,8 +200,9 @@
       "ram": "mémoire",
       "disk": "disque",
       "load": "charge",
-      "traffic": "trafic",
       "net": "débit",
+      "month": "trafic du mois",
+      "total": "trafic total",
       "seen": "dernier signal"
     },
     "asc": "croissant",
@@ -317,6 +319,7 @@
     "rangePeak": "Pic plage ↑ / ↓",
     "month": "Ce mois ↑ / ↓",
     "cumulative": "Total ↑ / ↓",
+    "since": "since {{date}}",
     "quota": "Quota de trafic",
     "cycle": {
       "month": "Mensuel",

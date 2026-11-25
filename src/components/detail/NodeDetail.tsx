@@ -5,7 +5,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useMatch, useNavigate } from 'react-router'
-import { fitRange, useAvailableRanges, useClientOps, useConnHistory, useExpiryLeadDays, useHistory, useIsAdmin } from '../../lib/api'
+import { fitRange, useAvailableRanges, useClientOps, useConnHistory, useExpiryLeadDays, useHistory, useIsAdmin, type NodeTraffic, type TrafficSum } from '../../lib/api'
 import { buildCandles, buildVolume, inferEvents, isCandle, rangeStats } from '../../lib/candles'
 import { ago, clock, finite, pct, ratio, signed, utcOffset } from '../../lib/format'
 import { useIsPhone } from '../../lib/media'
@@ -48,7 +48,7 @@ function RangeNote({ stats }: { stats: ReturnType<typeof rangeStats> }) {
   )
 }
 
-function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange, ping, onPing, sub, onSub, onStep }: { r: Row; rows: Row[]; settings: ThemeSettings; traffic: { up: number; down: number } | null; monthly: boolean; now: number; picked: Range; onRange: (r: Range) => void; ping: PingPick | null; onPing: (p: PingPick | null) => void; sub: SubPane; onSub: (s: SubPane) => void; onStep: (d: number) => void }) {
+function DetailBody({ r, rows, settings, traffic, now, picked, onRange, ping, onPing, sub, onSub, onStep }: { r: Row; rows: Row[]; settings: ThemeSettings; traffic: { month?: TrafficSum; total?: TrafficSum }; now: number; picked: Range; onRange: (r: Range) => void; ping: PingPick | null; onPing: (p: PingPick | null) => void; sub: SubPane; onSub: (s: SubPane) => void; onStep: (d: number) => void }) {
   const { t } = useTranslation()
   const phone = useIsPhone()
   const admin = useIsAdmin()
@@ -301,7 +301,7 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange,
 
         <aside className="detail-side" aria-label={t('detail.facts')}>
           <LocationPanel r={r} />
-          <NetworkPanel r={r} volume={volume} traffic={traffic} monthly={monthly} />
+          <NetworkPanel r={r} volume={volume} month={traffic.month} total={traffic.total} />
           <SystemPanel r={r} />
           {admin && <AdminPanel r={r} now={now} leadDays={leadDays ?? 7} ops={ops} />}
           {/* Last, so on a desktop it takes whatever height the column has left. */}
@@ -333,7 +333,7 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange,
   )
 }
 
-export function NodeDetail({ rows, order, settings, traffic, monthly, now, ready }: { rows: Row[]; order: Row[]; settings: ThemeSettings; traffic: (r: Row) => { up: number; down: number } | null; monthly: boolean; now: number; ready: boolean }) {
+export function NodeDetail({ rows, order, settings, traffic, now, ready }: { rows: Row[]; order: Row[]; settings: ThemeSettings; traffic: NodeTraffic | undefined; now: number; ready: boolean }) {
   const { t } = useTranslation()
   const match = useMatch('/instance/:uuid')
   const navigate = useNavigate()
@@ -446,7 +446,7 @@ export function NodeDetail({ rows, order, settings, traffic, monthly, now, ready
               >
                 {r ? (
                   <div className="drawer-page">
-                    <DetailBody r={r} rows={nav} settings={settings} traffic={traffic(r)} monthly={monthly} now={now} picked={picked ?? settings.defaultRange} onRange={setPicked} ping={ping} onPing={setPing} sub={sub} onSub={setSub} onStep={step} />
+                    <DetailBody r={r} rows={nav} settings={settings} traffic={{ month: traffic?.month.get(r.node.uuid), total: traffic?.total.get(r.node.uuid) }} now={now} picked={picked ?? settings.defaultRange} onRange={setPicked} ping={ping} onPing={setPing} sub={sub} onSub={setSub} onStep={step} />
                   </div>
                 ) : (
                   <div className="detail-missing">

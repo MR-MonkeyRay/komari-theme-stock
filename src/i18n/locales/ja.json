@@ -91,9 +91,7 @@
     "down": "受信合計",
     "downShort": "受信",
     "trafficMonth": "今月のトラフィック ↑ / ↓",
-    "trafficMonthShort": "今月のトラフィック",
-    "trafficTotal": "累計トラフィック ↑ / ↓",
-    "trafficTotalShort": "累計トラフィック"
+    "trafficMonthShort": "今月のトラフィック"
   },
   "status": {
     "calm": "全ノードは正常に稼働中",
@@ -138,16 +136,19 @@
       "cpu": "CPU",
       "ram": "メモリ",
       "disk": "ディスク",
-      "load": "負荷 1/5/15",
-      "trafficMonth": "月間 ↑/↓",
-      "trafficTotal": "累計 ↑/↓",
+      "load": "負荷",
       "net": "通信 ↑/↓",
+      "trafficMonth": "月間",
+      "trafficTotal": "累計",
+      "trafficMonthHint": "Upload / download traffic since 00:00 on the 1st of this month. An orange value means the data Komari keeps does not reach back to the start of the month, so only the retained part is counted.",
+      "trafficTotalHint": "Upload / download traffic since the node was added to Komari. An orange value means older data has passed Komari's retention period, so only the retained part is counted; raise the metric retention in the Komari admin panel to count it all.",
       "tags": "タグ",
       "seen": "最終報告"
     },
     "load": "負荷",
     "trafficMonth": "月間トラフィック",
     "trafficTotal": "累計トラフィック",
+    "partialSince": "Counted from {{date}}; older data has passed the retention period",
     "network": "ネットワーク",
     "deltaHint": "直近1時間の平均との比較（グラフの破線）",
     "row": "{{name}} {{region}} {{state}}、詳細を表示",
@@ -186,8 +187,9 @@
       "ram": "メモリ",
       "disk": "ディスク",
       "load": "負荷",
-      "traffic": "トラフィック",
       "net": "通信速度",
+      "month": "今月のトラフィック",
+      "total": "累計トラフィック",
       "seen": "最終報告"
     },
     "asc": "昇順",
@@ -302,6 +304,7 @@
     "rangePeak": "区間ピーク ↑ / ↓",
     "month": "今月 ↑ / ↓",
     "cumulative": "累計 ↑ / ↓",
+    "since": "since {{date}}",
     "quota": "トラフィック上限",
     "cycle": {
       "month": "月払い",

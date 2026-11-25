@@ -106,9 +106,7 @@
     "down": "Всего принято",
     "downShort": "Принято",
     "trafficMonth": "Трафик за месяц ↑ / ↓",
-    "trafficMonthShort": "Трафик за месяц",
-    "trafficTotal": "Весь трафик ↑ / ↓",
-    "trafficTotalShort": "Весь трафик"
+    "trafficMonthShort": "Трафик за месяц"
   },
   "status": {
     "calm": "Все узлы работают штатно",
@@ -168,16 +166,19 @@
       "cpu": "CPU",
       "ram": "Память",
       "disk": "Диск",
-      "load": "Нагрузка 1/5/15",
-      "trafficMonth": "За мес. ↑/↓",
-      "trafficTotal": "Всего ↑/↓",
+      "load": "Нагрузка",
       "net": "Сеть ↑/↓",
+      "trafficMonth": "За мес.",
+      "trafficTotal": "Всего",
+      "trafficMonthHint": "Upload / download traffic since 00:00 on the 1st of this month. An orange value means the data Komari keeps does not reach back to the start of the month, so only the retained part is counted.",
+      "trafficTotalHint": "Upload / download traffic since the node was added to Komari. An orange value means older data has passed Komari's retention period, so only the retained part is counted; raise the metric retention in the Komari admin panel to count it all.",
       "tags": "Теги",
       "seen": "Отчёт"
     },
     "load": "Нагрузка",
     "trafficMonth": "Трафик мес.",
     "trafficTotal": "Трафик всего",
+    "partialSince": "Counted from {{date}}; older data has passed the retention period",
     "network": "Сеть",
     "deltaHint": "Относительно среднего за последний час (пунктирная линия)",
     "row": "{{name}} {{region}} {{state}}: открыть детали",
@@ -225,8 +226,9 @@
       "ram": "Память",
       "disk": "Диск",
       "load": "Нагрузка",
-      "traffic": "Трафик",
       "net": "Скорость",
+      "month": "Трафик за месяц",
+      "total": "Весь трафик",
       "seen": "Посл. отчёт"
     },
     "asc": "по возрастанию",
@@ -347,6 +349,7 @@
     "rangePeak": "Пик за период ↑ / ↓",
     "month": "За месяц ↑ / ↓",
     "cumulative": "Всего ↑ / ↓",
+    "since": "since {{date}}",
     "quota": "Лимит трафика",
     "cycle": {
       "month": "Ежемесячно",

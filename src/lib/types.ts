@@ -26,6 +26,8 @@ export interface NodeInfo {
   hidden: boolean
   traffic_limit: number
   traffic_limit_type: string
+  /** When the node was added to Komari. */
+  created_at?: string
 }
 
 /** Latest report from `common:getNodesLatestStatus`. Nodes that never reported are absent. */

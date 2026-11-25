@@ -12,7 +12,8 @@ export interface MarketSummary {
   memRatio: number | null
   up: number
   down: number
-  traffic: { up: number; down: number; monthly: boolean } | null
+  /** This month's traffic over all nodes; `since` when the oldest part is past retention. */
+  traffic: { up: number; down: number; since: number | null } | null
 }
 
 /** High load (高负载): an online node whose CPU or memory reached HOT. */

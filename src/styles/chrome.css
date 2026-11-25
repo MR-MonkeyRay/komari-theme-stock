@@ -462,6 +462,15 @@ button.ix.is-on,
 .ix-small {
   font-size: 15px;
 }
+/* This month's traffic only partly counted (older data past retention): the tooltip says from when. */
+.ix-traffic.is-partial {
+  cursor: help;
+}
+.ix-traffic.is-partial .ix-value,
+.ix-traffic.is-partial .ix-value .unit,
+.ix-traffic.is-partial .ix-arrow {
+  color: var(--warn);
+}
 .ix-sep {
   color: var(--text-4);
   font-weight: 400;

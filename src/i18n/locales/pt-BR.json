@@ -96,9 +96,7 @@
     "down": "Download total",
     "downShort": "Download",
     "trafficMonth": "Tráfego no mês ↑ / ↓",
-    "trafficMonthShort": "Tráfego no mês",
-    "trafficTotal": "Tráfego total ↑ / ↓",
-    "trafficTotalShort": "Tráfego total"
+    "trafficMonthShort": "Tráfego no mês"
   },
   "status": {
     "calm": "Todos os nós operando normalmente",
@@ -148,16 +146,19 @@
       "cpu": "CPU",
       "ram": "Memória",
       "disk": "Disco",
-      "load": "Carga 1/5/15",
-      "trafficMonth": "Mês ↑/↓",
-      "trafficTotal": "Total ↑/↓",
+      "load": "Carga",
       "net": "Rede ↑/↓",
+      "trafficMonth": "Mês",
+      "trafficTotal": "Total",
+      "trafficMonthHint": "Upload / download traffic since 00:00 on the 1st of this month. An orange value means the data Komari keeps does not reach back to the start of the month, so only the retained part is counted.",
+      "trafficTotalHint": "Upload / download traffic since the node was added to Komari. An orange value means older data has passed Komari's retention period, so only the retained part is counted; raise the metric retention in the Komari admin panel to count it all.",
       "tags": "Tags",
       "seen": "Sinal"
     },
     "load": "Carga",
     "trafficMonth": "Tráfego mensal",
     "trafficTotal": "Tráfego total",
+    "partialSince": "Counted from {{date}}; older data has passed the retention period",
     "network": "Rede",
     "deltaHint": "Em relação à média da última hora (a linha tracejada)",
     "row": "{{name}} {{region}} {{state}}: ver detalhes",
@@ -199,8 +200,9 @@
       "ram": "memória",
       "disk": "disco",
       "load": "carga",
-      "traffic": "tráfego",
       "net": "velocidade",
+      "month": "tráfego no mês",
+      "total": "tráfego total",
       "seen": "último sinal"
     },
     "asc": "crescente",
@@ -317,6 +319,7 @@
     "rangePeak": "Pico do período ↑ / ↓",
     "month": "Este mês ↑ / ↓",
     "cumulative": "Total ↑ / ↓",
+    "since": "since {{date}}",
     "quota": "Cota de tráfego",
     "cycle": {
       "month": "Mensal",

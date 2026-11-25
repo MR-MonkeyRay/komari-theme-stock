@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useCallback, useMemo } from 'react'
+import { parseTime } from './format'
 import { rpc, rpcBatch } from './rpc'
 import type { Range } from './settings'
 import type { Aggregation, MetricDefinition, MetricQueryResult, NodeInfo, NodeStatus, PingTask, PingTaskStats, PublicSettings } from './types'
@@ -388,38 +389,116 @@ export function monthStart(now = new Date()) {
   return new Date(now.getFullYear(), now.getMonth(), 1)
 }
 
+/** A node's traffic over a period, in bytes. `since` is set when Komari no longer keeps the
+ * period's oldest data: the sum then covers only the part from `since` on. */
+export interface TrafficSum {
+  up: number
+  down: number
+  since: number | null
+}
+
+/** Per node uuid: this calendar month, and everything since the node was added to Komari. */
+export interface NodeTraffic {
+  month: Map<string, TrafficSum>
+  total: Map<string, TrafficSum>
+}
+
+const DAY = 86_400_000
+
+/** Sums each node's `traffic.up/down` deltas (bucket average × its sample count) and finds the
+ * query's oldest bucket. Buckets of any size add up to the same sum. */
+function sumTraffic(res: MetricQueryResult | undefined) {
+  const sums = new Map<string, { up: number; down: number }>()
+  let first = Infinity
+  for (const s of res?.series ?? []) {
+    const pts = s.points ?? []
+    if (!pts.length) continue
+    for (const p of pts) first = Math.min(first, Date.parse(p.time))
+    const sum = pts.reduce((acc, p) => acc + p.value * p.count, 0)
+    const cur = sums.get(s.entity_id) ?? { up: 0, down: 0 }
+    if (s.metric_key === 'traffic.up') cur.up = sum
+    else cur.down = sum
+    sums.set(s.entity_id, cur)
+  }
+  return { sums, first: Number.isFinite(first) ? first : null }
+}
+
+type TrafficSums = ReturnType<typeof sumTraffic>
+
+function queryTraffic(uuids: string[], start: number, end: number | null, points: number, signal: AbortSignal) {
+  return rpc<MetricQueryResult>(
+    'public:queryMetrics',
+    {
+      metric_keys: ['traffic.up', 'traffic.down'],
+      entity_ids: uuids,
+      start: new Date(start).toISOString(),
+      ...(end !== null && { end: new Date(end).toISOString() }),
+      max_points: points,
+      aggregation: 'avg',
+    },
+    signal,
+  )
+}
+
 /**
- * Natural-month traffic per node (bytes), summed from `traffic.up/down` deltas.
- * Only enabled when metric retention covers the whole month so far; the caller
- * falls back to the agent's cumulative counters otherwise.
+ * Each node's traffic this calendar month and since it was added, summed from the `traffic.up/down`
+ * deltas. The total is the part before this month plus the month, so it never reads below the
+ * month; the part before only changes as old data leaves retention, and is fetched hourly.
+ *
+ * Komari keeps the deltas for a limited time (its hourly rollups: 25 days by default). Retention
+ * is one window ending now, so the oldest bucket on the site marks where it starts: a period that
+ * begins before it, for a node that already existed then, is only partly counted and gets `since`.
+ * `settled` is false while a first answer is on its way.
  */
-export function useMonthlyTraffic(uuids: string[], enabled: boolean) {
-  return useQuery<Map<string, { up: number; down: number }>>({
-    queryKey: ['monthly', uuids.join(',')],
+export function useTraffic(nodes: NodeInfo[] | undefined, enabled: boolean, now: number) {
+  const uuids = useMemo(() => (nodes ?? []).map((n) => n.uuid), [nodes])
+  const key = uuids.join(',')
+  const month0 = monthStart(new Date(now)).getTime()
+  // The oldest node's creation (unknown dates count as long ago); before it there is nothing.
+  const added = useMemo(() => {
+    const ts = (nodes ?? []).map((n) => parseTime(n.created_at))
+    return ts.length ? Math.min(...ts.map((v) => v ?? Date.UTC(2020, 0, 1))) : null
+  }, [nodes])
+  const needBefore = added !== null && added < month0
+  // About one bucket a day; empty buckets are not returned, so the answer stays as small as the
+  // data Komari still has.
+  const beforePoints = needBefore ? Math.min(1000, Math.max(2, Math.ceil((month0 - added) / DAY))) : 0
+
+  const month = useQuery<TrafficSums>({
+    queryKey: ['traffic-month', key, month0],
     enabled: enabled && uuids.length > 0,
     refetchInterval: 5 * 60_000,
     placeholderData: (prev) => prev,
-    queryFn: async ({ signal }) => {
-      const res = await rpc<MetricQueryResult>(
-        'public:queryMetrics',
-        {
-          metric_keys: ['traffic.up', 'traffic.down'],
-          entity_ids: uuids,
-          start: monthStart().toISOString(),
-          max_points: 31,
-          aggregation: 'avg',
-        },
-        signal,
-      )
-      const out = new Map<string, { up: number; down: number }>()
-      for (const s of res.series ?? []) {
-        const sum = (s.points ?? []).reduce((acc, p) => acc + p.value * p.count, 0)
-        const cur = out.get(s.entity_id) ?? { up: 0, down: 0 }
-        if (s.metric_key === 'traffic.up') cur.up = sum
-        else cur.down = sum
-        out.set(s.entity_id, cur)
-      }
-      return out
-    },
+    queryFn: ({ signal }) => queryTraffic(uuids, month0, null, 31, signal).then(sumTraffic),
   })
+  const before = useQuery<TrafficSums>({
+    queryKey: ['traffic-before', key, added, month0],
+    enabled: enabled && uuids.length > 0 && needBefore,
+    staleTime: 60 * 60_000,
+    refetchInterval: 60 * 60_000,
+    placeholderData: (prev) => prev,
+    queryFn: ({ signal }) => queryTraffic(uuids, added!, month0, beforePoints, signal).then(sumTraffic),
+  })
+
+  const beforeDone = !needBefore || before.isSuccess || before.isError
+  const data = useMemo<NodeTraffic | undefined>(() => {
+    if (!month.data || !beforeDone) return undefined
+    const pre: TrafficSums | undefined = needBefore ? before.data : { sums: new Map(), first: null }
+    // Where retention starts, give or take a bucket. Unknown when the part before failed.
+    const oldest = pre ? (pre.first ?? month.data.first) : null
+    const slack = pre?.first != null ? Math.max(DAY, Math.ceil((month0 - added!) / beforePoints / DAY) * DAY) : DAY
+    const since = (from: number) => (oldest !== null && from < oldest - slack ? oldest : null)
+    const out: NodeTraffic = { month: new Map(), total: new Map() }
+    for (const n of nodes ?? []) {
+      const created = parseTime(n.created_at) ?? -Infinity
+      const m = month.data.sums.get(n.uuid)
+      if (m) out.month.set(n.uuid, { ...m, since: since(Math.max(month0, created)) })
+      if (!pre) continue
+      const b = pre.sums.get(n.uuid)
+      if (m || b) out.total.set(n.uuid, { up: (b?.up ?? 0) + (m?.up ?? 0), down: (b?.down ?? 0) + (m?.down ?? 0), since: since(created) })
+    }
+    return out
+  }, [nodes, month.data, before.data, beforeDone, needBefore, month0, added, beforePoints])
+
+  return { data, settled: !enabled || uuids.length === 0 || month.isError || (!!month.data && beforeDone) }
 }

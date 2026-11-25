@@ -1,13 +1,13 @@
 import * as Popover from '@radix-ui/react-popover'
 import * as RadioGroup from '@radix-ui/react-radio-group'
 import clsx from 'clsx'
-import { ArrowDownUp, Check, ChevronRight, Eye, EyeOff, Search, X } from 'lucide-react'
+import { ArrowDownUp, Check, ChevronRight, CircleQuestionMark, Eye, EyeOff, Search, X } from 'lucide-react'
 import { motion } from 'motion/react'
 import { createContext, memo, useContext, useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent, type UIEvent } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import type { Sparks } from '../lib/api'
+import type { NodeTraffic, Sparks, TrafficSum } from '../lib/api'
 import { firstDir, useBoardQuery, type BoardView, type Sort, type SortKey } from '../lib/board'
-import { ago, duration, finite, levelOf, parseTags, pct, signed, size } from '../lib/format'
+import { ago, duration, finite, levelOf, monthDay, parseTags, pct, signed, size } from '../lib/format'
 import { metricTrail, useNow, type BoardMetric, type Row } from '../lib/model'
 import { newTabKey, useOpenNode } from '../lib/nav'
 import type { ThemeSettings } from '../lib/settings'
@@ -17,8 +17,7 @@ import { Flag, Meter, Pair, Segmented, Sparkline, Tick } from './primitives'
 // second (the "x s ago" label keeps its own clock), so a large board stays cheap between refreshes.
 export interface BoardExtras {
   sparks: Sparks | undefined
-  traffic: (r: Row) => { up: number; down: number } | null
-  trafficMonthly: boolean
+  traffic: NodeTraffic | undefined
   /** Current time, refreshed once a minute: moves the 1h trails of nodes that stopped reporting. */
   minute: number
 }
@@ -46,19 +45,34 @@ export function Tags({ tags, max }: { tags: string; max?: number }) {
   )
 }
 
-/** Columns; `col` names the header (board.col.*), the traffic one depends on the period. */
-const HEAD: { key: SortKey | null; col: 'name' | 'state' | 'cpu' | 'ram' | 'disk' | 'load' | 'traffic' | 'net' | 'tags' | 'seen'; cls: string; trail?: boolean }[] = [
+/** Columns; `col` names the header (board.col.*). `sub` follows the name in small type; a column
+ * with a `hint` explains itself under a ? mark. */
+const HEAD: { key: SortKey | null; col: 'name' | 'state' | 'cpu' | 'ram' | 'disk' | 'load' | 'net' | 'trafficMonth' | 'trafficTotal' | 'tags' | 'seen'; cls: string; trail?: boolean; sub?: string; hint?: 'board.col.trafficMonthHint' | 'board.col.trafficTotalHint' }[] = [
   { key: 'name', col: 'name', cls: 'c-name' },
   { key: 'uptime', col: 'state', cls: 'c-state' },
   { key: 'cpu', col: 'cpu', cls: 'c-cpu', trail: true },
   { key: 'ram', col: 'ram', cls: 'c-ram', trail: true },
   { key: 'disk', col: 'disk', cls: 'c-disk', trail: true },
-  { key: 'load', col: 'load', cls: 'c-load' },
-  { key: 'traffic', col: 'traffic', cls: 'c-traffic' },
+  { key: 'load', col: 'load', cls: 'c-load', sub: '1m' },
   { key: 'net', col: 'net', cls: 'c-net' },
+  { key: 'month', col: 'trafficMonth', cls: 'c-month', hint: 'board.col.trafficMonthHint' },
+  { key: 'total', col: 'trafficTotal', cls: 'c-total', hint: 'board.col.trafficTotalHint' },
   { key: null, col: 'tags', cls: 'c-tags' },
   { key: 'seen', col: 'seen', cls: 'c-seen' },
 ]
+
+/** A traffic sum; one that only covers part of its period (older data past retention) is marked
+ * in its own color and says from when it counts. */
+function TrafficCell({ cls, label, v }: { cls: string; label: string; v: TrafficSum | undefined }) {
+  const { t } = useTranslation()
+  const partial = v?.since != null
+  return (
+    <span className={clsx(cls, partial && 'is-partial')} title={partial ? t('board.partialSince', { date: monthDay(v.since!) }) : undefined}>
+      <span className="m-label">{label}</span>
+      <Pair up={v?.up} down={v?.down} byUnit />
+    </span>
+  )
+}
 /** Disk barely moves within an hour; a wider minimum range keeps its trail visibly flat. */
 const MIN_SPAN: Record<BoardMetric, number> = { cpu: 6, ram: 6, disk: 10 }
 
@@ -106,7 +120,6 @@ function Ago({ t }: { t: number | null }) {
 const QuoteRow = memo(function QuoteRow({ r, x, showSpark, rank }: { r: Row; x: BoardExtras; showSpark: boolean; rank: number | null }) {
   const { t } = useTranslation()
   const st = r.online ? r.status : undefined
-  const tr = x.traffic(r)
   const memText = st ? `${size(st.ram)} / ${size(st.ram_total || r.node.mem_total)}` : undefined
   const diskText = st ? `${size(st.disk)} / ${size(st.disk_total || r.node.disk_total)}` : undefined
   return (
@@ -142,21 +155,14 @@ const QuoteRow = memo(function QuoteRow({ r, x, showSpark, rank }: { r: Row; x: 
         <MetricCell r={r} k="disk" x={x} showSpark={showSpark} title={diskText} />
         <span className="c-load num">
           <span className="m-label">{t('board.load')}</span>
-          {(['load', 'load5', 'load15'] as const).map((k, i) => (
-            <span key={k} className="load-cell">
-              <small>{[1, 5, 15][i]}m</small>
-              <b>{finite(st?.[k]) ? st![k].toFixed(2) : '—'}</b>
-            </span>
-          ))}
-        </span>
-        <span className="c-traffic">
-          <span className="m-label">{x.trafficMonthly ? t('board.trafficMonth') : t('board.trafficTotal')}</span>
-          <Pair up={tr?.up} down={tr?.down} byUnit />
+          <b>{finite(st?.load) ? st!.load.toFixed(2) : '—'}</b>
         </span>
         <span className="c-net">
           <span className="m-label">{t('board.network')}</span>
           <Pair up={st?.net_out} down={st?.net_in} rate tickUp tickDown byUnit />
         </span>
+        <TrafficCell cls="c-month" label={t('board.trafficMonth')} v={x.traffic?.month.get(r.node.uuid)} />
+        <TrafficCell cls="c-total" label={t('board.trafficTotal')} v={x.traffic?.total.get(r.node.uuid)} />
         <span className="c-tags">
           <Tags tags={r.node.tags} max={2} />
         </span>
@@ -169,7 +175,7 @@ const QuoteRow = memo(function QuoteRow({ r, x, showSpark, rank }: { r: Row; x: 
   )
 })
 
-const SORT_KEYS: SortKey[] = ['cpu', 'ram', 'disk', 'load', 'net', 'traffic', 'uptime', 'seen', 'name']
+const SORT_KEYS: SortKey[] = ['cpu', 'ram', 'disk', 'load', 'net', 'month', 'total', 'uptime', 'seen', 'name']
 
 /**
  * Phones hide the column headers, so the sort lives behind a button beside the search box:
@@ -297,7 +303,7 @@ export const QuoteBoard = memo(function QuoteBoard({ rows, view, paused, onHold,
   useEffect(() => () => onHold(false), [onHold])
 
   const cols = clsx('board', !showSpark && 'no-spark')
-  const headLabel = (col: (typeof HEAD)[number]['col']) => (col === 'traffic' ? (x.trafficMonthly ? t('board.col.trafficMonth') : t('board.col.trafficTotal')) : t(`board.col.${col}`))
+  const hintId = useId()
 
   return (
     <Covered.Provider value={paused}>
@@ -391,16 +397,33 @@ export const QuoteBoard = memo(function QuoteBoard({ rows, view, paused, onHold,
         <div className="qhead" role="row">
           {HEAD.map((h) =>
             h.key ? (
-              <button key={h.cls} type="button" className={clsx(h.cls, 'th', sort?.key === h.key && 'is-sorted')} onClick={() => cycleSort(h.key!)} aria-sort={sort?.key === h.key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
-                <span className="th-text">{headLabel(h.col)}</span>
+              <button
+                key={h.cls}
+                type="button"
+                className={clsx(h.cls, 'th', sort?.key === h.key && 'is-sorted')}
+                onClick={() => cycleSort(h.key!)}
+                aria-sort={sort?.key === h.key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                title={h.hint ? t(h.hint) : undefined}
+                aria-describedby={h.hint ? `${hintId}-${h.col}` : undefined}
+              >
+                <span className="th-text">{t(`board.col.${h.col}`)}</span>
+                {h.sub && <small className="th-sub">{h.sub}</small>}
                 {h.trail && showSpark && <small className="th-sub">1h</small>}
+                {h.hint && (
+                  <>
+                    <CircleQuestionMark className="th-help" size={11} strokeWidth={2} aria-hidden="true" />
+                    <span id={`${hintId}-${h.col}`} hidden>
+                      {t(h.hint)}
+                    </span>
+                  </>
+                )}
                 <span className="sort-mark" aria-hidden="true">
                   {sort?.key === h.key ? (sort.dir === 'asc' ? '▲' : '▼') : '⇅'}
                 </span>
               </button>
             ) : (
               <span key={h.cls} className={clsx(h.cls, 'th')}>
-                <span className="th-text">{headLabel(h.col)}</span>
+                <span className="th-text">{t(`board.col.${h.col}`)}</span>
               </span>
             ),
           )}

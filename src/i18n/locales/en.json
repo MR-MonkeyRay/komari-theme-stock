@@ -96,9 +96,7 @@
     "down": "Total download",
     "downShort": "Download",
     "trafficMonth": "Traffic this month ↑ / ↓",
-    "trafficMonthShort": "Traffic this month",
-    "trafficTotal": "Total traffic ↑ / ↓",
-    "trafficTotalShort": "Total traffic"
+    "trafficMonthShort": "Traffic this month"
   },
   "status": {
     "calm": "All nodes running normally",
@@ -148,16 +146,19 @@
       "cpu": "CPU",
       "ram": "Memory",
       "disk": "Disk",
-      "load": "Load 1/5/15",
-      "trafficMonth": "Month ↑/↓",
-      "trafficTotal": "Total ↑/↓",
+      "load": "Load",
       "net": "Network ↑/↓",
+      "trafficMonth": "This month",
+      "trafficTotal": "Total",
+      "trafficMonthHint": "Upload / download traffic since 00:00 on the 1st of this month. An orange value means the data Komari keeps does not reach back to the start of the month, so only the retained part is counted.",
+      "trafficTotalHint": "Upload / download traffic since the node was added to Komari. An orange value means older data has passed Komari's retention period, so only the retained part is counted; raise the metric retention in the Komari admin panel to count it all.",
       "tags": "Tags",
       "seen": "Seen"
     },
     "load": "Load",
     "trafficMonth": "Monthly traffic",
     "trafficTotal": "Total traffic",
+    "partialSince": "Counted from {{date}}; older data has passed the retention period",
     "network": "Network",
     "deltaHint": "Against the last hour's mean (the dashed line)",
     "row": "{{name}} {{region}} {{state}}: view details",
@@ -199,8 +200,9 @@
       "ram": "memory",
       "disk": "disk",
       "load": "load",
-      "traffic": "traffic",
       "net": "speed",
+      "month": "traffic this month",
+      "total": "total traffic",
       "seen": "last seen"
     },
     "asc": "ascending",
@@ -317,6 +319,7 @@
     "rangePeak": "Range peak ↑ / ↓",
     "month": "This month ↑ / ↓",
     "cumulative": "Total ↑ / ↓",
+    "since": "since {{date}}",
     "quota": "Traffic quota",
     "cycle": {
       "month": "Monthly",

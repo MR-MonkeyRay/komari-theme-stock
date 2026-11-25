@@ -5,10 +5,10 @@ import type { TFunction } from 'i18next'
 import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { create } from 'zustand'
-import type { ClientOps } from '../../lib/api'
+import type { ClientOps, TrafficSum } from '../../lib/api'
 import type { NodeEvent, RangeStats, Volume } from '../../lib/candles'
 import { daysLeft, expiryNote } from '../../lib/market'
-import { clock, dateText, duration, finite, monthDayTime, parseTags, parseTime, sameDay, size } from '../../lib/format'
+import { clock, dateText, duration, finite, monthDay, monthDayTime, parseTags, parseTime, sameDay, size } from '../../lib/format'
 import type { Row } from '../../lib/model'
 import { continentName } from '../../lib/region'
 import { CPU_EVENT, QUOTA } from '../../lib/thresholds'
@@ -89,14 +89,28 @@ function trafficUsed(type: string, up: number, down: number) {
   }
 }
 
-export function NetworkPanel({ r, volume, traffic, monthly }: { r: Row; volume: Volume[]; traffic: { up: number; down: number } | null; monthly: boolean }) {
+/** A traffic sum; one that only covers part of its period is marked and says from when it counts. */
+function TrafficFact({ k, v }: { k: string; v: TrafficSum | undefined }) {
+  const { t } = useTranslation()
+  const partial = v?.since != null
+  return (
+    <Fact k={k} wide className={clsx(partial && 'is-partial')}>
+      <span className="traffic-fact" title={partial ? t('board.partialSince', { date: monthDay(v.since!) }) : undefined}>
+        <Pair up={v?.up} down={v?.down} />
+        {partial && <small className="traffic-since">{t('panel.since', { date: monthDay(v.since!) })}</small>}
+      </span>
+    </Fact>
+  )
+}
+
+export function NetworkPanel({ r, volume, month, total: allTime }: { r: Row; volume: Volume[]; month: TrafficSum | undefined; total: TrafficSum | undefined }) {
   const { t } = useTranslation()
   const st = r.online ? r.status : undefined
   const ups = volume.map((v) => v.up)
   const downs = volume.map((v) => v.down)
   const avg = (a: number[]) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : null)
   const limit = r.node.traffic_limit
-  const used = traffic && limit > 0 ? trafficUsed(r.node.traffic_limit_type, traffic.up, traffic.down) : null
+  const used = month && limit > 0 ? trafficUsed(r.node.traffic_limit_type, month.up, month.down) : null
   const usedPct = used !== null ? Math.min(100, (used / limit) * 100) : null
   const total = st ? st.net_out + st.net_in : null
   // Share of upload in the current throughput, like the bid/ask ratio bar of a quote panel.
@@ -144,9 +158,8 @@ export function NetworkPanel({ r, volume, traffic, monthly }: { r: Row; volume: 
         <Fact k={t('panel.rangePeak')}>
           <span className="num">{size(ups.length ? Math.max(...ups) : null, true)} / {size(downs.length ? Math.max(...downs) : null, true)}</span>
         </Fact>
-        <Fact k={monthly ? t('panel.month') : t('panel.cumulative')} wide>
-          <Pair up={traffic?.up} down={traffic?.down} />
-        </Fact>
+        <TrafficFact k={t('panel.month')} v={month} />
+        <TrafficFact k={t('panel.cumulative')} v={allTime} />
         {usedPct !== null && (
           <Fact k={t('panel.quota')} className="fact-quota" wide>
             <span className="quota">
