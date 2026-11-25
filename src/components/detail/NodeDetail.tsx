@@ -2,10 +2,10 @@ import * as Dialog from '@radix-ui/react-dialog'
 import clsx from 'clsx'
 import { ChevronLeft, ChevronRight, LocateFixed, X } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useMatch, useNavigate } from 'react-router'
-import { fitRange, RANGE_SPEC, useAvailableRanges, useClientOps, useConnHistory, useExpiryLeadDays, useHistory, useIsAdmin, type NodeTraffic, type TrafficSum } from '../../lib/api'
+import { fitRange, RANGE_SPEC, useAvailableRanges, useClientOps, useConnHistory, useExpiryLeadDays, useHistory, useIsAdmin, useOfflineNotices, type NodeTraffic, type TrafficSum } from '../../lib/api'
 import { buildCandles, buildVolume, inferEvents, isCandle, rangeStats } from '../../lib/candles'
 import { ago, clock, finite, pct, ratio, signed, utcOffset } from '../../lib/format'
 import { useIsPhone } from '../../lib/media'
@@ -18,10 +18,9 @@ import { closeUptimeDay } from './uptimeDay'
 import type { Time } from 'lightweight-charts'
 import { crosshairLabel } from './chartBase'
 import { bucketAt, resetSync, setPin, shareRange, stepTime, useChartSync } from './chartSync'
+import { KLineChart } from './lazyChart'
+import { LoadPanel } from './LoadPanel'
 import { PingPanel, type PingPick } from './PingPanel'
-
-// lightweight-charts is only needed once a detail drawer opens.
-const KLineChart = lazy(() => import('./KLineChart'))
 
 /** Clears the pin. Focus on the chip or bar that goes with it moves to the CPU chart, not the page. */
 function clearPin() {
@@ -55,6 +54,7 @@ function DetailBody({ r, rows, settings, traffic, now, picked, onRange, ping, on
   const phone = useIsPhone()
   const admin = useIsAdmin()
   const ops = useClientOps(admin).data?.[r.node.uuid]
+  const notice = useOfflineNotices(admin).data?.[r.node.uuid]
   const leadDays = useExpiryLeadDays(admin)
   const available = useAvailableRanges()
   const range = fitRange(picked, available)
@@ -339,9 +339,10 @@ function DetailBody({ r, rows, settings, traffic, now, picked, onRange, ping, on
         <aside className="detail-side" aria-label={t('detail.facts')}>
           <LocationPanel r={r} />
           <NetworkPanel r={r} volume={volume} month={traffic.month} total={traffic.total} />
-          <InfoPanel r={r} admin={admin} now={now} leadDays={leadDays ?? 7} ops={ops} />
-          {/* Last, so on a desktop it takes whatever height the column has left. */}
+          <InfoPanel r={r} admin={admin} now={now} leadDays={leadDays ?? 7} ops={ops} notice={notice} />
           <EventsPanel events={settings.showEvents ? events : null} now={now} top={<UptimeStrip key={r.node.uuid} r={r} now={now} reach={reach} onShow={showDay} />} />
+          {/* Last, so on a desktop it takes whatever height the column has left. */}
+          <LoadPanel r={r} h={h} look={settings.chartStyle} loading={loading} stale={stale} rangeKey={dataKey} />
         </aside>
       </div>
       </Suspense>

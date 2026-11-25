@@ -73,6 +73,9 @@
      under color-vision deficiency, unlike blue and violet. */
   --conn-tcp: var(--ping-1);
   --conn-udp: var(--ping-2);
+  /* Swap in use over the load chart: violet, apart from its line, the candles and the amber core
+     count line. */
+  --swap-line: var(--ping-5);
   /* Size units on the home board's traffic and network columns, more salient as they grow
      (white / indigo / lime / orchid / amethyst). Hues keep clear of red and green (moves, alerts)
      and of the sky-blue upload and amber download colors. */
@@ -174,6 +177,7 @@
   --chart-area-bottom: rgb(31 36 48 / 0);
   --conn-tcp: var(--ping-1);
   --conn-udp: var(--ping-2);
+  --swap-line: var(--ping-5);
   --unit-b: #626c7e;
   --unit-k: #1f2430;
   --unit-m: #4b4dc7;

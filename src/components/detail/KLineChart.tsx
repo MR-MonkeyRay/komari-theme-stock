@@ -52,6 +52,15 @@ export interface KLineProps {
   format: (v: number) => string
   /** clamp autoscale to [0, 100] for percentages */
   percent?: boolean
+  /** Keep the scale's floor at zero. */
+  zero?: boolean
+  /** A level drawn across the chart as a dashed line, which the scale always reaches (the load
+   *  chart's core count). Pass null for none on a chart that may have one. */
+  level?: { value: number; title: string } | null
+  /** A second line over the price pane on a scale of its own, from 0 to `max`, with no axis; its
+   *  reading joins the legend. `color` names a CSS variable. Pass null for none on a chart that may
+   *  have one. */
+  overlay?: { points: { time: number; value: number }[]; max: number; label: string; color: string; format: (v: number) => string } | null
   ma?: boolean
   loading?: boolean
   /** Showing the previous range of this node while the new one loads: dimmed, with a progress bar. */
@@ -67,7 +76,7 @@ interface Hover {
   volume?: Volume
 }
 
-export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, look = 'candle', marks, format, percent, ma, loading, stale, offline, label, rangeKey }: KLineProps) {
+export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, look = 'candle', marks, format, percent, zero, level, overlay, ma, loading, stale, offline, label, rangeKey }: KLineProps) {
   const { t, i18n } = useTranslation()
   const host = useRef<HTMLDivElement>(null)
   const chart = useRef<IChartApi | null>(null)
@@ -81,8 +90,14 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
     volMa10?: ISeriesApi<'Line'>
     tcp?: ISeriesApi<'Line'>
     udp?: ISeriesApi<'Line'>
+    overlay?: ISeriesApi<'Line'>
   } | null>(null)
   const lastLine = useRef<IPriceLine | null>(null)
+  // The level's line on each price series (only the visible one draws), and the figures the
+  // autoscale reads, kept current for its callbacks.
+  const levelLines = useRef<[ISeriesApi<'Candlestick'> | ISeriesApi<'Area'>, IPriceLine][]>([])
+  const levelAt = useRef<number | null>(null)
+  const overlayMax = useRef(1)
   const markers = useRef<{ candle: ISeriesMarkersPluginApi<Time>; area: ISeriesMarkersPluginApi<Time> } | null>(null)
   // The pinned time: drawn on every pane and the time axis, read by the legend when nothing is hovered.
   const pinMarks = useRef<PinMark[]>([])
@@ -130,20 +145,24 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
     if (!host.current) return
     const c = createChart(host.current, baseChartOptions())
     // Per-series formatters: the chart-wide localization formatter would also hit the volume pane.
-    // A percentage axis stays within 0–100 even where the event marks add headroom.
-    const valueFormat = { type: 'custom' as const, formatter: (v: number) => (percent && (v > 100.001 || v < -0.001) ? '' : fmt.current(v)), minMove: 0.01 }
+    // A percentage axis stays within 0–100 even where the event marks add headroom, and one from
+    // zero labels nothing below it.
+    const valueFormat = { type: 'custom' as const, formatter: (v: number) => ((percent && v > 100.001) || ((percent || zero) && v < -0.001) ? '' : fmt.current(v)), minMove: 0.01 }
+    const fit = (original: () => { priceRange: { minValue: number; maxValue: number } } | null) => {
+      const r = original()
+      if (!r) return r
+      let { minValue, maxValue } = r.priceRange
+      if (percent) [minValue, maxValue] = [Math.max(0, minValue), Math.min(100, maxValue)]
+      if (zero) minValue = 0
+      if (levelAt.current !== null) maxValue = Math.max(maxValue, levelAt.current)
+      return { ...r, priceRange: { minValue, maxValue } }
+    }
     const candle = c.addSeries(CandlestickSeries, {
       priceFormat: valueFormat,
       // The built-in last-value label takes the (transparent) hollow body color; a custom line replaces it.
       lastValueVisible: false,
       priceLineVisible: false,
-      autoscaleInfoProvider: percent
-        ? (original: () => { priceRange: { minValue: number; maxValue: number } } | null) => {
-            const r = original()
-            if (!r) return r
-            return { ...r, priceRange: { minValue: Math.max(0, r.priceRange.minValue), maxValue: Math.min(100, r.priceRange.maxValue) } }
-          }
-        : undefined,
+      autoscaleInfoProvider: percent || zero || level !== undefined ? fit : undefined,
     })
     // 分时: the bucket averages as a line over a fading fill.
     const area = c.addSeries(AreaSeries, { priceFormat: valueFormat, lineWidth: 2, visible: false, priceLineVisible: false, lastValueVisible: true, crosshairMarkerRadius: 3, autoscaleInfoProvider: candle.options().autoscaleInfoProvider })
@@ -176,6 +195,19 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
       c.panes()[1].setStretchFactor(0.27)
     }
     if (!volume) c.applyOptions({ rightPriceScale: { scaleMargins: { top: 0.14, bottom: 0.12 } } })
+    if (overlay !== undefined) {
+      // Over the candles, on a scale of its own whose zero sits on the price scale's floor.
+      s.overlay = c.addSeries(LineSeries, {
+        priceScaleId: 'overlay',
+        lineWidth: 1,
+        visible: false,
+        priceLineVisible: false,
+        lastValueVisible: false,
+        crosshairMarkerVisible: false,
+        autoscaleInfoProvider: () => ({ priceRange: { minValue: 0, maxValue: overlayMax.current } }),
+      })
+      c.priceScale('overlay').applyOptions({ scaleMargins: { top: 0.14, bottom: 0.12 } })
+    }
     chart.current = c
     series.current = s
 
@@ -269,6 +301,7 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
       c.unsubscribeClick(onClick)
       c.unsubscribeCrosshairMove(onMove)
       markers.current = null
+      levelLines.current = []
       pinMarks.current = []
       showPin.current = () => {}
       c.remove()
@@ -360,6 +393,31 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
     s.tcp.setData(line('tcp'))
     s.udp.setData(line('udp'))
   }, [conn, slots])
+
+  // The level, before the data below so the scale takes it in with them.
+  const levelValue = level?.value ?? null
+  const levelTitle = level?.title ?? ''
+  useEffect(() => {
+    const s = series.current
+    if (!s) return
+    levelAt.current = levelValue
+    for (const [x, l] of levelLines.current) x.removePriceLine(l)
+    levelLines.current =
+      levelValue === null
+        ? []
+        : // Its name (8 核) beside its figure on the axis; the library draws the name only with the figure.
+          [s.candle, s.area].map((x) => [x, x.createPriceLine({ price: levelValue, color: cssVar('--warn'), lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: levelTitle })])
+  }, [levelValue, levelTitle, palette])
+
+  const overlayByTime = useMemo(() => new Map(overlay?.points.map((p) => [p.time, p.value])), [overlay])
+  useEffect(() => {
+    const s = series.current
+    if (!s?.overlay) return
+    overlayMax.current = overlay?.max || 1
+    s.overlay.applyOptions({ visible: !!overlay, color: overlay ? cssVar(overlay.color) : 'transparent' })
+    // On the candles' bucket grid, broken where a bucket has no sample.
+    s.overlay.setData(overlay ? breakAtGaps(onGrid(slots.map((x) => x.time), overlayByTime), HIDE_LINE) : [])
+  }, [overlay, overlayByTime, slots, palette])
 
   // Data.
   useEffect(() => {
@@ -481,6 +539,13 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
   const cn = read ? connByTime.get(read.time) : lastConn
   const chg = shown ? shown.close - shown.open : 0
   const dir = chg > 0 ? 'up' : chg < 0 ? 'down' : 'flat'
+  const ov = overlay && shownTime !== undefined ? overlayByTime.get(shownTime) : undefined
+  const overlayRead = overlay && ov !== undefined && (
+    <span className="lg-overlay">
+      <i style={{ background: `var(${overlay.color})` }} />
+      {overlay.label} <b>{overlay.format(ov)}</b>
+    </span>
+  )
 
   return (
     <div className={clsx('kline', offline && 'is-offline', loading && !candles.length && 'is-loading', stale && 'is-stale')}>
@@ -502,6 +567,7 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
             <span>
               {t('chart.low')} <b>{format(shown.low)}</b>
             </span>
+            {overlayRead}
             {ma && (
               <span className="lg-ma">
                 <i className="ma20" />
@@ -512,7 +578,7 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
         ) : shown ? (
           <>
             <span className="lg-time">{crosshairLabel(shown.time as Time)}</span>
-            <span>
+            <span className="lg-open">
               {t('chart.open')} <b className={dir}>{format(shown.open)}</b>
             </span>
             <span>
@@ -529,6 +595,7 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
                 {t('chart.change')} <b className={dir}>{((chg / shown.open) * 100).toFixed(2)}%</b>
               </span>
             )}
+            {overlayRead}
             {ma && (
               <span className="lg-ma">
                 <i className="ma5" />

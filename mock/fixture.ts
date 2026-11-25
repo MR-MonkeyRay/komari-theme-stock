@@ -36,14 +36,16 @@ interface Spec {
   added?: number
   /** Stretches without reports, as [hours before the fixture started, minutes]: the agent was down. */
   outages?: [number, number][]
+  /** Typical swap in use (GiB, of 1 GiB); none by default. */
+  swap?: number
 }
 
 const specs: Spec[] = [
   { name: 'HK-01', flag: '🇭🇰', cpu: 38, ram: 62, disk: 27, up: 1.62, down: 2.41, age: 3, uptime: 18 * 86400 + 4 * 3600, tags: 'VPS;IPv6', ramGiB: 8, diskGiB: 100, cores: 4, cpuName: 'AMD EPYC 7B13', arch: 'amd64', virt: 'kvm', load: [0.42, 0.38, 0.31], bill: [8.4, '$', 30, '2026-12-13T03:00:00Z', true], monthly: [92.4, 168.1], group: '亚太', remark: '香港 CN2 GIA 线路', ping: [54, 72, 158], outages: [[70, 12], [214, 50]] },
-  { name: 'JP-01', flag: '🇯🇵', cpu: 56, ram: 72, disk: 91, up: 1.89, down: 3.16, age: 5, uptime: 11 * 86400 + 7 * 3600, tags: 'VPS;ARM64', ramGiB: 12, diskGiB: 120, cores: 8, cpuName: 'Ampere Altra', arch: 'arm64', virt: 'kvm', load: [1.26, 1.04, 0.88], bill: [42, '$', 365, '2027-03-18T00:00:00Z', false], monthly: [61.2, 118.4], group: '亚太', ping: [86, 92, 118] },
+  { name: 'JP-01', flag: '🇯🇵', cpu: 56, ram: 72, disk: 91, up: 1.89, down: 3.16, age: 5, uptime: 11 * 86400 + 7 * 3600, tags: 'VPS;ARM64', ramGiB: 12, diskGiB: 120, cores: 8, cpuName: 'Ampere Altra', arch: 'arm64', virt: 'kvm', load: [1.26, 1.04, 0.88], bill: [42, '$', 365, '2027-03-18T00:00:00Z', false], monthly: [61.2, 118.4], group: '亚太', ping: [86, 92, 118], swap: 0.38 },
   { name: 'SG-01', flag: '🇸🇬', cpu: 24, ram: 48, disk: 35, up: 0.63, down: 1.24, age: 4, uptime: 8 * 86400 + 3600, tags: 'VPS', ramGiB: 4, diskGiB: 140, cores: 2, cpuName: 'Intel Xeon Platinum 8272CL', arch: 'amd64', virt: 'kvm', load: [0.18, 0.22, 0.21], monthly: [31.1, 66.2], group: '亚太', ping: [78, 96, 64] },
   { name: 'SYD-01', flag: '🇦🇺', cpu: null, ram: 41, disk: 52, up: 0.3, down: 0.6, age: 12 * 60, uptime: 0, tags: '备份<amber>;IPv6', ramGiB: 8, diskGiB: 160, cores: 4, cpuName: 'Intel Xeon E5-2680 v4', arch: 'amd64', virt: 'kvm', load: [0, 0, 0], group: '亚太', ping: [168, 182, 190] },
-  { name: 'FRA-01', flag: '🇩🇪', cpu: 67, ram: 82, disk: 59, up: 1.44, down: 2.39, age: 4, uptime: 18 * 86400 + 11 * 3600, tags: 'VPS;IPv6', ramGiB: 12, diskGiB: 180, cores: 8, cpuName: 'AMD EPYC 7443P', arch: 'amd64', virt: 'kvm', load: [2.31, 1.96, 1.57], bill: [29.9, '€', 365, '2027-02-18T00:00:00Z', true], monthly: [286.3, 419.9], group: '欧洲', remark: '欧洲公开监控节点', ping: [212, 238, 196], outages: [[150, 240], [370, 20]] },
+  { name: 'FRA-01', flag: '🇩🇪', cpu: 67, ram: 82, disk: 59, up: 1.44, down: 2.39, age: 4, uptime: 18 * 86400 + 11 * 3600, tags: 'VPS;IPv6', ramGiB: 12, diskGiB: 180, cores: 8, cpuName: 'AMD EPYC 7443P', arch: 'amd64', virt: 'kvm', load: [2.31, 1.96, 1.57], bill: [29.9, '€', 365, '2027-02-18T00:00:00Z', true], monthly: [286.3, 419.9], group: '欧洲', remark: '欧洲公开监控节点', ping: [212, 238, 196], outages: [[150, 240], [370, 20]], swap: 0.62 },
   { name: 'AMS-01', flag: '🇳🇱', cpu: 32, ram: 49, disk: 61, up: 0.93, down: 1.86, age: 6, uptime: 26 * 86400 + 9 * 3600, tags: '存储<teal>', ramGiB: 4, diskGiB: 500, cores: 2, cpuName: 'Intel Xeon Gold 6230', arch: 'amd64', virt: 'kvm', load: [0.74, 0.7, 0.63], bill: [5, '€', 30, '2026-12-01T00:00:00Z', true], monthly: [86.5, 127.8], group: '欧洲', ping: [226, 250, 205], outages: [[30, 8]] },
   { name: 'LON-01', flag: '🇬🇧', cpu: 45, ram: 60, disk: 35, up: 1.02, down: 2.14, age: 4, uptime: 14 * 86400 + 2 * 3600, tags: 'VPS;IPv6', ramGiB: 8, diskGiB: 160, cores: 4, cpuName: 'AMD EPYC 7763', arch: 'amd64', virt: 'kvm', load: [0.96, 0.9, 0.82], monthly: [52.6, 90.1], group: '欧洲', ping: [205, 231, 214] },
   { name: 'JNB-01', flag: '🇿🇦', cpu: 18, ram: 36, disk: 31, up: 0.25, down: 0.67, age: 7, uptime: 7 * 86400 + 5 * 3600, tags: 'VPS', ramGiB: 4, diskGiB: 80, cores: 2, cpuName: 'Intel Xeon E-2276G', arch: 'amd64', virt: 'kvm', load: [0.12, 0.18, 0.21], monthly: [9.7, 24.1], group: '其他', ping: [330, 352, 346], added: 12 },
@@ -87,7 +89,7 @@ function reporting(i: number, ms: number) {
   })
 }
 
-type MetricKey = 'cpu.usage' | 'memory.used' | 'disk.used' | 'net.in.rate' | 'net.out.rate' | 'traffic.up' | 'traffic.down' | 'load.average' | 'connections.tcp' | 'connections.udp'
+type MetricKey = 'cpu.usage' | 'memory.used' | 'disk.used' | 'net.in.rate' | 'net.out.rate' | 'traffic.up' | 'traffic.down' | 'load.average' | 'swap.used' | 'connections.tcp' | 'connections.udp'
 
 function value(i: number, key: MetricKey, ms: number): number {
   const s = specs[i]
@@ -120,6 +122,9 @@ function value(i: number, key: MetricKey, ms: number): number {
     }
     case 'load.average':
       return Math.max(0, s.load[0] * (1 + 0.2 * smoothNoise(i + 51, m / 3)))
+    case 'swap.used':
+      // Swap drifts slowly, as pages go out under memory pressure and come back over hours.
+      return s.swap ? Math.max(0, Math.min(0.95, s.swap * (1 + 0.35 * w(420, 5) + 0.12 * smoothNoise(i + 81, m / 25)))) * GIB : 0
     case 'connections.tcp':
       // Follows the traffic loosely, with the odd burst of short-lived connections.
       return Math.round((80 + i * 13) * (1 + 0.25 * w(150, 3) + 0.2 * smoothNoise(i + 61, m / 6)) + Math.max(0, smoothNoise(i + 67, m / 29)) ** 4 * 900)
@@ -187,6 +192,21 @@ export function listClients() {
   }))
 }
 
+/** `admin:listOfflineNotifications`: every third node has the notice off; a node gone quiet was
+ * notified once its grace period ran out. */
+export function offlineNotifications() {
+  return specs.map((s, i) => {
+    const grace = i % 2 ? 300 : 180
+    const enable = i % 3 !== 2
+    return {
+      client: uuidOf(i),
+      enable,
+      grace_period: grace,
+      last_notified: enable && s.cpu === null ? new Date(lastSeen(i) + grace * 1000).toISOString() : null,
+    }
+  })
+}
+
 /** The part of `admin:getSettings` the theme reads. */
 export const adminSettings = {
   expire_notification_enabled: true,
@@ -210,7 +230,7 @@ export function latestStatus(admin = false) {
       gpu: 0,
       ram: value(i, 'memory.used', t),
       ram_total: s.ramGiB * GIB,
-      swap: 0,
+      swap: value(i, 'swap.used', t),
       swap_total: GIB,
       load: +(s.load[0] * loadScale).toFixed(2),
       load5: s.load[1],
@@ -443,6 +463,7 @@ export function metricDefinitions() {
     ['traffic.up', 'gauge', 'bytes'],
     ['traffic.down', 'gauge', 'bytes'],
     ['load.average', 'gauge', ''],
+    ['swap.used', 'gauge', 'bytes'],
     ['connections.tcp', 'gauge', 'count'],
     ['connections.udp', 'gauge', 'count'],
     ['ping.latency_ms', 'gauge', 'ms'],
