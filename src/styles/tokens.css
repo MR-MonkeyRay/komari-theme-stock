@@ -215,6 +215,11 @@
   --ease-flash: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* Traditional Chinese: its own glyph forms. */
+:root:lang(zh-TW) {
+  --font-cjk: 'PingFang TC', 'Microsoft JhengHei', 'Noto Sans CJK TC', 'Noto Sans TC';
+}
+
 :root[data-convention='green-up'] {
   --up: var(--green);
   --up-soft: var(--green-soft);
