@@ -390,6 +390,7 @@
     "gapsMore_other": "오프라인 구간 {{list}} 외 (총 {{count}}개)",
     "listSep": ", ",
     "asOf": "{{time}} 기준",
+    "show": "차트에서 보기",
     "prev": "이전 날",
     "next": "다음 날",
     "close": "닫기"

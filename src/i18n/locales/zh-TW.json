@@ -390,6 +390,7 @@
     "gapsMore_other": "離線時段 {{list}} 等 {{count}} 段",
     "listSep": "、",
     "asOf": "截至 {{time}}",
+    "show": "在圖表中查看",
     "prev": "前一天",
     "next": "後一天",
     "close": "收合"

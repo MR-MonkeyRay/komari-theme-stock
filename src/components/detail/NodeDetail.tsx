@@ -5,7 +5,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useMatch, useNavigate } from 'react-router'
-import { fitRange, useAvailableRanges, useClientOps, useConnHistory, useExpiryLeadDays, useHistory, useIsAdmin, type NodeTraffic, type TrafficSum } from '../../lib/api'
+import { fitRange, RANGE_SPEC, useAvailableRanges, useClientOps, useConnHistory, useExpiryLeadDays, useHistory, useIsAdmin, type NodeTraffic, type TrafficSum } from '../../lib/api'
 import { buildCandles, buildVolume, inferEvents, isCandle, rangeStats } from '../../lib/candles'
 import { ago, clock, finite, pct, ratio, signed, utcOffset } from '../../lib/format'
 import { useIsPhone } from '../../lib/media'
@@ -17,7 +17,7 @@ import { UptimeStrip } from './Uptime'
 import { closeUptimeDay } from './uptimeDay'
 import type { Time } from 'lightweight-charts'
 import { crosshairLabel } from './chartBase'
-import { bucketAt, resetSync, setPin, stepTime, useChartSync } from './chartSync'
+import { bucketAt, resetSync, setPin, shareRange, stepTime, useChartSync } from './chartSync'
 import { PingPanel, type PingPick } from './PingPanel'
 
 // lightweight-charts is only needed once a detail drawer opens.
@@ -100,6 +100,41 @@ function DetailBody({ r, rows, settings, traffic, now, picked, onRange, ping, on
   const dataKey = `${uuid}-${h?.range}`
   // A shared crosshair, zoom or pin belongs to the data it was made on.
   useEffect(() => resetSync(), [dataKey])
+
+  // A day of the availability strip shown in the charts: the shortest range that reaches back to
+  // its start (the current one if it already does, else the longest there is), zoomed to the day
+  // and pinned where its first offline stretch begins. A range still loading takes the day along
+  // and gets it once its data is here; set any earlier, the reset above would clear it.
+  const reach = now - RANGE_SPEC[available.ranges[available.ranges.length - 1] ?? range].hours * 3_600_000
+  const pendingDay = useRef<{ from: number; to: number; pin: number | null; range: Range } | null>(null)
+  // Pin first: a pin out of view slides each chart's window to it, and lightweight-charts applies a
+  // new window late, so the slide would land after the day's window and undo it.
+  const applyDay = (d: { from: number; to: number; pin: number | null }) => {
+    setPin(d.pin === null ? null : d.pin / 1000)
+    shareRange('uptime', { from: d.from / 1000, to: d.to / 1000, key: dataKey })
+  }
+  const showDay = (from: number, to: number, pin: number | null) => {
+    const hours = (k: Range) => RANGE_SPEC[k].hours
+    const fits = available.ranges.find((k) => now - hours(k) * 3_600_000 <= from) ?? available.ranges[available.ranges.length - 1] ?? range
+    const day = { from, to: Math.min(to, now), pin, range: hours(range) >= hours(fits) ? range : fits }
+    if (day.range === range && h?.range === range) applyDay(day)
+    else {
+      pendingDay.current = day
+      if (day.range !== range) onRange(day.range)
+    }
+    // On a phone the charts are up the page.
+    document.querySelector('.detail-main .chart-panel')?.scrollIntoView({ block: 'nearest' })
+  }
+  useEffect(() => {
+    const day = pendingDay.current
+    if (!day || h?.range !== day.range) return
+    pendingDay.current = null
+    // The charts take in the new range's data over the next frame; a window set in the same tick
+    // finds no bars to place it on and is lost to their fit.
+    let frame = requestAnimationFrame(() => (frame = requestAnimationFrame(() => applyDay(day))))
+    return () => cancelAnimationFrame(frame)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [h?.range, dataKey])
 
   // The pinned time, shown once for all charts: a chip in the CPU chart's head, and on phones a bar
   // held at the foot of the screen while the page scrolls (last in the page, so it pushes nothing
@@ -306,7 +341,7 @@ function DetailBody({ r, rows, settings, traffic, now, picked, onRange, ping, on
           <NetworkPanel r={r} volume={volume} month={traffic.month} total={traffic.total} />
           <InfoPanel r={r} admin={admin} now={now} leadDays={leadDays ?? 7} ops={ops} />
           {/* Last, so on a desktop it takes whatever height the column has left. */}
-          <EventsPanel events={settings.showEvents ? events : null} now={now} top={<UptimeStrip key={r.node.uuid} r={r} now={now} />} />
+          <EventsPanel events={settings.showEvents ? events : null} now={now} top={<UptimeStrip key={r.node.uuid} r={r} now={now} reach={reach} onShow={showDay} />} />
         </aside>
       </div>
       </Suspense>

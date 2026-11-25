@@ -390,6 +390,7 @@
     "gapsMore_other": "Offline {{list}} dan lainnya ({{count}} total)",
     "listSep": ", ",
     "asOf": "per {{time}}",
+    "show": "Lihat di grafik",
     "prev": "Hari sebelumnya",
     "next": "Hari berikutnya",
     "close": "Tutup"

@@ -390,6 +390,7 @@
     "gapsMore_other": "オフライン時間帯 {{list}} ほか（計 {{count}} 区間）",
     "listSep": "、",
     "asOf": "{{time}} 時点",
+    "show": "グラフで表示",
     "prev": "前日",
     "next": "翌日",
     "close": "閉じる"

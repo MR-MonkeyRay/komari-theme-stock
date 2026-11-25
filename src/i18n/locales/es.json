@@ -408,6 +408,7 @@
     "gapsMore_other": "Sin conexión {{list}} y más ({{count}} en total)",
     "listSep": ", ",
     "asOf": "a las {{time}}",
+    "show": "Ver en los gráficos",
     "prev": "Día anterior",
     "next": "Día siguiente",
     "close": "Cerrar"

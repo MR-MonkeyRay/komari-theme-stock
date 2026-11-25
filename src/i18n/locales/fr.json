@@ -408,6 +408,7 @@
     "gapsMore_other": "Hors ligne {{list}} et autres ({{count}} au total)",
     "listSep": ", ",
     "asOf": "à {{time}}",
+    "show": "Voir dans les graphiques",
     "prev": "Jour précédent",
     "next": "Jour suivant",
     "close": "Fermer"

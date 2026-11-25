@@ -17,8 +17,10 @@ import { PinMark } from './pinLine'
 const VOL_FORMAT = { type: 'custom' as const, formatter: (v: number) => (v > 0 ? size(v, !isPhone()) : '0'), minMove: 1 }
 const COUNT_FORMAT = { type: 'custom' as const, formatter: (v: number) => (v >= 10_000 ? `${(v / 1000).toFixed(0)}k` : String(Math.round(v))), minMove: 1 }
 
-/** Applies a shared window; one outside this chart's data (before its first sample) is skipped. */
-function showRange(c: IChartApi, r: SharedRange) {
+/** Applies a shared window; one that ends before this chart's first sample is skipped (else
+ * lightweight-charts would squeeze it to a sliver), one it cannot place keeps the current one. */
+function showRange(c: IChartApi, r: SharedRange, first: number | undefined) {
+  if (first === undefined || r.to <= first) return
   try {
     c.timeScale().setVisibleRange({ from: asTs(r.from), to: asTs(r.to) })
   } catch {
@@ -257,7 +259,7 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
       if (st.time !== prev.time && st.timeFrom !== id) followTime(st.time)
       if (st.range !== prev.range && st.range) {
         const r = sharedRangeFor(id, latest.current.rangeKey)
-        if (r) showRange(c, r)
+        if (r) showRange(c, r, latest.current.slots[0]?.time)
       }
       if (st.pin !== prev.pin) showPin.current(st.pin, true)
     })
@@ -429,7 +431,7 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
     else c.timeScale().fitContent()
     // Another chart was zoomed on this data before it arrived here: join it.
     const shared = sharedRangeFor(id, rangeKey)
-    if (shared) showRange(c, shared)
+    if (shared) showRange(c, shared, slots[0]?.time)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rangeKey, slots.length > 0])
 

@@ -1,6 +1,6 @@
 import clsx from 'clsx'
-import { ChevronLeft, ChevronRight, CircleQuestionMark, X } from 'lucide-react'
-import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { ChartCandlestick, ChevronLeft, ChevronRight, CircleQuestionMark, X } from 'lucide-react'
+import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useUptime } from '../../lib/api'
 import { clock, duration, monthDay, parseTime, sameDay, weekday } from '../../lib/format'
@@ -39,9 +39,12 @@ function useDayText() {
 /**
  * Up to 30 days of availability, one bar a day, today at the right end. A bar's color and height
  * both give its level, so a dip shows without telling the colors apart. Pointing at a bar (or
- * focusing it) puts its day on the line under the strip; clicking or tapping opens the day there.
+ * focusing it) puts its day on the line under the strip; clicking or tapping opens the day there,
+ * and a finger dragged along the strip opens each day it passes. An opened day the charts reach
+ * back to (`reach`, ms) can be shown in them (`onShow`: the day's window and where its first
+ * offline stretch begins, ms).
  */
-export function UptimeStrip({ r, now }: { r: Row; now: number }) {
+export function UptimeStrip({ r, now, reach, onShow }: { r: Row; now: number; reach: number; onShow: (from: number, to: number, pin: number | null) => void }) {
   const { t } = useTranslation()
   const uuid = r.node.uuid
   const q = useUptime(uuid, parseTime(r.node.created_at))
@@ -61,6 +64,33 @@ export function UptimeStrip({ r, now }: { r: Row; now: number }) {
   // One tab stop for the strip: the opened day, else today; arrows move between the days.
   const stop = open >= 0 ? open : days.length - 1
   const focusBar = (i: number) => bars.current?.querySelectorAll<HTMLButtonElement>('.ubar')[i]?.focus()
+
+  // Touch: a finger that moves to another bar opens each day it passes; a plain tap toggles as a
+  // click does. The strip lets vertical moves scroll the page (touch-action), which cancels this.
+  const drag = useRef<{ start: number | null; moved: boolean } | null>(null)
+  const barAt = (x: number) => {
+    const box = bars.current?.getBoundingClientRect()
+    if (!box) return null
+    // Columns are as wide as (width + gap) / 30, the gap being 3px.
+    const i = Math.floor(((x - box.left) / (box.width + 3)) * UPTIME_DAYS) - (UPTIME_DAYS - days.length)
+    return i >= 0 && i < days.length ? i : null
+  }
+  const onDown = (e: PointerEvent) => {
+    drag.current = e.pointerType === 'touch' ? { start: barAt(e.clientX), moved: false } : null
+  }
+  const onMove = (e: PointerEvent) => {
+    const d = drag.current
+    if (!d) return
+    const i = barAt(e.clientX)
+    if (i === null || (i === d.start && !d.moved)) return
+    d.moved = true
+    if (i !== open) openDay(i)
+  }
+  const onBarClick = (i: number) => {
+    const dragged = drag.current?.moved
+    drag.current = null
+    if (!dragged) openDay(i === open ? null : i)
+  }
   const onKey = (e: KeyboardEvent, i: number) => {
     const to = e.key === 'ArrowLeft' ? i - 1 : e.key === 'ArrowRight' ? i + 1 : e.key === 'Home' ? 0 : e.key === 'End' ? days.length - 1 : null
     if (to === null) return
@@ -103,7 +133,16 @@ export function UptimeStrip({ r, now }: { r: Row; now: number }) {
         </p>
       )}
       <div className="uptime-body" style={{ '--skip': UPTIME_DAYS - days.length } as React.CSSProperties}>
-        <div ref={bars} className="uptime-bars" role="group" aria-label={t('uptime.bars')} onPointerLeave={() => setPeek(null)}>
+        <div
+          ref={bars}
+          className="uptime-bars"
+          role="group"
+          aria-label={t('uptime.bars')}
+          onPointerLeave={() => setPeek(null)}
+          onPointerDown={onDown}
+          onPointerMove={onMove}
+          onPointerCancel={() => (drag.current = null)}
+        >
           {days.map((d, i) => (
             <button
               key={d.day}
@@ -117,7 +156,7 @@ export function UptimeStrip({ r, now }: { r: Row; now: number }) {
               onFocus={() => setPeek(i)}
               onBlur={() => setPeek(null)}
               onKeyDown={(e) => onKey(e, i)}
-              onClick={() => openDay(i === open ? null : i)}
+              onClick={() => onBarClick(i)}
             />
           ))}
         </div>
@@ -164,6 +203,12 @@ export function UptimeStrip({ r, now }: { r: Row; now: number }) {
               {text.offline(day)}
             </p>
             {day.gaps.length > 0 && day.online >= 1 && <p className="dim">{text.gaps(day)}</p>}
+            {day.day + 86_400_000 > reach && (
+              <button type="button" className="uptime-show" onClick={() => onShow(day.day, day.day + 86_400_000, day.gaps[0]?.[0] ?? null)}>
+                <ChartCandlestick size={13} aria-hidden="true" />
+                {t('uptime.show')}
+              </button>
+            )}
           </div>
         )}
       </div>

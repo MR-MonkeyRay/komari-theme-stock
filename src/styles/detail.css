@@ -1318,6 +1318,8 @@
   grid-template-columns: repeat(30, minmax(0, 1fr));
   column-gap: 3px;
   height: 26px;
+  /* A finger moving sideways scrubs through the days; up and down still scrolls the page. */
+  touch-action: pan-y;
 }
 /* A bar is an 18px track filled to its level's height, in its level's color, so a dip shows
    without telling the colors apart. The button reaches 4px above and below, a larger target, and
@@ -1465,6 +1467,23 @@
 .uptime-day .sep {
   margin: 0 6px;
   color: var(--text-3);
+}
+.uptime-show {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 6px;
+  padding: 3px 8px;
+  font: inherit;
+  font-size: 11px;
+  color: var(--accent);
+  background: none;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.uptime-show:hover {
+  border-color: var(--accent);
 }
 
 /* ---------- responsive detail ---------- */

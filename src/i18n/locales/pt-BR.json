@@ -408,6 +408,7 @@
     "gapsMore_other": "Offline {{list}} e mais ({{count}} no total)",
     "listSep": ", ",
     "asOf": "às {{time}}",
+    "show": "Ver nos gráficos",
     "prev": "Dia anterior",
     "next": "Próximo dia",
     "close": "Fechar"
