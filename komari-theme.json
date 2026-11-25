@@ -8,7 +8,7 @@
     "ja": "株式ターミナル風の Komari テーマ：気配板風のノード一覧とローソク足のリソース推移",
     "id": "Tema Komari bergaya terminal saham: daftar node ala papan kuotasi dan grafik sumber daya candlestick"
   },
-  "version": "0.4.1",
+  "version": "0.4.2",
   "author": "MonkeyRay",
   "url": "https://github.com/MR-MonkeyRay/komari-theme-stock",
   "preview": "docs/images/preview.png",
