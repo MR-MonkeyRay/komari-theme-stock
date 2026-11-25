@@ -18,6 +18,7 @@ export const LANGUAGES = [
   { code: 'ko', name: '한국어' },
   { code: 'ru', name: 'Русский' },
   { code: 'de', name: 'Deutsch' },
+  { code: 'fr', name: 'Français' },
 ] as const
 
 export type Lang = (typeof LANGUAGES)[number]['code']
