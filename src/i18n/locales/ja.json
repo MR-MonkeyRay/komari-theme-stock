@@ -368,6 +368,32 @@
     "gapMany_other": "連続 {{count}} 区間報告なし（約 {{span}}）",
     "offline": "最終報告後、リアルタイムサンプルなし"
   },
+  "uptime": {
+    "title": "稼働率",
+    "help": "稼働率について",
+    "hint": "ノードが1時間ごとに報告したサンプル数から推定します。報告のない時間はオフラインとして数え、Komari 自体の判定と同じです。Komari がまだデータを保持している期間だけを集計し（最大 30 日）、ノード追加前の日は表示しません。",
+    "range_other": "直近 {{count}} 日",
+    "bars": "日別の稼働率",
+    "bar": "{{date}}：{{level}}、オンライン {{value}}",
+    "today": "今日",
+    "level": {
+      "ok": "正常",
+      "brief": "短時間オフライン",
+      "partial": "一部オフライン",
+      "severe": "長時間オフライン"
+    },
+    "online": "オンライン {{value}}",
+    "offlineFor": "オフライン 約 {{span}}",
+    "allDay": "終日報告なし",
+    "noGap": "オフラインなし",
+    "gaps": "オフライン時間帯 {{list}}",
+    "gapsMore_other": "オフライン時間帯 {{list}} ほか（計 {{count}} 区間）",
+    "listSep": "、",
+    "asOf": "{{time}} 時点",
+    "prev": "前日",
+    "next": "翌日",
+    "close": "閉じる"
+  },
   "spark": {
     "empty": "直近1時間に報告データなし"
   }

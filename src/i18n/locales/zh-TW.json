@@ -368,6 +368,32 @@
     "gapMany_other": "連續 {{count}} 個時段無回報（約 {{span}}）",
     "offline": "最後回報後無即時樣本"
   },
+  "uptime": {
+    "title": "在線率",
+    "help": "在線率說明",
+    "hint": "依節點每小時上報的樣本數推斷：沒有上報的時段計為離線，與 Komari 的線上判定一致。只統計 Komari 仍保留資料的時段，最多 30 天，節點新增之前的日子不顯示。",
+    "range_other": "近 {{count}} 日",
+    "bars": "每日在線率",
+    "bar": "{{date}}：{{level}}，在線 {{value}}",
+    "today": "今天",
+    "level": {
+      "ok": "正常",
+      "brief": "短暫離線",
+      "partial": "部分離線",
+      "severe": "嚴重離線"
+    },
+    "online": "在線 {{value}}",
+    "offlineFor": "離線約 {{span}}",
+    "allDay": "全天無上報",
+    "noGap": "無離線",
+    "gaps": "離線時段 {{list}}",
+    "gapsMore_other": "離線時段 {{list}} 等 {{count}} 段",
+    "listSep": "、",
+    "asOf": "截至 {{time}}",
+    "prev": "前一天",
+    "next": "後一天",
+    "close": "收合"
+  },
   "spark": {
     "empty": "近 1 小時無回報資料"
   }

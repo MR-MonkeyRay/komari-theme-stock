@@ -395,13 +395,24 @@ function eventText(e: NodeEvent, t: TFunction) {
   }
 }
 
-export function EventsPanel({ events, now }: { events: NodeEvent[]; now: number }) {
+/**
+ * The availability strip (`top`) over the node's events. `events` is null when the events are
+ * turned off in the settings: the card then holds the strip alone.
+ */
+export function EventsPanel({ events, now, top }: { events: NodeEvent[] | null; now: number; top: ReactNode }) {
   const { t } = useTranslation()
   // Dates are shown for every row as soon as one event is not from today, so the columns line up.
-  const withDate = events.some((e) => !sameDay(e.time, now))
+  const withDate = !!events?.some((e) => !sameDay(e.time, now))
   return (
-    <Panel title={t('panel.events')} extra={events.length ? t('panel.inferred') : t('panel.noEvents')} className={clsx('events-panel', !events.length && 'is-empty')}>
-      {events.length > 0 && (
+    <section className={clsx('panel side-panel events-panel', !events?.length && 'is-empty')}>
+      {top}
+      {events && (
+        <div className="panel-head compact events-head">
+          <h3>{t('panel.events')}</h3>
+          <span className="panel-extra">{events.length ? t('panel.inferred') : t('panel.noEvents')}</span>
+        </div>
+      )}
+      {events && events.length > 0 && (
         <div className="events-body">
           <ol className={clsx('events', withDate && 'with-date')}>
             {events.map((e, i) => {
@@ -428,7 +439,7 @@ export function EventsPanel({ events, now }: { events: NodeEvent[]; now: number 
           </ol>
         </div>
       )}
-    </Panel>
+    </section>
   )
 }
 

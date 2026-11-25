@@ -384,6 +384,34 @@
     "gapMany_other": "Aucun signal pendant {{count}} périodes consécutives (environ {{span}})",
     "offline": "Aucun échantillon en direct depuis la dernière remontée"
   },
+  "uptime": {
+    "title": "Disponibilité",
+    "help": "À propos de la disponibilité",
+    "hint": "Déduite du nombre d'échantillons que le nœud envoie chaque heure : le temps sans envoi compte comme hors ligne, comme Komari lui-même en juge. Seul le temps dont Komari conserve encore les données est compté, 30 jours au plus ; les jours avant l'ajout du nœud ne sont pas affichés.",
+    "range_one": "Dernier jour",
+    "range_other": "{{count}} derniers jours",
+    "bars": "Disponibilité par jour",
+    "bar": "{{date}} : {{level}}, en ligne {{value}}",
+    "today": "Aujourd'hui",
+    "level": {
+      "ok": "Normal",
+      "brief": "Brève coupure",
+      "partial": "Coupure partielle",
+      "severe": "Coupure majeure"
+    },
+    "online": "En ligne {{value}}",
+    "offlineFor": "Hors ligne env. {{span}}",
+    "allDay": "Aucun envoi de la journée",
+    "noGap": "Aucune coupure",
+    "gaps": "Hors ligne {{list}}",
+    "gapsMore_one": "Hors ligne {{list}} et autres ({{count}} au total)",
+    "gapsMore_other": "Hors ligne {{list}} et autres ({{count}} au total)",
+    "listSep": ", ",
+    "asOf": "à {{time}}",
+    "prev": "Jour précédent",
+    "next": "Jour suivant",
+    "close": "Fermer"
+  },
   "spark": {
     "empty": "Aucun signal au cours de la dernière heure"
   }

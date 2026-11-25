@@ -384,6 +384,34 @@
     "gapMany_other": "{{count}} períodos seguidos sem envio (cerca de {{span}})",
     "offline": "Sem amostras ao vivo desde o último envio"
   },
+  "uptime": {
+    "title": "Disponibilidade",
+    "help": "Sobre a disponibilidade",
+    "hint": "Inferida de quantas amostras o nó envia por hora: o tempo sem envios conta como offline, como o próprio Komari considera. Só conta o tempo do qual o Komari ainda guarda dados, no máximo 30 dias; os dias antes de o nó ser adicionado não aparecem.",
+    "range_one": "Último dia",
+    "range_other": "Últimos {{count}} dias",
+    "bars": "Disponibilidade diária",
+    "bar": "{{date}}: {{level}}, online {{value}}",
+    "today": "Hoje",
+    "level": {
+      "ok": "Normal",
+      "brief": "Queda breve",
+      "partial": "Queda parcial",
+      "severe": "Queda grave"
+    },
+    "online": "Online {{value}}",
+    "offlineFor": "Offline cerca de {{span}}",
+    "allDay": "Sem envios o dia todo",
+    "noGap": "Sem quedas",
+    "gaps": "Offline {{list}}",
+    "gapsMore_one": "Offline {{list}} e mais ({{count}} no total)",
+    "gapsMore_other": "Offline {{list}} e mais ({{count}} no total)",
+    "listSep": ", ",
+    "asOf": "às {{time}}",
+    "prev": "Dia anterior",
+    "next": "Próximo dia",
+    "close": "Fechar"
+  },
   "spark": {
     "empty": "Nenhum envio na última hora"
   }

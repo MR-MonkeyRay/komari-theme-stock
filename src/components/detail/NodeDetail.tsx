@@ -13,6 +13,8 @@ import type { Row } from '../../lib/model'
 import { usePrefs, type ChartStyle, type Range, type ThemeSettings } from '../../lib/settings'
 import { Flag, Segmented, Tick } from '../primitives'
 import { EventsPanel, InfoPanel, LocationPanel, NetworkPanel, StatBook } from './Panels'
+import { UptimeStrip } from './Uptime'
+import { closeUptimeDay } from './uptimeDay'
 import type { Time } from 'lightweight-charts'
 import { crosshairLabel } from './chartBase'
 import { bucketAt, resetSync, setPin, stepTime, useChartSync } from './chartSync'
@@ -304,7 +306,7 @@ function DetailBody({ r, rows, settings, traffic, now, picked, onRange, ping, on
           <NetworkPanel r={r} volume={volume} month={traffic.month} total={traffic.total} />
           <InfoPanel r={r} admin={admin} now={now} leadDays={leadDays ?? 7} ops={ops} />
           {/* Last, so on a desktop it takes whatever height the column has left. */}
-          {settings.showEvents && <EventsPanel events={events} now={now} />}
+          <EventsPanel events={settings.showEvents ? events : null} now={now} top={<UptimeStrip key={r.node.uuid} r={r} now={now} />} />
         </aside>
       </div>
       </Suspense>
@@ -415,8 +417,10 @@ export function NodeDetail({ rows, order, settings, traffic, now, ready }: { row
               asChild
               forceMount
               aria-describedby={undefined}
-              // Esc clears a pinned time first; the next one closes the drawer.
+              // Esc closes an opened day of the availability strip, then clears a pinned time; the
+              // next one closes the drawer.
               onEscapeKeyDown={(e) => {
+                if (closeUptimeDay()) return e.preventDefault()
                 if (useChartSync.getState().pin === null) return
                 e.preventDefault()
                 clearPin()

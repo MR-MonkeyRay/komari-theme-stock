@@ -365,10 +365,16 @@
   .detail-side > * {
     flex: none;
   }
-  /* The events take the rest of the column and scroll inside; with none, a one-line strip. */
+  /* The events take the rest of the column and scroll inside, but never below the availability
+     strip (with an opened day) and two events: clipped rather than hidden, the card's least height
+     is its content's, and the column scrolls instead. With no events, the strip alone. */
   .detail-side > .events-panel:not(.is-empty) {
     flex: 1 1 0;
-    min-height: 96px;
+    min-height: auto;
+    overflow: clip;
+  }
+  .detail-side .events-body {
+    min-height: 52px;
   }
   .detail-side .events {
     grid-template-columns: minmax(0, 1fr);
@@ -1185,16 +1191,20 @@
   display: flex;
   flex-direction: column;
 }
-.events-panel:not(.is-empty) {
-  min-height: 148px;
-}
-.events-panel.is-empty .panel-head {
+.events-panel.is-empty .events-head {
   border-bottom: 0;
 }
-/* The list scrolls inside the panel instead of growing the row. */
+.events-panel > .uptime-strip {
+  flex: none;
+}
+/* Under the availability strip, the events' own head marks where they start. */
+.uptime-strip + .events-head {
+  border-top: 1px solid var(--line);
+}
+/* The list scrolls inside the panel instead of growing the row; about four events show. */
 .events-body {
   flex: 1 1 0;
-  min-height: 0;
+  min-height: 112px;
   overflow-y: auto;
 }
 .events {
@@ -1257,6 +1267,204 @@
 }
 .ev-high-mem b {
   color: var(--warn);
+}
+
+/* Availability: one bar a day over the events, today at the right end of 30 columns. */
+.uptime-head h3 {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.uptime-help {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  color: var(--text-3);
+  background: none;
+  border: 0;
+  border-radius: 50%;
+  cursor: help;
+}
+.uptime-help:hover,
+.uptime-help[aria-expanded='true'] {
+  color: var(--text-1);
+}
+.uptime-sum {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  white-space: nowrap;
+}
+.uptime-sum b {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-1);
+}
+.uptime-note {
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--text-2);
+  border-bottom: 1px solid var(--line);
+}
+.uptime-body {
+  padding: 6px 12px 4px;
+}
+.uptime-bars {
+  display: grid;
+  grid-template-columns: repeat(30, minmax(0, 1fr));
+  column-gap: 3px;
+  height: 26px;
+}
+/* A bar is an 18px track filled to its level's height, in its level's color, so a dip shows
+   without telling the colors apart. The button reaches 4px above and below, a larger target, and
+   today has a short line in the space below. */
+.ubar {
+  position: relative;
+  min-width: 0;
+  padding: 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.ubar::before,
+.ubar::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  border-radius: var(--radius-sm);
+}
+.ubar::before {
+  top: 4px;
+  bottom: 4px;
+  background: var(--meter-track);
+}
+.ubar::after {
+  bottom: 4px;
+  height: calc(18px * var(--fill));
+  background: var(--ub);
+}
+.ub-ok {
+  --fill: 1;
+  --ub: var(--online);
+}
+.ub-brief {
+  --fill: 0.8;
+  --ub: var(--uptime-brief);
+}
+.ub-partial {
+  --fill: 0.6;
+  --ub: var(--uptime-partial);
+}
+.ub-severe {
+  --fill: 0.4;
+  --ub: var(--alert);
+}
+.ub-severe::before {
+  background: var(--red-soft);
+}
+.ubar.is-today {
+  background: linear-gradient(var(--text-3), var(--text-3)) bottom / 100% 2px no-repeat;
+}
+.ubar:hover::after {
+  filter: brightness(1.18);
+}
+.ubar:focus-visible {
+  outline: none;
+}
+.ubar.is-open::before,
+.ubar:focus-visible::before {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
+.ubar:focus-visible::before {
+  outline-width: 2px;
+}
+/* The axis, or the day pointed at: one line of fixed height, so pointing moves nothing. */
+.uptime-axis {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 16px;
+  /* The first day's date starts under its bar. */
+  padding-left: calc((100% + 3px) * var(--skip) / 30);
+  font-size: 10.5px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.uptime-axis.is-peek {
+  padding-left: 0;
+  font-size: 11px;
+  color: var(--text-2);
+}
+.uptime-today {
+  margin-left: auto;
+}
+.uptime-peek {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+}
+.uptime-peek > * {
+  flex: none;
+}
+.uptime-peek > :last-child {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.uptime-peek b,
+.uptime-day-head b {
+  font-weight: 650;
+  color: var(--text-1);
+}
+.uptime-strip .ul-ok {
+  color: var(--online);
+}
+.uptime-strip .ul-brief {
+  color: var(--warn);
+}
+.uptime-strip .ul-partial {
+  color: var(--uptime-partial);
+}
+.uptime-strip .ul-severe {
+  color: var(--alert);
+}
+/* The opened day, under the strip. */
+.uptime-day {
+  margin: 4px 0 2px;
+  padding: 5px 6px 6px 8px;
+  font-size: 11.5px;
+  background: var(--bg-inset);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.uptime-day-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.uptime-day-tools {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: auto;
+}
+.uptime-day-tools .icon-btn {
+  width: 22px;
+  height: 22px;
+}
+.uptime-day p {
+  margin: 3px 0 0;
+  color: var(--text-2);
+}
+.uptime-day .sep {
+  margin: 0 6px;
+  color: var(--text-3);
 }
 
 /* ---------- responsive detail ---------- */
@@ -1706,11 +1914,9 @@
   }
   /* Events: the list in full (at most eight), not a box that scrolls inside the page; a long note
      takes two lines. */
-  .events-panel:not(.is-empty) {
-    min-height: 0;
-  }
   .events-body {
     flex: none;
+    min-height: 0;
     overflow: visible;
   }
   .events {

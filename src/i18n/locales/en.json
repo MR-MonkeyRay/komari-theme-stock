@@ -384,6 +384,34 @@
     "gapMany_other": "No reports for {{count}} periods in a row (about {{span}})",
     "offline": "No live samples since the last report"
   },
+  "uptime": {
+    "title": "Availability",
+    "help": "About availability",
+    "hint": "Inferred from how many samples the node reports each hour: time without reports counts as offline, as Komari itself judges it. Only time Komari still keeps data for is counted, 30 days at most; days before the node was added are not shown.",
+    "range_one": "Last day",
+    "range_other": "Last {{count}} days",
+    "bars": "Daily availability",
+    "bar": "{{date}}: {{level}}, online {{value}}",
+    "today": "Today",
+    "level": {
+      "ok": "Normal",
+      "brief": "Brief outage",
+      "partial": "Partial outage",
+      "severe": "Major outage"
+    },
+    "online": "Online {{value}}",
+    "offlineFor": "Offline about {{span}}",
+    "allDay": "No reports all day",
+    "noGap": "No downtime",
+    "gaps": "Offline {{list}}",
+    "gapsMore_one": "Offline {{list}} and more ({{count}} in all)",
+    "gapsMore_other": "Offline {{list}} and more ({{count}} in all)",
+    "listSep": ", ",
+    "asOf": "as of {{time}}",
+    "prev": "Previous day",
+    "next": "Next day",
+    "close": "Close"
+  },
   "spark": {
     "empty": "No reports in the last hour"
   }

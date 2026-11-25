@@ -368,6 +368,32 @@
     "gapMany_other": "연속 {{count}}구간 보고 없음 (약 {{span}})",
     "offline": "마지막 보고 이후 실시간 샘플 없음"
   },
+  "uptime": {
+    "title": "가용률",
+    "help": "가용률 안내",
+    "hint": "노드가 시간마다 보고한 샘플 수로 추정합니다. 보고가 없는 시간은 오프라인으로 계산하며, Komari 자체 판정과 같습니다. Komari가 아직 데이터를 보관 중인 기간만 집계하고(최대 30일), 노드 추가 이전 날짜는 표시하지 않습니다.",
+    "range_other": "최근 {{count}}일",
+    "bars": "일별 가용률",
+    "bar": "{{date}}: {{level}}, 온라인 {{value}}",
+    "today": "오늘",
+    "level": {
+      "ok": "정상",
+      "brief": "짧은 오프라인",
+      "partial": "부분 오프라인",
+      "severe": "심각한 오프라인"
+    },
+    "online": "온라인 {{value}}",
+    "offlineFor": "오프라인 약 {{span}}",
+    "allDay": "종일 보고 없음",
+    "noGap": "오프라인 없음",
+    "gaps": "오프라인 구간 {{list}}",
+    "gapsMore_other": "오프라인 구간 {{list}} 외 (총 {{count}}개)",
+    "listSep": ", ",
+    "asOf": "{{time}} 기준",
+    "prev": "이전 날",
+    "next": "다음 날",
+    "close": "닫기"
+  },
   "spark": {
     "empty": "최근 1시간 보고 데이터 없음"
   }
