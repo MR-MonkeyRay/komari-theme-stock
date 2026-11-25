@@ -156,7 +156,7 @@
       "seen": "Seen"
     },
     "load": "Load",
-    "trafficMonth": "Traffic MTD",
+    "trafficMonth": "Monthly traffic",
     "trafficTotal": "Total traffic",
     "network": "Network",
     "deltaHint": "Against the last hour's mean (the dashed line)",

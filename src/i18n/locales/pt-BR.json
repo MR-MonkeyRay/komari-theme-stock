@@ -156,7 +156,7 @@
       "seen": "Sinal"
     },
     "load": "Carga",
-    "trafficMonth": "Tráfego MTD",
+    "trafficMonth": "Tráfego mensal",
     "trafficTotal": "Tráfego total",
     "network": "Rede",
     "deltaHint": "Em relação à média da última hora (a linha tracejada)",
