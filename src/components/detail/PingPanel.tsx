@@ -91,8 +91,8 @@ function OneLegend({ s, p, reading }: { s: PingTaskStats | undefined; p: PingPoi
   )
 }
 
-/** Every carrier: its mean and loss over the range, or in the bucket `at` while one is read (a time
- *  outside the buckets, `at` -1, reads as a gap). */
+/** Every carrier: its mean, loss and jitter over the range, or its mean and loss in the bucket `at`
+ *  while one is read (a time outside the buckets, `at` -1, reads as a gap; a bucket has no jitter). */
 function AllLegend({ lines, stats, at, reading }: { lines: PingLineData[]; stats: Map<string, PingTaskStats> | undefined; at: number; reading: boolean }) {
   const { t } = useTranslation()
   return (
@@ -106,6 +106,10 @@ function AllLegend({ lines, stats, at, reading }: { lines: PingLineData[]; stats
             {l.name} <Ms v={reading ? p?.avg : s?.valid ? s.avg : null} lost={reading ? !!p && p.avg === null && !!p.loss : rangeLost(s)} />
             <span className="lg-sub">{t('ping.lossShort')}</span>
             <Loss pct={reading ? (p && p.loss !== null ? p.loss * 100 : null) : rangeLoss(s)} />
+            <span className="lg-sub" title={t('ping.jitter')}>
+              {t('ping.jitterShort')}
+            </span>
+            <b className={clsx('lg-v lg-sd', (reading || !s?.valid) && 'quiet')}>{!reading && s?.valid ? ms(s.stddev) : '—'}</b>
           </span>
         )
       })}

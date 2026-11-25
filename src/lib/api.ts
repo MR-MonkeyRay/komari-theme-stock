@@ -14,7 +14,8 @@ export const RANGE_SPEC: Record<Range, { hours: number; points: number }> = {
   '7d': { hours: 168, points: 168 },
 }
 
-export const HISTORY_KEYS = ['cpu.usage', 'memory.used', 'disk.used', 'net.out.rate', 'net.in.rate'] as const
+// The load chart's 1-minute load and swap ride along, so its buckets are the CPU chart's.
+export const HISTORY_KEYS = ['cpu.usage', 'memory.used', 'disk.used', 'net.out.rate', 'net.in.rate', 'load.average', 'swap.used'] as const
 export type HistoryKey = (typeof HISTORY_KEYS)[number]
 
 async function getPublic(): Promise<PublicSettings> {
@@ -75,6 +76,34 @@ export function useClientOps(enabled: boolean) {
       const out: Record<string, ClientOps> = {}
       for (const c of Array.isArray(res) ? res : Object.values(res ?? {})) {
         out[text(c.uuid)] = { ipv4: text(c.ipv4), ipv6: text(c.ipv6), version: text(c.version) }
+      }
+      return out
+    },
+  })
+}
+
+/** A node's offline notice in Komari: whether it is on, how long the node may be gone before it
+ * goes out (seconds), and when the last one went out (ms). */
+export interface OfflineNotice {
+  enable: boolean
+  grace: number
+  last: number | null
+}
+
+/** Offline notice settings per node uuid, from `admin:listOfflineNotifications`; only for a
+ * logged-in session (`enabled`). Each entry is cut down to the fields above. */
+export function useOfflineNotices(enabled: boolean) {
+  return useQuery({
+    queryKey: ['admin', 'offline-notices'],
+    enabled,
+    staleTime: 60_000,
+    retry: false,
+    queryFn: async ({ signal }) => {
+      const res = await rpc<Record<string, unknown>[] | null>('admin:listOfflineNotifications', {}, signal)
+      const out: Record<string, OfflineNotice> = {}
+      for (const n of Array.isArray(res) ? res : []) {
+        const grace = typeof n.grace_period === 'number' && Number.isFinite(n.grace_period) ? n.grace_period : 0
+        out[text(n.client)] = { enable: n.enable === true, grace, last: parseTime(text(n.last_notified)) }
       }
       return out
     },

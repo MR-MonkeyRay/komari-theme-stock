@@ -6,7 +6,7 @@ import type { TFunction } from 'i18next'
 import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { create } from 'zustand'
-import type { ClientOps, TrafficSum } from '../../lib/api'
+import type { ClientOps, OfflineNotice, TrafficSum } from '../../lib/api'
 import type { NodeEvent, RangeStats, Volume } from '../../lib/candles'
 import { daysLeft, expiryNote } from '../../lib/market'
 import { clock, dateText, duration, finite, monthDay, monthDayTime, parseTags, parseTime, sameDay, size } from '../../lib/format'
@@ -220,14 +220,19 @@ type InfoTab = 'system' | 'billing' | 'machine'
 // The picked tab holds while paging between nodes (where the node has it) and resets on reload.
 const useInfoTab = create<{ tab: InfoTab }>(() => ({ tab: 'system' }))
 
+/** How long Komari waits before an offline notice: whole minutes, else seconds. */
+function graceText(seconds: number, t: TFunction) {
+  return seconds >= 60 && seconds % 60 === 0 ? t('format.minutes', { count: seconds / 60 }) : `${seconds}s`
+}
+
 /**
  * The node's facts in one panel: its system, and for a logged-in viewer two more tabs, billing and
- * the machine (the agent's addresses and version from Komari's admin list, `ops`). A visitor gets
- * the system facts under a plain title. Every tab is laid in the same cell, so the panel keeps the
- * height of the tallest and nothing below it moves on a switch. `leadDays`: how close to expiry
- * counts as due soon (Komari's expiry notice setting).
+ * the machine (the agent's addresses and version from Komari's admin list, `ops`, and its offline
+ * notice, `notice`). A visitor gets the system facts under a plain title. Every tab is laid in the
+ * same cell, so the panel keeps the height of the tallest and nothing below it moves on a switch.
+ * `leadDays`: how close to expiry counts as due soon (Komari's expiry notice setting).
  */
-export function InfoPanel({ r, admin, now, leadDays, ops }: { r: Row; admin: boolean; now: number; leadDays: number; ops?: ClientOps }) {
+export function InfoPanel({ r, admin, now, leadDays, ops, notice }: { r: Row; admin: boolean; now: number; leadDays: number; ops?: ClientOps; notice?: OfflineNotice }) {
   const { t, i18n } = useTranslation()
   const shown = useReveal((s) => s.shown)
   const picked = useInfoTab((s) => s.tab)
@@ -238,7 +243,8 @@ export function InfoPanel({ r, admin, now, leadDays, ops }: { r: Row; admin: boo
   const left = daysLeft(n, now)
   const amount = finite(n.price) && n.price > 0 ? `${n.currency ? n.currency + ' ' : ''}${n.price.toLocaleString(i18n.language, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}` : n.price === -1 ? t('panel.free') : '—'
   const billing = admin && (amount !== '—' || expiry !== null || cycle !== 0)
-  const machine = admin && !!ops
+  const machine = admin && (!!ops || !!notice)
+  const swapTotal = st?.swap_total || n.swap_total || 0
   const tab: InfoTab = (picked === 'billing' && billing) || (picked === 'machine' && machine) ? picked : 'system'
   const tabbed = billing || machine
 
@@ -269,16 +275,22 @@ export function InfoPanel({ r, admin, now, leadDays, ops }: { r: Row; admin: boo
           {n.arch || '—'} / {n.virtualization || '—'}
         </span>
       </Fact>
-      <Fact k={t('panel.memSwap')}>
-        <span className="num">
-          {size(st?.ram_total || n.mem_total)} / {size(st?.swap_total || n.swap_total)}
-        </span>
-      </Fact>
-      <Fact k={t('panel.diskTotal')}>
-        <span className="num">{size(st?.disk_total || n.disk_total)}</span>
-      </Fact>
       <Fact k={t('panel.uptime')}>
         <span className="num">{duration(st?.uptime)}</span>
+      </Fact>
+      <Fact k={t('panel.memDisk')}>
+        <span className="num">
+          {size(st?.ram_total || n.mem_total)} / {size(st?.disk_total || n.disk_total)}
+        </span>
+      </Fact>
+      <Fact k={t('panel.swap')}>
+        {swapTotal > 0 ? (
+          <span className="num">
+            {st ? size(st.swap) : '—'} / {size(swapTotal)}
+          </span>
+        ) : (
+          <span className="dim">{t('panel.noSwap')}</span>
+        )}
       </Fact>
       <Fact k={t('panel.load')}>
         <span className="num">{st ? [st.load, st.load5, st.load15].map((x) => (finite(x) ? x.toFixed(2) : '—')).join(' / ') : '—'}</span>
@@ -325,7 +337,7 @@ export function InfoPanel({ r, admin, now, leadDays, ops }: { r: Row; admin: boo
               </Tabs.Trigger>
             )}
           </Tabs.List>
-          {tab === 'machine' && (ops!.ipv4 || ops!.ipv6) && (
+          {tab === 'machine' && (ops?.ipv4 || ops?.ipv6) && (
             <button type="button" className="copy-btn" aria-pressed={shown} onClick={() => useReveal.setState({ shown: !shown })} aria-label={t('panel.reveal')} title={shown ? t('panel.mask') : t('panel.reveal')}>
               {shown ? <EyeOff size={12} aria-hidden="true" /> : <Eye size={12} aria-hidden="true" />}
             </button>
@@ -359,13 +371,23 @@ export function InfoPanel({ r, admin, now, leadDays, ops }: { r: Row; admin: boo
           {machine && (
             <Tabs.Content value="machine" className="info-machine" forceMount>
               <dl className="facts facts-2">
-                <Fact k="IPv4">{ops!.ipv4 ? <Address key={ops!.ipv4} ip={ops!.ipv4} label="IPv4" shown={shown} /> : '—'}</Fact>
+                <Fact k="IPv4">{ops?.ipv4 ? <Address key={ops.ipv4} ip={ops.ipv4} label="IPv4" shown={shown} /> : '—'}</Fact>
                 <Fact k={t('panel.agent')}>
-                  <span className="num">{ops!.version || '—'}</span>
+                  <span className="num">{ops?.version || '—'}</span>
                 </Fact>
                 <Fact k="IPv6" wide>
-                  {ops!.ipv6 ? <Address key={ops!.ipv6} ip={ops!.ipv6} label="IPv6" shown={shown} /> : '—'}
+                  {ops?.ipv6 ? <Address key={ops.ipv6} ip={ops.ipv6} label="IPv6" shown={shown} /> : '—'}
                 </Fact>
+                {notice && (
+                  <>
+                    <Fact k={t('panel.offlineNotice')}>
+                      {notice.enable ? <span className="num">{t('panel.noticeOn', { span: graceText(notice.grace, t) })}</span> : <span className="dim">{t('panel.noticeOff')}</span>}
+                    </Fact>
+                    <Fact k={t('panel.lastNotice')}>
+                      <span className="num">{notice.last !== null ? monthDayTime(notice.last) : '—'}</span>
+                    </Fact>
+                  </>
+                )}
               </dl>
             </Tabs.Content>
           )}
@@ -396,8 +418,9 @@ function eventText(e: NodeEvent, t: TFunction) {
 }
 
 /**
- * The availability strip (`top`) over the node's events. `events` is null when the events are
- * turned off in the settings: the card then holds the strip alone.
+ * The availability strip (`top`) over the node's events, newest first. The list keeps one height
+ * whatever the number of events and scrolls inside; with none only its head shows. `events` is null
+ * when the events are turned off in the settings: the card then holds the strip alone.
  */
 export function EventsPanel({ events, now, top }: { events: NodeEvent[] | null; now: number; top: ReactNode }) {
   const { t } = useTranslation()

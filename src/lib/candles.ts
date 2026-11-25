@@ -203,5 +203,6 @@ export function inferEvents(cpu: Slot[], mem: Slot[], memTotalGiB: number | null
     i = j
   }
   if (!online) events.push({ time: lastSeen ?? Date.now(), kind: 'offline' })
-  return events.sort((a, b) => b.time - a.time).slice(0, 8)
+  // Newest first; the panel's list scrolls, so the cap only guards against a run of flaky buckets.
+  return events.sort((a, b) => b.time - a.time).slice(0, 50)
 }

@@ -365,16 +365,18 @@
   .detail-side > * {
     flex: none;
   }
-  /* The events take the rest of the column and scroll inside, but never below the availability
-     strip (with an opened day) and two events: clipped rather than hidden, the card's least height
-     is its content's, and the column scrolls instead. With no events, the strip alone. */
-  .detail-side > .events-panel:not(.is-empty) {
+  /* The system load takes the rest of the column, down to a chart's least height; below that the
+     column scrolls instead. */
+  .detail-side > .chart-load {
+    display: flex;
     flex: 1 1 0;
-    min-height: auto;
-    overflow: clip;
+    flex-direction: column;
+    min-height: 140px;
   }
-  .detail-side .events-body {
-    min-height: 52px;
+  .detail-side .chart-load .kline {
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 0;
   }
   .detail-side .events {
     grid-template-columns: minmax(0, 1fr);
@@ -408,6 +410,9 @@
   .detail-side .fact {
     min-height: 23px;
     padding-block: 2px;
+  }
+  .detail-side .events-body {
+    height: 96px;
   }
   .detail-side .net-now > div {
     padding-block: 6px;
@@ -496,6 +501,21 @@
 }
 .chart-ping .kline {
   height: 220px;
+}
+/* Stacked layouts (tablets, phones): the load chart at a fixed height under the events. */
+.chart-load .kline {
+  height: 200px;
+}
+/* The side column is narrow: the legend keeps to one line of max, min and end (and swap). The time
+   is on the crosshair's axis label, a pinned reading keeps its accent edge, a candle's fill shows
+   its change, and its start is the end of the one before. */
+.chart-load .lg-time,
+.chart-load .lg-open,
+.chart-load .lg-chg {
+  display: none;
+}
+.chart-now .warn {
+  color: var(--warn);
 }
 /* Same node, another range loading: the old chart stays, dimmed, under a thin progress bar. */
 .kline.is-stale .kline-canvas {
@@ -709,6 +729,18 @@
 .lg-ma .ma20 {
   margin-left: 6px;
   background: var(--ma20);
+}
+/* A second line's reading (swap over the load), its color as a swatch like the MAs'. */
+.lg-overlay {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.lg-overlay i {
+  display: inline-block;
+  width: 10px;
+  height: 2px;
+  border-radius: 1px;
 }
 /* Legend of the VOL pane, at its top-left like a stock chart's indicator header. */
 .kline-sublegend {
@@ -1201,11 +1233,15 @@
 .uptime-strip + .events-head {
   border-top: 1px solid var(--line);
 }
-/* The list scrolls inside the panel instead of growing the row; about four events show. */
+/* One height whatever the number of events, newest at the top: about four and a half rows show,
+   so a cut row says there is more, and the rest scroll inside. At either end the scroll stays in
+   the list. */
 .events-body {
-  flex: 1 1 0;
-  min-height: 112px;
+  flex: none;
+  height: 124px;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
 }
 .events {
   display: grid;
@@ -1523,6 +1559,10 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: start;
   }
+  /* The load chart closes the side panels across the full width, not beside an empty cell. */
+  .detail-side > .chart-load {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 860px) {
@@ -1685,7 +1725,8 @@
   .chart-main .kline {
     height: 320px;
   }
-  .chart-mini .kline {
+  .chart-mini .kline,
+  .chart-load .kline {
     height: 150px;
   }
   .chart-tools .chart-now,
@@ -1931,12 +1972,11 @@
   .side-panel .panel-extra {
     text-align: right;
   }
-  /* Events: the list in full (at most eight), not a box that scrolls inside the page; a long note
-     takes two lines. */
+  /* Events: the same box of fixed height, about four rows; a swipe that reaches its end goes on to
+     scroll the page. A long note takes two lines. */
   .events-body {
-    flex: none;
-    min-height: 0;
-    overflow: visible;
+    height: 196px;
+    overscroll-behavior: auto;
   }
   .events {
     grid-template-columns: minmax(0, 1fr);
