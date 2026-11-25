@@ -32,19 +32,23 @@ interface Spec {
   hidden?: boolean
   /** Typical latency (ms) to the three carrier ping targets; no entry = the node is in no ping task. */
   ping?: [number, number, number]
+  /** Days since the node was added to Komari; by default 40 + 9 per place in the list. */
+  added?: number
+  /** Stretches without reports, as [hours before the fixture started, minutes]: the agent was down. */
+  outages?: [number, number][]
 }
 
 const specs: Spec[] = [
-  { name: 'HK-01', flag: '🇭🇰', cpu: 38, ram: 62, disk: 27, up: 1.62, down: 2.41, age: 3, uptime: 18 * 86400 + 4 * 3600, tags: 'VPS;IPv6', ramGiB: 8, diskGiB: 100, cores: 4, cpuName: 'AMD EPYC 7B13', arch: 'amd64', virt: 'kvm', load: [0.42, 0.38, 0.31], bill: [8.4, '$', 30, '2026-12-13T03:00:00Z', true], monthly: [92.4, 168.1], group: '亚太', remark: '香港 CN2 GIA 线路', ping: [54, 72, 158] },
+  { name: 'HK-01', flag: '🇭🇰', cpu: 38, ram: 62, disk: 27, up: 1.62, down: 2.41, age: 3, uptime: 18 * 86400 + 4 * 3600, tags: 'VPS;IPv6', ramGiB: 8, diskGiB: 100, cores: 4, cpuName: 'AMD EPYC 7B13', arch: 'amd64', virt: 'kvm', load: [0.42, 0.38, 0.31], bill: [8.4, '$', 30, '2026-12-13T03:00:00Z', true], monthly: [92.4, 168.1], group: '亚太', remark: '香港 CN2 GIA 线路', ping: [54, 72, 158], outages: [[70, 12], [214, 50]] },
   { name: 'JP-01', flag: '🇯🇵', cpu: 56, ram: 72, disk: 91, up: 1.89, down: 3.16, age: 5, uptime: 11 * 86400 + 7 * 3600, tags: 'VPS;ARM64', ramGiB: 12, diskGiB: 120, cores: 8, cpuName: 'Ampere Altra', arch: 'arm64', virt: 'kvm', load: [1.26, 1.04, 0.88], bill: [42, '$', 365, '2027-03-18T00:00:00Z', false], monthly: [61.2, 118.4], group: '亚太', ping: [86, 92, 118] },
   { name: 'SG-01', flag: '🇸🇬', cpu: 24, ram: 48, disk: 35, up: 0.63, down: 1.24, age: 4, uptime: 8 * 86400 + 3600, tags: 'VPS', ramGiB: 4, diskGiB: 140, cores: 2, cpuName: 'Intel Xeon Platinum 8272CL', arch: 'amd64', virt: 'kvm', load: [0.18, 0.22, 0.21], monthly: [31.1, 66.2], group: '亚太', ping: [78, 96, 64] },
   { name: 'SYD-01', flag: '🇦🇺', cpu: null, ram: 41, disk: 52, up: 0.3, down: 0.6, age: 12 * 60, uptime: 0, tags: '备份<amber>;IPv6', ramGiB: 8, diskGiB: 160, cores: 4, cpuName: 'Intel Xeon E5-2680 v4', arch: 'amd64', virt: 'kvm', load: [0, 0, 0], group: '亚太', ping: [168, 182, 190] },
-  { name: 'FRA-01', flag: '🇩🇪', cpu: 67, ram: 82, disk: 59, up: 1.44, down: 2.39, age: 4, uptime: 18 * 86400 + 11 * 3600, tags: 'VPS;IPv6', ramGiB: 12, diskGiB: 180, cores: 8, cpuName: 'AMD EPYC 7443P', arch: 'amd64', virt: 'kvm', load: [2.31, 1.96, 1.57], bill: [29.9, '€', 365, '2027-02-18T00:00:00Z', true], monthly: [286.3, 419.9], group: '欧洲', remark: '欧洲公开监控节点', ping: [212, 238, 196] },
-  { name: 'AMS-01', flag: '🇳🇱', cpu: 32, ram: 49, disk: 61, up: 0.93, down: 1.86, age: 6, uptime: 26 * 86400 + 9 * 3600, tags: '存储<teal>', ramGiB: 4, diskGiB: 500, cores: 2, cpuName: 'Intel Xeon Gold 6230', arch: 'amd64', virt: 'kvm', load: [0.74, 0.7, 0.63], bill: [5, '€', 30, '2026-12-01T00:00:00Z', true], monthly: [86.5, 127.8], group: '欧洲', ping: [226, 250, 205] },
+  { name: 'FRA-01', flag: '🇩🇪', cpu: 67, ram: 82, disk: 59, up: 1.44, down: 2.39, age: 4, uptime: 18 * 86400 + 11 * 3600, tags: 'VPS;IPv6', ramGiB: 12, diskGiB: 180, cores: 8, cpuName: 'AMD EPYC 7443P', arch: 'amd64', virt: 'kvm', load: [2.31, 1.96, 1.57], bill: [29.9, '€', 365, '2027-02-18T00:00:00Z', true], monthly: [286.3, 419.9], group: '欧洲', remark: '欧洲公开监控节点', ping: [212, 238, 196], outages: [[150, 240], [370, 20]] },
+  { name: 'AMS-01', flag: '🇳🇱', cpu: 32, ram: 49, disk: 61, up: 0.93, down: 1.86, age: 6, uptime: 26 * 86400 + 9 * 3600, tags: '存储<teal>', ramGiB: 4, diskGiB: 500, cores: 2, cpuName: 'Intel Xeon Gold 6230', arch: 'amd64', virt: 'kvm', load: [0.74, 0.7, 0.63], bill: [5, '€', 30, '2026-12-01T00:00:00Z', true], monthly: [86.5, 127.8], group: '欧洲', ping: [226, 250, 205], outages: [[30, 8]] },
   { name: 'LON-01', flag: '🇬🇧', cpu: 45, ram: 60, disk: 35, up: 1.02, down: 2.14, age: 4, uptime: 14 * 86400 + 2 * 3600, tags: 'VPS;IPv6', ramGiB: 8, diskGiB: 160, cores: 4, cpuName: 'AMD EPYC 7763', arch: 'amd64', virt: 'kvm', load: [0.96, 0.9, 0.82], monthly: [52.6, 90.1], group: '欧洲', ping: [205, 231, 214] },
-  { name: 'JNB-01', flag: '🇿🇦', cpu: 18, ram: 36, disk: 31, up: 0.25, down: 0.67, age: 7, uptime: 7 * 86400 + 5 * 3600, tags: 'VPS', ramGiB: 4, diskGiB: 80, cores: 2, cpuName: 'Intel Xeon E-2276G', arch: 'amd64', virt: 'kvm', load: [0.12, 0.18, 0.21], monthly: [9.7, 24.1], group: '其他', ping: [330, 352, 346] },
-  { name: 'LAX-01', flag: '🇺🇸', cpu: 42, ram: 63, disk: 51, up: 1.71, down: 2.95, age: 3, uptime: 22 * 86400 + 6 * 3600, tags: '裸金属<violet>;IPv6', ramGiB: 64, diskGiB: 960, cores: 16, cpuName: 'AMD Ryzen 9 7950X', arch: 'amd64', virt: 'none', load: [1.32, 1.19, 1.08], bill: [96, '$', 365, '2027-08-17T00:00:00Z', true], monthly: [311.8, 528.2], group: '北美', ping: [148, 162, 176] },
-  { name: 'GRU-01', flag: '🇧🇷', cpu: 21, ram: 39, disk: 67, up: 0.52, down: 1.12, age: 5, uptime: 16 * 86400 + 3 * 3600, tags: 'VPS', ramGiB: 4, diskGiB: 100, cores: 2, cpuName: 'Intel Xeon Silver 4214', arch: 'amd64', virt: 'kvm', load: [0.36, 0.4, 0.42], monthly: [67.4, 116.3], group: '其他' },
+  { name: 'JNB-01', flag: '🇿🇦', cpu: 18, ram: 36, disk: 31, up: 0.25, down: 0.67, age: 7, uptime: 7 * 86400 + 5 * 3600, tags: 'VPS', ramGiB: 4, diskGiB: 80, cores: 2, cpuName: 'Intel Xeon E-2276G', arch: 'amd64', virt: 'kvm', load: [0.12, 0.18, 0.21], monthly: [9.7, 24.1], group: '其他', ping: [330, 352, 346], added: 12 },
+  { name: 'LAX-01', flag: '🇺🇸', cpu: 42, ram: 63, disk: 51, up: 1.71, down: 2.95, age: 3, uptime: 22 * 86400 + 6 * 3600, tags: '裸金属<violet>;IPv6', ramGiB: 64, diskGiB: 960, cores: 16, cpuName: 'AMD Ryzen 9 7950X', arch: 'amd64', virt: 'none', load: [1.32, 1.19, 1.08], bill: [96, '$', 365, '2027-08-17T00:00:00Z', true], monthly: [311.8, 528.2], group: '北美', ping: [148, 162, 176], outages: [[500, 100]] },
+  { name: 'GRU-01', flag: '🇧🇷', cpu: 21, ram: 39, disk: 67, up: 0.52, down: 1.12, age: 5, uptime: 16 * 86400 + 3 * 3600, tags: 'VPS', ramGiB: 4, diskGiB: 100, cores: 2, cpuName: 'Intel Xeon Silver 4214', arch: 'amd64', virt: 'kvm', load: [0.36, 0.4, 0.42], monthly: [67.4, 116.3], group: '其他', outages: [[300, 1440]] },
   { name: 'NYC-01', flag: '🇺🇸', cpu: null, ram: 55, disk: 44, up: 0.4, down: 0.9, age: 9 * 60, uptime: 0, tags: 'VPS', ramGiB: 8, diskGiB: 120, cores: 4, cpuName: 'Intel Xeon Gold 6148', arch: 'amd64', virt: 'kvm', load: [0, 0, 0], group: '北美', ping: [210, 228, 236] },
   // Hidden, and its plan runs out in 3 days (inside the 7-day expiry notice), for the admin-only views.
   { name: 'TPE-01', flag: '🇹🇼', cpu: 33, ram: 57, disk: 46, up: 0.71, down: 1.33, age: 4, uptime: 5 * 86400 + 2 * 3600, tags: 'VPS;内部<plum>', ramGiB: 4, diskGiB: 60, cores: 2, cpuName: 'AMD EPYC 9654', arch: 'amd64', virt: 'kvm', load: [0.31, 0.29, 0.27], bill: [12, '$', 30, new Date(START + 3 * 86400_000).toISOString(), false], monthly: [14.2, 30.6], group: '亚太', remark: '内部测试节点', hidden: true, ping: [42, 58, 70] },
@@ -72,6 +76,15 @@ function smoothNoise(seed: number, t: number) {
 function lastSeen(i: number) {
   const s = specs[i]
   return s.cpu === null ? START - s.age * 1000 : Date.now() - (s.age % 3) * 1000
+}
+
+/** Whether node i reported at `ms`: added by then, not yet gone quiet, and not in an outage. */
+function reporting(i: number, ms: number) {
+  if (ms < addedAt(i) || ms > lastSeen(i)) return false
+  return !(specs[i].outages ?? []).some(([hours, minutes]) => {
+    const from = START - hours * 3600_000
+    return ms >= from && ms < from + minutes * 60_000
+  })
 }
 
 type MetricKey = 'cpu.usage' | 'memory.used' | 'disk.used' | 'net.in.rate' | 'net.out.rate' | 'traffic.up' | 'traffic.down' | 'load.average' | 'connections.tcp' | 'connections.udp'
@@ -123,7 +136,7 @@ export function nodesInformation(admin = false) {
 }
 
 /** When node i was added to Komari: its metrics start there. */
-const addedAt = (i: number) => START - (40 + 9 * i) * 86400_000
+const addedAt = (i: number) => START - (specs[i].added ?? 40 + 9 * i) * 86400_000
 
 function node(s: Spec, i: number) {
   return {
@@ -262,6 +275,7 @@ function pingMinutes(i: number, task: number, start: number, end: number): PingM
   const floor = Math.max(start, Date.now() - PING_RETENTION_DAYS * 86400_000)
   const last = lastSeen(i)
   for (let t = Math.ceil(floor / 60_000) * 60_000; t <= Math.min(end, last); t += 60_000) {
+    if (!reporting(i, t)) continue
     const got: number[] = []
     for (let s = 0; s < 60; s += PING_INTERVAL) {
       const v = probe(i, task, t / 1000 + s)
@@ -306,7 +320,7 @@ export function pingStats(p: { uuid?: string; hours?: number }, admin = false) {
       : PING_TASKS.map((task, k) => {
           const all: (number | null)[] = []
           const floor = Math.max(start, end - PING_RETENTION_DAYS * 86400_000)
-          for (let s = Math.ceil(floor / 1000 / PING_INTERVAL) * PING_INTERVAL; s * 1000 <= Math.min(end, lastSeen(i)); s += PING_INTERVAL) all.push(probe(i, k, s))
+          for (let s = Math.ceil(floor / 1000 / PING_INTERVAL) * PING_INTERVAL; s * 1000 <= Math.min(end, lastSeen(i)); s += PING_INTERVAL) if (reporting(i, s * 1000)) all.push(probe(i, k, s))
           const ok = all.filter((v): v is number => v !== null)
           const avg = ok.length ? ok.reduce((a, b) => a + b, 0) / ok.length : 0
           const sd = ok.length ? Math.sqrt(ok.reduce((a, b) => a + (b - avg) ** 2, 0) / ok.length) : 0
@@ -334,6 +348,9 @@ export function pingStats(p: { uuid?: string; hours?: number }, admin = false) {
 }
 
 const NICE = [60, 300, 600, 900, 1800, 3600, 7200, 10800, 21600, 43200, 86400]
+/** Komari keeps hourly rollups for 600 hours by default; a query that starts before that gets daily
+ * buckets, and nothing older is left. Traffic is spared here so the board's totals stay whole. */
+const HOURLY_RETENTION = 600 * 3600_000
 
 interface QueryParams {
   metric_key?: string
@@ -355,7 +372,9 @@ export function queryMetrics(p: QueryParams, admin = false) {
   const maxPoints = p.max_points ?? 500
   const span = (end - start) / 1000
   const min = span > 6 * 3600 + 60 ? 300 : 60
-  const interval = NICE.find((n) => n >= Math.max(min, span / maxPoints)) ?? 86400
+  const retainedFrom = Date.now() - HOURLY_RETENTION
+  const beyond = start < retainedFrom
+  const auto = NICE.find((n) => n >= Math.max(min, span / maxPoints)) ?? 86400
   const agg = p.aggregation ?? 'avg'
   const series = []
   for (const key of keys) {
@@ -364,19 +383,20 @@ export function queryMetrics(p: QueryParams, admin = false) {
       if (i < 0 || !visible(i, admin)) continue
       if (key.startsWith('ping.')) {
         if (!specs[i].ping) continue
-        for (const s of pingSeries(i, key, start, end, interval, agg))
-          series.push({ metric_key: key, entity_id: id, type: 'gauge', retention_days: PING_RETENTION_DAYS, downsampled: true, downsample_algorithm: agg, max_points: maxPoints, interval_seconds: interval, count: s.points.length, ...s })
+        for (const s of pingSeries(i, key, start, end, auto, agg))
+          series.push({ metric_key: key, entity_id: id, type: 'gauge', retention_days: PING_RETENTION_DAYS, downsampled: true, downsample_algorithm: agg, max_points: maxPoints, interval_seconds: auto, count: s.points.length, ...s })
         continue
       }
       const points = []
-      const last = lastSeen(i)
+      const trimmed = !key.startsWith('traffic.')
+      const interval = trimmed && beyond ? 86400 : auto
       const firstBucket = Math.floor(start / 1000 / interval) * interval
       for (let b = firstBucket; b * 1000 < end; b += interval) {
         const values: number[] = []
         const step = Math.max(SAMPLE_SECONDS, interval / 240)
         for (let t = b; t < b + interval; t += step) {
           const ms = t * 1000
-          if (ms < start || ms > end || ms > last || ms < addedAt(i)) continue
+          if (ms < start || ms > end || !reporting(i, ms) || (trimmed && ms < retainedFrom)) continue
           values.push(value(i, key, ms))
         }
         if (!values.length) continue

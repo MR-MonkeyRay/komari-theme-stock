@@ -4,6 +4,7 @@ import { parseTime } from './format'
 import { rpc, rpcBatch } from './rpc'
 import type { Range } from './settings'
 import type { Aggregation, MetricDefinition, MetricQueryResult, NodeInfo, NodeStatus, PingTask, PingTaskStats, PublicSettings } from './types'
+import { uptimeWindowStart, type UptimeSource } from './uptime'
 
 export const RANGE_SPEC: Record<Range, { hours: number; points: number }> = {
   '1h': { hours: 1, points: 60 },
@@ -501,4 +502,51 @@ export function useTraffic(nodes: NodeInfo[] | undefined, enabled: boolean, now:
   }, [nodes, month.data, before.data, beforeDone, needBefore, month0, added, beforePoints])
 
   return { data, settled: !enabled || uuids.length === 0 || month.isError || (!!month.data && beforeDone) }
+}
+
+const HOUR = 3_600_000
+
+/** Sample counts of one node from `start` on, in hourly buckets when Komari still has them. */
+function queryCounts(uuid: string, start: number, signal: AbortSignal) {
+  // One point per hour or more, so the server never merges two hours into one bucket.
+  const points = Math.max(24, Math.ceil((Date.now() - start) / HOUR))
+  return rpc<MetricQueryResult>('public:queryMetrics', { metric_keys: ['cpu.usage'], entity_ids: [uuid], start: new Date(start).toISOString(), max_points: points, aggregation: 'avg' }, signal)
+}
+
+function countBuckets(res: MetricQueryResult) {
+  const s = res.series?.[0]
+  return {
+    step: s?.interval_seconds ?? 3600,
+    buckets: (s?.points ?? []).map((p) => ({ time: Date.parse(p.time), count: p.count ?? 0 })),
+  }
+}
+
+/**
+ * How many samples a node reported in each hour of the last 30 days (or since it was added), the
+ * source of the detail page's availability strip.
+ *
+ * Komari answers in hourly buckets only while the start is inside the hourly rollups' retention
+ * (600 hours by default); from earlier on it answers in days. Such an answer still shows where the
+ * node's data starts, so the counts are asked for again from the next day on, in hours: the days
+ * before that are gone and are not shown.
+ */
+export function useUptime(uuid: string | undefined, createdAt: number | null) {
+  return useQuery<UptimeSource>({
+    queryKey: ['uptime', uuid, createdAt],
+    enabled: !!uuid,
+    staleTime: 5 * 60_000,
+    refetchInterval: 5 * 60_000,
+    placeholderData: (prev, prevQuery) => (prevQuery?.queryKey[1] === uuid ? prev : undefined),
+    queryFn: async ({ signal }) => {
+      let from = Math.max(uptimeWindowStart(Date.now()), createdAt ?? -Infinity)
+      let res = await queryCounts(uuid!, from, signal)
+      let got = countBuckets(res)
+      if (got.step > 3600 && got.buckets.length) {
+        from = Math.min(...got.buckets.map((b) => b.time)) + DAY
+        res = await queryCounts(uuid!, from, signal)
+        got = countBuckets(res)
+      }
+      return { from, asOf: Date.parse(res.end) || Date.now(), ...got }
+    },
+  })
 }
