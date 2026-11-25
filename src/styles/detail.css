@@ -370,8 +370,12 @@
   .detail-side > * {
     flex: none;
   }
+  /* The height is set here, so the box keeps its column's width (no aspect ratio): sized from the
+     height it ran past the card's edge, and the card cut off the map's east side. The dots and
+     the pin scale together inside it. */
   .detail-side .geo-card .world-map {
     height: clamp(56px, 11vh, 120px);
+    aspect-ratio: auto;
   }
   /* The events take the rest of the column and scroll inside; with none, a one-line strip. */
   .detail-side > .events-panel:not(.is-empty) {
