@@ -860,159 +860,304 @@ div.empty p {
 }
 
 @media (max-width: 860px) {
-  .row-wrap {
-    contain-intrinsic-size: auto 279px;
+  /* Phones: the board is a watch list, edge to edge. Each node is one row of two lines: name and
+     code, the CPU trail and the CPU reading on the first; memory, disk and the network under the
+     name. Load, traffic, tags, uptime and the last report wait in the drawer (and sort here). */
+  .board-panel {
+    border-width: 1px 0;
+    border-radius: 0;
   }
-  .panel-head {
+  .board-panel > .panel-head {
     flex-wrap: wrap;
+    gap: 8px;
+    min-height: 0;
+    padding: 10px 12px;
+    border-bottom: 0;
+  }
+  /* The site name and the index already say what this is: the title stays for screen readers,
+     and the line shows only while a filter or sort chip needs undoing. */
+  .board-panel .panel-title {
+    order: 2;
+  }
+  .board-panel .panel-title:not(:has(.chip)) {
+    display: contents;
+  }
+  .board-panel .panel-title .slot,
+  .board-panel .panel-title .count {
+    display: none;
+  }
+  .board-panel .panel-title h1 {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
   }
   .board-tools {
     width: 100%;
+    gap: 8px;
   }
   .board-tools .search {
     flex: 1;
     width: auto;
+    height: 38px;
+    padding: 0 10px;
+    border-color: transparent;
   }
-  .sort-btn {
-    display: inline-flex;
+  /* Below 16px, iOS zooms the page into a focused field. */
+  .search input {
+    font-size: 16px;
+  }
+  .search-clear {
+    width: 28px;
+    height: 28px;
   }
   .search kbd {
     display: none;
   }
+  .sort-btn {
+    display: inline-flex;
+    width: 38px;
+    height: 38px;
+    border-color: transparent;
+  }
+  /* Tabs: plain words on one line that scrolls, the chosen one underlined. */
   .tabs {
     flex-wrap: nowrap;
+    gap: 18px;
+    padding: 0 12px;
     overflow-x: auto;
     scrollbar-width: none;
-    mask-image: linear-gradient(to right, #000 86%, transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+  }
+  .tab {
+    height: 38px;
+    padding: 0 1px;
+    font-size: 13.5px;
+  }
+  .tab:hover {
+    background: none;
+  }
+  .tab-pill {
+    inset: auto 0 0;
+    height: 2px;
+    background: var(--accent);
+    border: 0;
+    border-radius: 1px;
   }
   .qhead {
     display: none;
   }
-  .group-body {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 8px;
-    background: var(--bg-inset);
-  }
   .group-head {
-    padding: 0 10px;
+    height: 30px;
+    padding: 0 12px;
   }
   .group-cpu {
     display: none;
   }
-  .qrow {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    grid-template-areas:
-      'name name state'
-      'tags tags seen'
-      'cpu ram disk'
-      'load load load'
-      'traffic net net';
-    row-gap: 8px;
-    column-gap: 12px;
-    padding: 10px 12px 12px;
-    background: var(--bg-panel);
-    border: 1px solid var(--line-strong);
-    border-radius: var(--radius);
+  .group-body {
+    display: block;
   }
-  .qrow::before {
-    border-radius: var(--radius) 0 0 var(--radius);
+
+  .row-wrap {
+    contain-intrinsic-size: auto 77px;
+  }
+  /* A wrapping flex row, not the table's grid: the second line takes its own widths (memory, disk
+     and the network), and on a very narrow screen the network wraps under them instead of
+     overflowing. */
+  .qrow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    /* No row gap: the line break below would count it twice; the second line keeps its own. */
+    gap: 0 10px;
+    min-height: 0;
+    padding: 9px 12px;
+  }
+  .qrow::after {
+    content: '';
+    order: 4;
+    flex-basis: 100%;
+  }
+  .c-load,
+  .c-traffic,
+  .c-tags,
+  .c-seen,
+  .c-state {
+    display: none !important;
   }
   .c-name {
-    grid-area: name;
+    flex: 1 1 0;
+    order: 1;
   }
-  .c-state {
-    grid-area: state;
-    align-items: flex-end;
+  .node-name {
+    font-family: var(--font-sans);
+    font-size: 15px;
+    font-weight: 650;
+    letter-spacing: 0;
   }
+  .node-code {
+    font-size: 11px;
+  }
+
+  /* CPU: the trail, then the reading over its change, right-aligned. */
   .c-cpu {
-    grid-area: cpu;
+    display: contents;
   }
-  .c-ram {
-    grid-area: ram;
+  .c-cpu .m-label {
+    display: none;
   }
+  .c-cpu .spark,
+  .c-cpu .meter {
+    flex: none;
+    order: 2;
+    width: 64px;
+  }
+  .c-cpu .spark {
+    --spark-h: 28px;
+    --dot: 4px;
+  }
+  .qrow .c-cpu .m-nums {
+    flex: none;
+    order: 3;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-end;
+    gap: 2px;
+    min-width: 64px;
+  }
+  .c-cpu .m-value {
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  .c-cpu .delta {
+    padding: 0 5px;
+    font-size: 11px;
+    line-height: 16px;
+    border-radius: 3px;
+  }
+  .c-cpu .delta small {
+    font-size: 0.85em;
+  }
+  .c-cpu .delta.up {
+    background: var(--up-soft);
+  }
+  .c-cpu .delta.down {
+    background: var(--down-soft);
+  }
+  .c-cpu .delta.flat {
+    background: var(--flat-soft);
+  }
+
+  /* The second line: memory and disk as label and figure, the network at the end. It starts under
+     the flag, so French and German fit at 390px too. */
+  .c-ram,
   .c-disk {
-    grid-area: disk;
-  }
-  .c-load {
-    display: flex !important;
-    grid-area: load;
-    align-items: center;
-    gap: 14px;
-    padding: 4px 8px;
-    background: var(--bg-inset);
-    border-radius: var(--radius-sm);
-  }
-  .c-load .load-cell {
-    flex-direction: row;
+    display: flex;
+    flex: none;
     align-items: baseline;
     gap: 4px;
   }
-  .c-load .load-cell small {
-    display: inline;
-  }
-  .c-traffic {
-    grid-area: traffic;
-  }
+  .c-ram,
+  .c-disk,
   .c-net {
-    grid-area: net;
+    margin-top: 3px;
   }
-  .c-tags {
-    display: block !important;
-    grid-area: tags;
+  .c-ram {
+    order: 5;
   }
-  .c-seen {
-    grid-area: seen;
+  .c-disk {
+    order: 6;
   }
-  .m-label {
+  .c-ram .m-label,
+  .c-disk .m-label {
     display: inline;
-    font-size: 11px;
+    font-size: 12px;
     color: var(--text-3);
+    white-space: nowrap;
   }
-  /* Each metric is a small tile: label and Δ on top, value, then the trail. */
-  .metric.has-spark,
-  .metric.has-meter {
-    grid-template-columns: auto minmax(0, 1fr);
-    grid-template-areas:
-      'label delta'
-      'value value'
-      'viz viz';
-    gap: 2px 4px;
-    padding: 6px 7px;
-    background: var(--bg-inset);
-    border-radius: var(--radius-sm);
+  .c-ram .m-value,
+  .c-disk .m-value {
+    font-size: 12.5px;
+    font-weight: 600;
   }
-  .metric .m-nums {
-    display: contents;
+  .c-ram .delta,
+  .c-disk .delta,
+  .c-ram .spark,
+  .c-ram .meter,
+  .c-disk .spark,
+  .c-disk .meter {
+    display: none;
   }
-  .metric .m-label {
-    grid-area: label;
-  }
-  .metric .m-value {
-    grid-area: value;
-    justify-self: start;
-  }
-  .metric .delta {
-    grid-area: delta;
-    justify-self: end;
-    font-size: 10px;
-  }
-  .metric .spark {
-    --spark-h: 24px;
-    --dot: 3.5px;
-    margin-top: 2px;
-  }
-  .c-traffic,
   .c-net {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    padding-top: 8px;
-    border-top: 1px solid var(--line);
+    order: 7;
+    margin-left: auto;
   }
-  .c-traffic .pair-line,
-  .c-net .pair-line {
-    font-size: 13px;
+  .c-net .m-label {
+    display: none;
+  }
+  .c-net .pair {
+    flex-direction: row;
+    gap: 8px;
+  }
+  /* The network in the text color: the arrows carry the direction, not the unit's color. */
+  .qrow .c-net .pair-line {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-2);
+  }
+  .qrow .c-net .pair-line small {
+    color: var(--text-3);
+    opacity: 1;
+  }
+  .qrow .c-net .pair-up .arrow {
+    color: var(--net-up);
+  }
+  .qrow .c-net .pair-down .arrow {
+    color: var(--net-down);
+  }
+
+  /* Offline: the state takes the reading's place, and the second line goes. */
+  .qrow.is-off .c-state {
+    display: flex !important;
+    flex: none;
+    order: 3;
+    align-items: flex-end;
+    min-width: 64px;
+  }
+  .qrow.is-off .uptime,
+  .qrow.is-off .c-cpu .m-nums,
+  .qrow.is-off .c-ram,
+  .qrow.is-off .c-disk,
+  .qrow.is-off .c-net {
+    display: none;
+  }
+  .qrow.is-off .c-cpu .spark,
+  .qrow.is-off .c-cpu .meter {
+    opacity: var(--offline-fade);
+  }
+}
+
+/* The narrowest phones: the second line a little smaller, so memory, disk and the network keep
+   to one line in every language. */
+@media (max-width: 380px) {
+  .qrow {
+    column-gap: 8px;
+  }
+  .c-ram,
+  .c-disk {
+    gap: 3px;
+  }
+  .c-ram .m-label,
+  .c-disk .m-label,
+  .c-ram .m-value,
+  .c-disk .m-value,
+  .qrow .c-net .pair-line {
+    font-size: 11.5px;
+  }
+  .c-net .pair {
+    gap: 6px;
   }
 }

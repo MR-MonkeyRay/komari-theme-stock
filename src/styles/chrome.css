@@ -1024,7 +1024,7 @@ button.ix.is-on,
 
 @media (max-width: 860px) {
   .page {
-    padding: 8px 8px 12px;
+    padding: 8px 0 12px;
   }
   .topbar {
     height: 44px;
