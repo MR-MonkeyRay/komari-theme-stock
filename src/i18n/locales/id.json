@@ -74,19 +74,26 @@
   "index": {
     "label": "Ikhtisar",
     "nodes": "Node · online / offline",
+    "nodesShort": "Node",
     "offlineOnly_other": "Hanya tampilkan node offline ({{count}} node)",
     "showAll": "Klik untuk menampilkan semua node",
     "offlineClick": "Klik untuk hanya menampilkan node offline",
     "hot": "Beban tinggi",
+    "hotShort": "Beban tinggi",
     "hotUnit": "",
     "hotRule": "Node online dengan CPU ≥ {{cpu}}% atau memori ≥ {{ram}}%",
     "hotClick": "Klik untuk hanya menampilkan node ini",
     "withAction": "{{text}}. {{action}}",
     "memory": "Memori terpakai",
+    "memoryShort": "Memori",
     "up": "Total unggah",
+    "upShort": "Unggah",
     "down": "Total unduh",
+    "downShort": "Unduh",
     "trafficMonth": "Trafik bulan ini ↑ / ↓",
-    "trafficTotal": "Total trafik ↑ / ↓"
+    "trafficMonthShort": "Trafik bulan ini",
+    "trafficTotal": "Total trafik ↑ / ↓",
+    "trafficTotalShort": "Total trafik"
   },
   "status": {
     "calm": "Semua node berjalan normal",

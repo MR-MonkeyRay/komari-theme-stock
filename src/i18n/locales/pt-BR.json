@@ -78,20 +78,27 @@
   "index": {
     "label": "Visão geral",
     "nodes": "Nós · online / offline",
+    "nodesShort": "Nós",
     "offlineOnly_one": "Mostrar só nós offline ({{count}} nó)",
     "offlineOnly_other": "Mostrar só nós offline ({{count}} nós)",
     "showAll": "Clique para mostrar todos os nós",
     "offlineClick": "Clique para mostrar só nós offline",
     "hot": "Carga alta",
+    "hotShort": "Carga alta",
     "hotUnit": "",
     "hotRule": "Nós online com CPU ≥ {{cpu}}% ou memória ≥ {{ram}}%",
     "hotClick": "Clique para mostrar só estes nós",
     "withAction": "{{text}}. {{action}}",
     "memory": "Memória usada",
+    "memoryShort": "Memória",
     "up": "Upload total",
+    "upShort": "Upload",
     "down": "Download total",
+    "downShort": "Download",
     "trafficMonth": "Tráfego no mês ↑ / ↓",
-    "trafficTotal": "Tráfego total ↑ / ↓"
+    "trafficMonthShort": "Tráfego no mês",
+    "trafficTotal": "Tráfego total ↑ / ↓",
+    "trafficTotalShort": "Tráfego total"
   },
   "status": {
     "calm": "Todos os nós operando normalmente",

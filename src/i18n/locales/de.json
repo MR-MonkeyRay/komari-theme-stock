@@ -78,20 +78,27 @@
   "index": {
     "label": "Übersicht",
     "nodes": "Knoten · online / offline",
+    "nodesShort": "Knoten",
     "offlineOnly_one": "Nur Offline-Knoten anzeigen ({{count}} Knoten)",
     "offlineOnly_other": "Nur Offline-Knoten anzeigen ({{count}} Knoten)",
     "showAll": "Klicken, um alle Knoten anzuzeigen",
     "offlineClick": "Klicken, um nur Offline-Knoten anzuzeigen",
     "hot": "Hohe Last",
+    "hotShort": "Hohe Last",
     "hotUnit": "",
     "hotRule": "Online-Knoten mit CPU ≥ {{cpu}}% oder Speicher ≥ {{ram}}%",
     "hotClick": "Klicken, um nur diese Knoten anzuzeigen",
     "withAction": "{{text}}. {{action}}",
     "memory": "Speicher belegt",
+    "memoryShort": "Speicher",
     "up": "Upload gesamt",
+    "upShort": "Upload",
     "down": "Download gesamt",
+    "downShort": "Download",
     "trafficMonth": "Traffic diesen Monat ↑ / ↓",
-    "trafficTotal": "Traffic gesamt ↑ / ↓"
+    "trafficMonthShort": "Traffic diesen Monat",
+    "trafficTotal": "Traffic gesamt ↑ / ↓",
+    "trafficTotalShort": "Traffic gesamt"
   },
   "status": {
     "calm": "Alle Knoten laufen normal",

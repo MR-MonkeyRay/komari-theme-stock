@@ -74,19 +74,26 @@
   "index": {
     "label": "전체 개요",
     "nodes": "노드 · 온라인 / 오프라인",
+    "nodesShort": "노드",
     "offlineOnly_other": "오프라인 노드만 보기 ({{count}}대)",
     "showAll": "클릭하여 전체 노드 보기",
     "offlineClick": "클릭하여 오프라인 노드만 보기",
     "hot": "고부하 노드",
+    "hotShort": "고부하",
     "hotUnit": "대",
     "hotRule": "온라인 노드: CPU ≥ {{cpu}}% 또는 메모리 ≥ {{ram}}%",
     "hotClick": "클릭하여 이 노드들만 보기",
     "withAction": "{{text}}. {{action}}",
     "memory": "메모리 사용량",
+    "memoryShort": "메모리",
     "up": "총 업로드",
+    "upShort": "업로드",
     "down": "총 다운로드",
+    "downShort": "다운로드",
     "trafficMonth": "이번 달 트래픽 ↑ / ↓",
-    "trafficTotal": "누적 트래픽 ↑ / ↓"
+    "trafficMonthShort": "이번 달 트래픽",
+    "trafficTotal": "누적 트래픽 ↑ / ↓",
+    "trafficTotalShort": "누적 트래픽"
   },
   "status": {
     "calm": "모든 노드가 정상 운영 중입니다",

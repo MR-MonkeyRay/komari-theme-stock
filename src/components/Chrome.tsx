@@ -195,6 +195,18 @@ function LiveSize({ bytes, rate }: { bytes: number | null; rate?: boolean }) {
   )
 }
 
+/** A cell's label: in full, and on phones a short one (the full one stays for screen readers). */
+function IxLabel({ text, short }: { text: string; short: string }) {
+  return (
+    <span className="ix-label">
+      <span className="ix-long">{text}</span>
+      <span className="ix-short" aria-hidden="true">
+        {short}
+      </span>
+    </span>
+  )
+}
+
 export const IndexStrip = memo(function IndexStrip({ m, loading, quick, onQuick }: { m: MarketSummary; loading: boolean; quick: Quick; onQuick: (q: Quick) => void }) {
   const { t } = useTranslation()
   const hot = m.hot ?? 0
@@ -204,7 +216,7 @@ export const IndexStrip = memo(function IndexStrip({ m, loading, quick, onQuick 
   return (
     <section className="index-strip" aria-label={t('index.label')}>
       <div className="ix ix-breadth">
-        <span className="ix-label">{t('index.nodes')}</span>
+        <IxLabel text={t('index.nodes')} short={t('index.nodesShort')} />
         <span className="ix-value num">
           {loading ? <span className="skeleton" style={{ width: 90, height: 18 }} /> : (
             <>
@@ -243,7 +255,7 @@ export const IndexStrip = memo(function IndexStrip({ m, loading, quick, onQuick 
         onClick={() => toggle('hot')}
         title={hot || quick === 'hot' ? t('index.withAction', { text: hotRule, action: quick === 'hot' ? t('index.showAll') : t('index.hotClick') }) : hotRule}
       >
-        <span className="ix-label">{t('index.hot')}</span>
+        <IxLabel text={t('index.hot')} short={t('index.hotShort')} />
         <span className="ix-value num">
           {m.hot === null ? <span className="dash">—</span> : (
             <>
@@ -254,32 +266,39 @@ export const IndexStrip = memo(function IndexStrip({ m, loading, quick, onQuick 
         </span>
       </button>
       <div className="ix">
-        <span className="ix-label">{t('index.memory')}</span>
+        <IxLabel text={t('index.memory')} short={t('index.memoryShort')} />
         <span className="ix-value num">
           <Live value={m.memRatio} suffix="%" />
         </span>
       </div>
       <div className="ix">
-        <span className="ix-label">{t('index.up')}</span>
+        <IxLabel text={t('index.up')} short={t('index.upShort')} />
         <span className="ix-value num net-up">
           <span aria-hidden="true">↑</span>
           <LiveSize bytes={m.up} rate />
         </span>
       </div>
       <div className="ix">
-        <span className="ix-label">{t('index.down')}</span>
+        <IxLabel text={t('index.down')} short={t('index.downShort')} />
         <span className="ix-value num net-down">
           <span aria-hidden="true">↓</span>
           <LiveSize bytes={m.down} rate />
         </span>
       </div>
       <div className="ix ix-traffic">
-        <span className="ix-label">{m.traffic?.monthly ? t('index.trafficMonth') : t('index.trafficTotal')}</span>
+        <IxLabel text={m.traffic?.monthly ? t('index.trafficMonth') : t('index.trafficTotal')} short={m.traffic?.monthly ? t('index.trafficMonthShort') : t('index.trafficTotalShort')} />
         <span className="ix-value num ix-small">
           {m.traffic ? (
             <>
+              {/* The short label leaves out ↑ / ↓: phones mark the values instead. */}
+              <span className="ix-arrow net-up" aria-hidden="true">
+                ↑
+              </span>
               <LiveSize bytes={m.traffic.up} />
               <span className="ix-sep">/</span>
+              <span className="ix-arrow net-down" aria-hidden="true">
+                ↓
+              </span>
               <LiveSize bytes={m.traffic.down} />
             </>
           ) : (

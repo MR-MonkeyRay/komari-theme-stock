@@ -74,19 +74,26 @@
   "index": {
     "label": "全网概览",
     "nodes": "节点 · 在线 / 离线",
+    "nodesShort": "节点",
     "offlineOnly_other": "只看离线节点（{{count}} 台）",
     "showAll": "点击显示全部节点",
     "offlineClick": "点击只看离线节点",
     "hot": "高负载节点",
+    "hotShort": "高负载",
     "hotUnit": "台",
     "hotRule": "在线节点：CPU ≥ {{cpu}}% 或内存 ≥ {{ram}}%",
     "hotClick": "点击只看这些节点",
     "withAction": "{{text}}。{{action}}",
     "memory": "内存占用",
+    "memoryShort": "内存",
     "up": "总上行",
+    "upShort": "上行",
     "down": "总下行",
+    "downShort": "下行",
     "trafficMonth": "本月流量 ↑ / ↓",
-    "trafficTotal": "累计流量 ↑ / ↓"
+    "trafficMonthShort": "本月流量",
+    "trafficTotal": "累计流量 ↑ / ↓",
+    "trafficTotalShort": "累计流量"
   },
   "status": {
     "calm": "全部节点运行平稳",

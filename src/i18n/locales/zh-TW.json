@@ -74,19 +74,26 @@
   "index": {
     "label": "全網概覽",
     "nodes": "節點 · 線上 / 離線",
+    "nodesShort": "節點",
     "offlineOnly_other": "只看離線節點（{{count}} 台）",
     "showAll": "點擊顯示全部節點",
     "offlineClick": "點擊只看離線節點",
     "hot": "高負載節點",
+    "hotShort": "高負載",
     "hotUnit": "台",
     "hotRule": "線上節點：CPU ≥ {{cpu}}% 或記憶體 ≥ {{ram}}%",
     "hotClick": "點擊只看這些節點",
     "withAction": "{{text}}。{{action}}",
     "memory": "記憶體佔用",
+    "memoryShort": "記憶體",
     "up": "總上行",
+    "upShort": "上行",
     "down": "總下行",
+    "downShort": "下行",
     "trafficMonth": "本月流量 ↑ / ↓",
-    "trafficTotal": "累計流量 ↑ / ↓"
+    "trafficMonthShort": "本月流量",
+    "trafficTotal": "累計流量 ↑ / ↓",
+    "trafficTotalShort": "累計流量"
   },
   "status": {
     "calm": "全部節點運作平穩",

@@ -74,19 +74,26 @@
   "index": {
     "label": "全体概要",
     "nodes": "ノード · オンライン / オフライン",
+    "nodesShort": "ノード",
     "offlineOnly_other": "オフラインのノードのみ表示（{{count}} 台）",
     "showAll": "クリックですべてのノードを表示",
     "offlineClick": "クリックしてオフラインのノードのみ表示",
     "hot": "高負荷ノード",
+    "hotShort": "高負荷",
     "hotUnit": "台",
     "hotRule": "オンラインのノード：CPU ≥ {{cpu}}% または メモリ ≥ {{ram}}%",
     "hotClick": "クリックしてこれらのノードのみ表示",
     "withAction": "{{text}}。{{action}}",
     "memory": "メモリ使用量",
+    "memoryShort": "メモリ",
     "up": "送信合計",
+    "upShort": "送信",
     "down": "受信合計",
+    "downShort": "受信",
     "trafficMonth": "今月のトラフィック ↑ / ↓",
-    "trafficTotal": "累計トラフィック ↑ / ↓"
+    "trafficMonthShort": "今月のトラフィック",
+    "trafficTotal": "累計トラフィック ↑ / ↓",
+    "trafficTotalShort": "累計トラフィック"
   },
   "status": {
     "calm": "全ノードは正常に稼働中",

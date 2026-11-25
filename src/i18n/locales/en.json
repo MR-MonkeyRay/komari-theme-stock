@@ -78,20 +78,27 @@
   "index": {
     "label": "Overview",
     "nodes": "Nodes · online / offline",
+    "nodesShort": "Nodes",
     "offlineOnly_one": "Show only offline nodes ({{count}} node)",
     "offlineOnly_other": "Show only offline nodes ({{count}} nodes)",
     "showAll": "Click to show all nodes",
     "offlineClick": "Click to show only offline nodes",
     "hot": "High load",
+    "hotShort": "High load",
     "hotUnit": "",
     "hotRule": "Online nodes with CPU ≥ {{cpu}}% or memory ≥ {{ram}}%",
     "hotClick": "Click to show only these nodes",
     "withAction": "{{text}}. {{action}}",
     "memory": "Memory used",
+    "memoryShort": "Memory",
     "up": "Total upload",
+    "upShort": "Upload",
     "down": "Total download",
+    "downShort": "Download",
     "trafficMonth": "Traffic this month ↑ / ↓",
-    "trafficTotal": "Total traffic ↑ / ↓"
+    "trafficMonthShort": "Traffic this month",
+    "trafficTotal": "Total traffic ↑ / ↓",
+    "trafficTotalShort": "Total traffic"
   },
   "status": {
     "calm": "All nodes running normally",

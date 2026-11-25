@@ -78,20 +78,27 @@
   "index": {
     "label": "Resumen",
     "nodes": "Nodos · en línea / sin conexión",
+    "nodesShort": "Nodos",
     "offlineOnly_one": "Mostrar solo nodos sin conexión ({{count}} nodo)",
     "offlineOnly_other": "Mostrar solo nodos sin conexión ({{count}} nodos)",
     "showAll": "Clic para mostrar todos los nodos",
     "offlineClick": "Clic para mostrar solo nodos sin conexión",
     "hot": "Carga alta",
+    "hotShort": "Carga alta",
     "hotUnit": "",
     "hotRule": "Nodos en línea con CPU ≥ {{cpu}}% o memoria ≥ {{ram}}%",
     "hotClick": "Clic para mostrar solo estos nodos",
     "withAction": "{{text}}. {{action}}",
     "memory": "Memoria usada",
+    "memoryShort": "Memoria",
     "up": "Subida total",
+    "upShort": "Subida",
     "down": "Bajada total",
+    "downShort": "Bajada",
     "trafficMonth": "Tráfico de este mes ↑ / ↓",
-    "trafficTotal": "Tráfico total ↑ / ↓"
+    "trafficMonthShort": "Tráfico de este mes",
+    "trafficTotal": "Tráfico total ↑ / ↓",
+    "trafficTotalShort": "Tráfico total"
   },
   "status": {
     "calm": "Todos los nodos funcionan con normalidad",

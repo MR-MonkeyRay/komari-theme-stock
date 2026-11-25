@@ -86,6 +86,7 @@
   "index": {
     "label": "Обзор",
     "nodes": "Узлы · в сети / не в сети",
+    "nodesShort": "Узлы",
     "offlineOnly_one": "Только не в сети ({{count}} узел)",
     "offlineOnly_few": "Только не в сети ({{count}} узла)",
     "offlineOnly_many": "Только не в сети ({{count}} узлов)",
@@ -93,15 +94,21 @@
     "showAll": "Нажмите, чтобы показать все узлы",
     "offlineClick": "Нажмите, чтобы показать только не в сети",
     "hot": "Высокая нагрузка",
+    "hotShort": "Перегрузка",
     "hotUnit": "",
     "hotRule": "В сети с CPU ≥ {{cpu}}% или памятью ≥ {{ram}}%",
     "hotClick": "Нажмите, чтобы показать только эти узлы",
     "withAction": "{{text}}. {{action}}",
     "memory": "Занято памяти",
+    "memoryShort": "Память",
     "up": "Всего отдано",
+    "upShort": "Отдано",
     "down": "Всего принято",
+    "downShort": "Принято",
     "trafficMonth": "Трафик за месяц ↑ / ↓",
-    "trafficTotal": "Весь трафик ↑ / ↓"
+    "trafficMonthShort": "Трафик за месяц",
+    "trafficTotal": "Весь трафик ↑ / ↓",
+    "trafficTotalShort": "Весь трафик"
   },
   "status": {
     "calm": "Все узлы работают штатно",

@@ -78,20 +78,27 @@
   "index": {
     "label": "Vue d'ensemble",
     "nodes": "Nœuds · en ligne / hors ligne",
+    "nodesShort": "Nœuds",
     "offlineOnly_one": "Afficher seulement les nœuds hors ligne ({{count}} nœud)",
     "offlineOnly_other": "Afficher seulement les nœuds hors ligne ({{count}} nœuds)",
     "showAll": "Cliquer pour afficher tous les nœuds",
     "offlineClick": "Cliquer pour n'afficher que les nœuds hors ligne",
     "hot": "Forte charge",
+    "hotShort": "Forte charge",
     "hotUnit": "",
     "hotRule": "Nœuds en ligne avec CPU ≥ {{cpu}}% ou mémoire ≥ {{ram}}%",
     "hotClick": "Cliquer pour n'afficher que ces nœuds",
     "withAction": "{{text}}. {{action}}",
     "memory": "Mémoire utilisée",
+    "memoryShort": "Mémoire",
     "up": "Envoi total",
+    "upShort": "Envoi",
     "down": "Réception totale",
+    "downShort": "Réception",
     "trafficMonth": "Trafic du mois ↑ / ↓",
-    "trafficTotal": "Trafic total ↑ / ↓"
+    "trafficMonthShort": "Trafic du mois",
+    "trafficTotal": "Trafic total ↑ / ↓",
+    "trafficTotalShort": "Trafic total"
   },
   "status": {
     "calm": "Tous les nœuds fonctionnent normalement",

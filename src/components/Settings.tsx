@@ -13,7 +13,7 @@ import { Segmented } from './primitives'
 // Visitor display preferences: a popover under the top-bar button on desktop, a bottom sheet on
 // phones. Every change applies at once and is kept in this browser only.
 
-const phoneQuery = typeof window !== 'undefined' ? window.matchMedia('(max-width: 720px)') : null
+const phoneQuery = typeof window !== 'undefined' ? window.matchMedia('(max-width: 860px)') : null
 
 function useIsPhone() {
   return useSyncExternalStore(
