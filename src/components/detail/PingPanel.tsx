@@ -12,7 +12,7 @@ import { buildPingLines, lossText, ms, PING_SLOTS, type PingLineData, type PingP
 import type { Range } from '../../lib/settings'
 import type { PingTask, PingTaskStats } from '../../lib/types'
 import { crosshairLabel } from './chartBase'
-import { bucketAt } from './chartSync'
+import { bucketAt, useChartSync } from './chartSync'
 
 const PingChart = lazy(() => import('./PingChart'))
 
@@ -140,6 +140,7 @@ export function PingPanel({ uuid, range, refreshSeconds, offline, pick, onPick }
     setHoverData(dataKey)
     setHover(null)
   }
+  const pin = useChartSync((st) => st.pin)
 
   if (!on) return null
 
@@ -152,14 +153,19 @@ export function PingPanel({ uuid, range, refreshSeconds, offline, pick, onPick }
     onPick(!t || id === selected ? null : { id, name: t.name })
   }
 
-  // The bucket being read: the one under the crosshair. The lines share one bucket grid; a time
-  // outside it (before ping retention) reads as a gap.
+  // The bucket being read: the one under the crosshair, else the pinned one (null: none, read the
+  // range). The lines share one bucket grid; a time outside it reads as a gap.
   const times = lines[0]?.points.map((p) => p.time) ?? []
-  const at = hover === null ? -1 : bucketAt(times, hover)
+  const readTime = hover ?? pin
+  const at = readTime === null ? -1 : bucketAt(times, readTime)
+  // The pin is what is read: nothing else hovered, or the hover on its bucket (two times outside
+  // the buckets are not the same bucket).
+  const pinAt = pin === null ? -1 : bucketAt(times, pin)
+  const onPin = pin !== null && (hover === null || (pinAt >= 0 ? at === pinAt : hover === pin))
   /** A chip's figure: the latest latency, or the bucket's while one is read (a dash where all was lost). */
   const chipValue = (task: PingTask): { text: string; lost?: boolean } => {
     const id = String(task.id)
-    if (hover !== null) {
+    if (readTime !== null) {
       const p = at >= 0 ? lines.find((l) => l.id === id)?.points[at] : undefined
       return finite(p?.avg) ? { text: `${ms(p.avg)}ms` } : { text: '—', lost: !!p?.loss }
     }
@@ -177,8 +183,8 @@ export function PingPanel({ uuid, range, refreshSeconds, offline, pick, onPick }
   const one = single ? lines.find((l) => l.id === String(single.id)) : undefined
   const legend: ReactNode = (
     <>
-      <Context label={single ? t('ping.rangeStats') : t('ping.rangeMean')} time={hover !== null ? (at >= 0 ? times[at] : hover) : null} />
-      {single ? <OneLegend s={stats.data?.get(String(single.id))} p={at >= 0 ? one?.points[at] : undefined} reading={hover !== null} /> : <AllLegend lines={lines} stats={stats.data} at={at} reading={hover !== null} />}
+      <Context label={single ? t('ping.rangeStats') : t('ping.rangeMean')} time={readTime === null ? null : at >= 0 ? times[at] : readTime} />
+      {single ? <OneLegend s={stats.data?.get(String(single.id))} p={at >= 0 ? one?.points[at] : undefined} reading={readTime !== null} /> : <AllLegend lines={lines} stats={stats.data} at={at} reading={readTime !== null} />}
       {from && <span className="lg-since">{t('ping.since', { time: monthDayTime(from) })}</span>}
     </>
   )
@@ -243,6 +249,7 @@ export function PingPanel({ uuid, range, refreshSeconds, offline, pick, onPick }
           rangeKey={`${uuid}-${h?.range}`}
           onHover={setHover}
           legend={legend}
+          legendPinned={onPin}
         />
       </Suspense>
     </section>

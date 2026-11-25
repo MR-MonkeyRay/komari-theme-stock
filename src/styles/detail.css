@@ -236,11 +236,12 @@
   border-radius: var(--radius);
   transition: color 120ms ease, border-color 120ms ease;
 }
-.icon-btn:hover:not(:disabled) {
+.icon-btn:hover:not(:disabled, [aria-disabled='true']) {
   color: var(--text-1);
   border-color: var(--text-3);
 }
-.icon-btn:disabled {
+.icon-btn:disabled,
+.icon-btn[aria-disabled='true'] {
   opacity: 0.4;
   cursor: default;
 }
@@ -451,8 +452,42 @@
 }
 .chart-tools {
   display: flex;
+  flex: none;
   align-items: center;
   gap: 12px;
+}
+/* The CPU chart's title keeps one line beside its tools (five ranges, the pin, a long language):
+   what does not fit of its subtitle is cut short. */
+.chart-main .panel-head h3 {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- pinned time ---------- */
+
+/* The chip that names the pinned time and clears it; it fades while another time is hovered, as the
+   legends then read that one. */
+.pin-chip {
+  transition: opacity 120ms ease, background-color 150ms ease;
+}
+.pin-chip.is-away {
+  opacity: 0.6;
+}
+/* Phones: the same, as a bar held at the foot of the screen while the drawer scrolls. */
+.pin-bar {
+  display: none;
+}
+/* A legend reading the pinned bucket: its time in the accent, and a mark at its edge where the
+   time is left out (small charts, phones). */
+.kline-legend.is-pinned {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.kline-legend.is-pinned .lg-time,
+.ping-legend.is-pinned .lg-ctx.is-time {
+  font-weight: 650;
+  color: var(--accent);
 }
 .chart-now {
   font-size: 11px;
@@ -1296,6 +1331,36 @@
     gap: 8px;
     overflow: hidden;
     white-space: nowrap;
+  }
+  .pin-chip {
+    display: none;
+  }
+  .pin-bar {
+    position: sticky;
+    z-index: 6;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0 -8px -16px;
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom)) 12px;
+    font-size: 12px;
+    /* --focus: the accent, lighter on dark, so the time reads on the tinted bar. */
+    color: var(--focus);
+    background: color-mix(in srgb, var(--accent-soft) 92%, transparent);
+    border-top: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+    box-shadow: 0 -4px 12px rgb(0 0 0 / var(--pin-bar-shadow, 0.08));
+    backdrop-filter: blur(6px);
+  }
+  .pin-bar b {
+    margin-right: auto;
+    font-weight: 650;
+  }
+  .pin-bar .icon-btn {
+    width: 36px;
+    height: 32px;
+    background: var(--bg-panel);
+    border-color: color-mix(in srgb, var(--accent) 28%, var(--line-strong));
   }
   /* Ping: the title on its own line, then the chips on one line that scrolls sideways; the legend
      scrolls too instead of cutting its last readings off. Neither changes height on hover. */

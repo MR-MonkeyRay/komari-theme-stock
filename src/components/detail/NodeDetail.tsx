@@ -1,22 +1,32 @@
 import * as Dialog from '@radix-ui/react-dialog'
 import clsx from 'clsx'
-import { ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, LocateFixed, X } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useMatch, useNavigate } from 'react-router'
 import { fitRange, useAvailableRanges, useClientOps, useConnHistory, useExpiryLeadDays, useHistory, useIsAdmin } from '../../lib/api'
-import { buildCandles, buildVolume, inferEvents, rangeStats } from '../../lib/candles'
+import { buildCandles, buildVolume, inferEvents, isCandle, rangeStats } from '../../lib/candles'
 import { ago, clock, finite, pct, ratio, signed, utcOffset } from '../../lib/format'
 import type { Row } from '../../lib/model'
 import { usePrefs, type ChartStyle, type Range, type ThemeSettings } from '../../lib/settings'
 import { Flag, Segmented, Tick } from '../primitives'
 import { AdminPanel, EventsPanel, LocationPanel, NetworkPanel, StatBook, SystemPanel } from './Panels'
-import { resetSync } from './chartSync'
+import type { Time } from 'lightweight-charts'
+import { crosshairLabel } from './chartBase'
+import { bucketAt, resetSync, setPin, stepTime, useChartSync } from './chartSync'
 import { PingPanel, type PingPick } from './PingPanel'
 
 // lightweight-charts is only needed once a detail drawer opens.
 const KLineChart = lazy(() => import('./KLineChart'))
+
+/** Clears the pin. Focus on the chip or bar that goes with it moves to the CPU chart, not the page. */
+function clearPin() {
+  const from = document.activeElement
+  const held = from instanceof HTMLElement && from.closest('.pin-chip, .pin-bar') !== null
+  setPin(null)
+  if (held) document.querySelector<HTMLElement>('.chart-main .kline-canvas')?.focus({ preventScroll: true })
+}
 type SubPane = import('./KLineChart').SubPane
 type ChartMark = import('./KLineChart').ChartMark
 
@@ -84,8 +94,35 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange,
   const loading = history.isFetching && !h
   // Charts refit when data for a new range (or node) arrives, not when the range is clicked.
   const dataKey = `${uuid}-${h?.range}`
-  // A shared crosshair or zoom belongs to the data it was made on.
+  // A shared crosshair, zoom or pin belongs to the data it was made on.
   useEffect(() => resetSync(), [dataKey])
+
+  // The pinned time, shown once for all charts: a chip in the CPU chart's head, and on phones a bar
+  // held at the foot of the screen while the page scrolls (last in the page, so it pushes nothing
+  // down under the finger that pinned). The chip fades while another time is hovered.
+  const pin = useChartSync((st) => st.pin)
+  const pinText = pin === null ? '' : crosshairLabel(pin as Time)
+  const cpuTimes = useMemo(() => cpu.map((x) => x.time), [cpu])
+  // Compared by CPU bucket: a chart of another span may name the same bucket by another time.
+  const away = useChartSync((st) => {
+    if (st.time === null || st.pin === null || st.time === st.pin) return false
+    const at = bucketAt(cpuTimes, st.time)
+    return at < 0 || at !== bucketAt(cpuTimes, st.pin)
+  })
+  // Phones: thin candles are hard to tap exactly, so the bar steps the pin to the next bucket with
+  // samples each way (as ←/→ on a chart do), and stops at the ends.
+  const samples = useMemo(() => cpu.filter(isCandle).map((x) => x.time), [cpu])
+  const prevPin = pin === null ? null : stepTime(samples, pin, -1)
+  const nextPin = pin === null ? null : stepTime(samples, pin, 1)
+  // A pin the window has moved past (a refresh slides it forward) goes too, instead of every chart
+  // reading a time it no longer has.
+  const passed = pin !== null && !stale && cpuTimes.length > 0 && pin < cpuTimes[0]
+  useEffect(() => {
+    if (passed) clearPin()
+  }, [passed])
+  // Said to screen readers: the pin as it moves, and its clearing.
+  const [hadPin, setHadPin] = useState(false)
+  if (pin !== null && !hadPin) setHadPin(true)
 
   // Paging to another node keeps the banner, the panels and the chart instances; only the content
   // under the banner gives a short fade so the change of node registers.
@@ -174,6 +211,13 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange,
                 {t('detail.cpuTitle')} <small>{settings.chartStyle === 'line' ? t('common.line') : t('common.candle')} · {t('detail.subPane', { name: sub === 'vol' ? t('detail.subVol') : t('detail.subConn') })}</small>
               </h3>
               <div className="chart-tools">
+                {pin !== null && (
+                  <button type="button" className={clsx('chip pin-chip', away && 'is-away')} onClick={clearPin} title={t('chart.pinClear', { time: pinText })} aria-label={t('chart.pinClear', { time: pinText })}>
+                    <LocateFixed size={12} aria-hidden="true" />
+                    <span className="num">{pinText}</span>
+                    <X size={12} aria-hidden="true" />
+                  </button>
+                )}
                 <span className="chart-now num">
                   {t('detail.coverage')} <b>{cpuStats ? `${Math.round(cpuStats.coverage * 100)}%` : '—'}</b>
                 </span>
@@ -228,6 +272,26 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange,
         </aside>
       </div>
       </Suspense>
+
+      {pin !== null && (
+        <div className="pin-bar" role="group" aria-label={t('chart.pinned', { time: pinText })}>
+          <LocateFixed size={14} aria-hidden="true" />
+          <b className="num">{pinText}</b>
+          {/* aria-disabled, not disabled: an end reached keeps the focus on its button. */}
+          <button type="button" className="icon-btn" onClick={() => prevPin !== null && setPin(prevPin)} aria-disabled={prevPin === null} aria-label={t('chart.pinPrev')}>
+            <ChevronLeft size={15} aria-hidden="true" />
+          </button>
+          <button type="button" className="icon-btn" onClick={() => nextPin !== null && setPin(nextPin)} aria-disabled={nextPin === null} aria-label={t('chart.pinNext')}>
+            <ChevronRight size={15} aria-hidden="true" />
+          </button>
+          <button type="button" className="icon-btn" onClick={clearPin} aria-label={t('chart.pinClear', { time: pinText })}>
+            <X size={15} aria-hidden="true" />
+          </button>
+        </div>
+      )}
+      <span className="sr-only" role="status">
+        {pin !== null ? t('chart.pinned', { time: pinText }) : hadPin ? t('chart.unpinned') : ''}
+      </span>
     </div>
   )
 }
@@ -240,6 +304,11 @@ export function NodeDetail({ rows, order, settings, traffic, monthly, now, ready
   const reduce = useReducedMotion()
   const uuid = match?.params.uuid
   const open = !!uuid
+  // A pin, zoom or crosshair goes with the drawer, also while it is still closing (reopened then,
+  // the same node's charts would keep them).
+  useEffect(() => {
+    if (!open) resetSync()
+  }, [open])
   // Keep the last node during the exit animation.
   const [lastUuid, setLastUuid] = useState(uuid)
   if (uuid && uuid !== lastUuid) setLastUuid(uuid)
@@ -310,6 +379,12 @@ export function NodeDetail({ rows, order, settings, traffic, monthly, now, ready
               asChild
               forceMount
               aria-describedby={undefined}
+              // Esc clears a pinned time first; the next one closes the drawer.
+              onEscapeKeyDown={(e) => {
+                if (useChartSync.getState().pin === null) return
+                e.preventDefault()
+                clearPin()
+              }}
               // Focus the drawer itself (announced by its title), not its first button.
               onOpenAutoFocus={(e) => {
                 e.preventDefault()

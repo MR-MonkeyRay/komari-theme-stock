@@ -85,6 +85,11 @@
   --chart-axis: #7a8291;
   --chart-cross: #8b94a5;
   --chart-cross-bg: #2a303c;
+  /* The pinned time: the accent, which marks what the user set (chips, ranges), never up or down;
+     on dark a shade deeper, for white text on its axis label (5.2:1). */
+  --chart-pin: #2563eb;
+  --chart-pin-text: #ffffff;
+  --pin-bar-shadow: 0.28;
   --ma5: rgb(230 233 239 / 0.72);
   --ma20: #e6b34b;
   /* Ping lines, by task order: cobalt / rose / ochre for the usual three carriers (validated for
@@ -176,6 +181,9 @@
   --chart-axis: #687286;
   --chart-cross: #64748b;
   --chart-cross-bg: #1e2430;
+  --chart-pin: #1d5bff;
+  --chart-pin-text: #ffffff;
+  --pin-bar-shadow: 0.08;
   --ma5: rgb(55 65 81 / 0.75);
   --ma20: #c97a10;
   --ping-1: #2563eb;

@@ -1,4 +1,4 @@
-import { ColorType, CrosshairMode, LineStyle, TickMarkType, type ChartOptions, type DeepPartial, type Time, type UTCTimestamp } from 'lightweight-charts'
+import { ColorType, CrosshairMode, LineStyle, TickMarkType, type ChartOptions, type DeepPartial, type IChartApi, type Time, type UTCTimestamp } from 'lightweight-charts'
 import { cssVar } from '../../lib/appearance'
 import { monthDay } from '../../lib/format'
 
@@ -6,6 +6,21 @@ import { monthDay } from '../../lib/format'
 
 const two = (n: number) => String(n).padStart(2, '0')
 export const asTs = (t: number) => t as UTCTimestamp
+
+/**
+ * Slides the window, keeping its width, to show `time` (seconds) if it is out of view: an eighth of
+ * the window in from the edge it left by, so the next few steps the same way stay in view.
+ */
+export function revealTime(c: IChartApi, time: number) {
+  const ts = c.timeScale()
+  const i = ts.timeToIndex(asTs(time), true)
+  const r = ts.getVisibleLogicalRange()
+  if (i === null || !r || (i >= r.from && i <= r.to)) return
+  const span = r.to - r.from
+  const pad = Math.max(1, Math.round(span / 8))
+  const from = i < r.from ? i - pad : i + pad - span
+  ts.setVisibleLogicalRange({ from, to: from + span })
+}
 
 export function localLabel(time: Time, type?: TickMarkType) {
   const d = new Date((time as number) * 1000)
