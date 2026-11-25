@@ -1,6 +1,7 @@
 import { ColorType, CrosshairMode, LineStyle, TickMarkType, type ChartOptions, type DeepPartial, type IChartApi, type Time, type UTCTimestamp } from 'lightweight-charts'
 import { cssVar } from '../../lib/appearance'
 import { monthDay } from '../../lib/format'
+import { isPhone } from '../../lib/media'
 
 // Shared by the detail charts (K line and ping) so they read and behave as one set.
 
@@ -59,11 +60,13 @@ export const HIDE_AREA = { lineColor: 'transparent', topColor: 'transparent', bo
 
 /** Options every detail chart is created with; colors come from `chartPalette`. */
 export function baseChartOptions(): DeepPartial<ChartOptions> {
+  // Phones: a narrower price axis in smaller type leaves the plot more of the screen's width.
+  const phone = isPhone()
   return {
     autoSize: true,
-    layout: { attributionLogo: false, fontFamily: cssVar('--font-mono'), fontSize: 11, panes: { enableResize: false } },
+    layout: { attributionLogo: false, fontFamily: cssVar('--font-mono'), fontSize: phone ? 10 : 11, panes: { enableResize: false } },
     crosshair: { mode: CrosshairMode.Normal },
-    rightPriceScale: { minimumWidth: 68, scaleMargins: { top: 0.12, bottom: 0.08 } },
+    rightPriceScale: { minimumWidth: phone ? 48 : 68, scaleMargins: { top: 0.12, bottom: 0.08 } },
     timeScale: { timeVisible: true, secondsVisible: false, rightOffset: 2, fixLeftEdge: true, fixRightEdge: true, lockVisibleTimeRangeOnResize: true, tickMarkFormatter: localLabel },
     localization: { timeFormatter: crosshairLabel },
     handleScroll: { mouseWheel: false, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },

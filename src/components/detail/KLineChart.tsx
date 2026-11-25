@@ -7,12 +7,14 @@ import type { ConnPoint } from '../../lib/api'
 import { cssVar, usePaletteVersion } from '../../lib/appearance'
 import { isCandle, movingAverage, volumeBars, type Candle, type Slot, type Volume } from '../../lib/candles'
 import { size } from '../../lib/format'
+import { isPhone } from '../../lib/media'
 import type { ChartStyle } from '../../lib/settings'
 import { asTs, baseChartOptions, breakAtGaps, chartPalette, crosshairLabel, HIDE_AREA, HIDE_LINE, localLabel, onGrid, revealTime } from './chartBase'
 import { bucketAt, releaseTime, shareRange, sharedRangeFor, shareTime, stepTime, togglePin, useChartSync, userGesture, type SharedRange } from './chartSync'
 import { PinMark } from './pinLine'
 
-const VOL_FORMAT = { type: 'custom' as const, formatter: (v: number) => (v > 0 ? size(v, true) : '0'), minMove: 1 }
+// On phones the axis drops the "/s" (the legend above it keeps it), so it is as narrow as the others.
+const VOL_FORMAT = { type: 'custom' as const, formatter: (v: number) => (v > 0 ? size(v, !isPhone()) : '0'), minMove: 1 }
 const COUNT_FORMAT = { type: 'custom' as const, formatter: (v: number) => (v >= 10_000 ? `${(v / 1000).toFixed(0)}k` : String(Math.round(v))), minMove: 1 }
 
 /** Applies a shared window; one outside this chart's data (before its first sample) is skipped. */
@@ -146,8 +148,8 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
     const s: NonNullable<typeof series.current> = { candle, area }
     if (ma) {
       const line = { lineWidth: 1 as const, priceFormat: valueFormat, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false }
-      // MA5 turns into noise on phone-width charts; keep MA20 there.
-      s.ma5 = c.addSeries(LineSeries, { ...line, visible: !window.matchMedia('(max-width: 640px)').matches })
+      // MA5 turns into noise on phone charts (their legend leaves it out too); keep MA20 there.
+      s.ma5 = c.addSeries(LineSeries, { ...line, visible: !isPhone() })
       s.ma20 = c.addSeries(LineSeries, line)
     }
     if (volume) {
@@ -157,7 +159,7 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
       const volFormat = VOL_FORMAT
       s.vol = c.addSeries(CandlestickSeries, { priceFormat: volFormat, wickVisible: false, priceLineVisible: false, lastValueVisible: false }, 1)
       const avgLine = { lineWidth: 1 as const, priceFormat: volFormat, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false }
-      s.volMa5 = c.addSeries(LineSeries, { ...avgLine, visible: !window.matchMedia('(max-width: 640px)').matches }, 1)
+      s.volMa5 = c.addSeries(LineSeries, { ...avgLine, visible: !isPhone() }, 1)
       s.volMa10 = c.addSeries(LineSeries, avgLine, 1)
       // 连接 view: TCP and UDP counts as two indicator lines on a scale from zero.
       const connLine = { lineWidth: 1 as const, priceFormat: COUNT_FORMAT, priceLineVisible: false, lastValueVisible: false, visible: false, autoscaleInfoProvider: (base: () => { priceRange: { minValue: number; maxValue: number } } | null) => {
@@ -314,7 +316,7 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
     s.candle.applyOptions({ visible: !line })
     s.area.applyOptions({ visible: line })
     // In 分时 the gold MA20 plays the stock chart's average line; MA5 would only crowd it.
-    s.ma5?.applyOptions({ visible: !line && !window.matchMedia('(max-width: 640px)').matches })
+    s.ma5?.applyOptions({ visible: !line && !isPhone() })
   }, [line])
 
   // Event marks on the visible series: ▲ over a rise, ▼ under a fall, a dot over a memory high.
@@ -342,7 +344,7 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
     if (!s?.vol) return
     const vol = sub === 'vol'
     // The pane's axis labels take the first series' format, which is the (hidden) volume bars.
-    for (const x of [s.vol, s.volMa5, s.volMa10]) x?.applyOptions({ visible: vol && (x !== s.volMa5 || !window.matchMedia('(max-width: 640px)').matches), priceFormat: vol ? VOL_FORMAT : COUNT_FORMAT })
+    for (const x of [s.vol, s.volMa5, s.volMa10]) x?.applyOptions({ visible: vol && (x !== s.volMa5 || !isPhone()), priceFormat: vol ? VOL_FORMAT : COUNT_FORMAT })
     s.tcp?.applyOptions({ visible: !vol })
     s.udp?.applyOptions({ visible: !vol })
   }, [sub])

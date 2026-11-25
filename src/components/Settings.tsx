@@ -3,27 +3,16 @@ import * as Popover from '@radix-ui/react-popover'
 import * as RadioGroup from '@radix-ui/react-radio-group'
 import * as Switch from '@radix-ui/react-switch'
 import { ChevronDown, RotateCcw, SlidersHorizontal, X } from 'lucide-react'
-import { useId, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { useId, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LANGUAGES, setLanguageChoice, useLanguageChoice, type Lang } from '../i18n'
 import { fitRange, useAvailableRanges } from '../lib/api'
+import { useIsPhone } from '../lib/media'
 import { isDefaultPrefs, REFRESH_OPTIONS, usePrefs, type ChartStyle, type Range } from '../lib/settings'
 import { Segmented } from './primitives'
 
 // Visitor display preferences: a popover under the top-bar button on desktop, a bottom sheet on
 // phones. Every change applies at once and is kept in this browser only.
-
-const phoneQuery = typeof window !== 'undefined' ? window.matchMedia('(max-width: 860px)') : null
-
-function useIsPhone() {
-  return useSyncExternalStore(
-    (cb) => {
-      phoneQuery?.addEventListener('change', cb)
-      return () => phoneQuery?.removeEventListener('change', cb)
-    },
-    () => phoneQuery?.matches ?? false,
-  )
-}
 
 const REFRESH = REFRESH_OPTIONS.map(String)
 const CHART_STYLES: ChartStyle[] = ['candle', 'line']

@@ -1263,40 +1263,119 @@
 }
 
 @media (max-width: 860px) {
+  /* Phones: one scrolling page. Panels run edge to edge, apart by a strip of the page color, with
+     no grey head bands; a bar at the top keeps close and paging in reach. */
   .drawer {
     width: 100vw;
     border-left: 0;
   }
   .detail {
-    padding: 10px 8px 16px;
+    gap: 8px;
+    padding: 0 0 16px;
   }
+  .detail-grid,
+  .detail-main,
+  .detail-side,
+  .detail-minis {
+    gap: 8px;
+  }
+  .detail-minis,
+  .detail-side {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .detail .panel {
+    border-width: 0;
+    border-radius: 0;
+  }
+  .detail .panel-head,
+  .detail .panel-head.compact {
+    min-height: 44px;
+    padding: 8px 12px;
+    background: var(--bg-panel);
+    border-bottom: 0;
+  }
+  .detail .panel-head h3 {
+    font-size: 14.5px;
+  }
+
+  .qb-bar {
+    position: sticky;
+    z-index: 7;
+    top: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 48px;
+    padding: 0 4px;
+    background: color-mix(in srgb, var(--bg-panel) 94%, transparent);
+    border-bottom: 1px solid var(--line);
+    backdrop-filter: blur(10px);
+  }
+  .qb-bar .icon-btn {
+    width: 40px;
+    height: 40px;
+    color: var(--text-1);
+    background: none;
+    border: 0;
+    border-radius: var(--radius);
+  }
+  .qb-bar .icon-btn:active:not(:disabled) {
+    background: var(--bg-hover);
+  }
+  .qb-bar .qb-name {
+    flex: 1;
+    gap: 1px;
+  }
+  .qb-bar .qb-name h2 {
+    overflow: hidden;
+    font-family: var(--font-sans);
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: 0;
+    text-overflow: ellipsis;
+  }
+  .qb-bar .node-code {
+    font-size: 10.5px;
+  }
+  .qb-bar .qb-nav {
+    gap: 0;
+    font-size: 12px;
+  }
+  .qb-bar .qb-nav span {
+    min-width: 3ch;
+    text-align: center;
+  }
+
+  /* The reading under the bar: the CPU now and its change, the state, then the range's stats. */
   .quote-banner {
     position: static;
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:
-      'id tools'
-      'price price'
+      'price badges'
       'book book';
-    gap: 10px;
-    margin: -10px -8px 0;
-    padding: 10px 10px;
+    gap: 12px;
+    margin: -8px 0 0;
+    padding: 12px;
+    background: var(--bg-panel);
+    border-bottom: 0;
+    backdrop-filter: none;
   }
-  .qb-name h2 {
-    font-size: 21px;
-  }
-  .qb-seen,
-  .qb-nav span {
-    display: none;
-  }
-  .qb-tools {
+  .qb-badges {
+    display: flex;
+    grid-area: badges;
+    align-self: start;
     gap: 6px;
   }
+  /* A long change (+130.23%) beside a wide reading goes under it rather than into the badge. */
   .qb-price {
+    flex-wrap: wrap;
+    gap: 2px 10px;
     padding-left: 0;
     border-left: 0;
   }
   .qb-price > b {
-    font-size: 26px;
+    font-size: 28px;
   }
   .qb-change {
     flex-direction: row;
@@ -1305,19 +1384,46 @@
   .quote-banner .statbook {
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 4px 10px;
+    padding: 10px 0 0;
+    border-top-color: var(--line-faint);
   }
   .quote-banner .statbook dd {
-    font-size: 12.5px;
+    font-size: 13px;
   }
-  .detail-minis,
-  .detail-side {
-    grid-template-columns: minmax(0, 1fr);
+
+  /* Charts: the controls a finger can hit, the CPU title above its tools when they do not fit
+     beside it. */
+  .chart-main .panel-head {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+  /* The subtitle repeats the look and the lower pane, which the switches beside and under it show. */
+  .chart-main .panel-head h3 small {
+    display: none;
+  }
+  .chart-main .chart-tools {
+    flex: 0 1 auto;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-left: auto;
+  }
+  .detail .seg button {
+    height: 28px;
+    padding: 0 10px;
+    font-size: 12px;
+  }
+  .sub-switch {
+    gap: 4px;
+  }
+  .sub-switch button {
+    padding: 4px 8px;
+    font-size: 12px;
   }
   .chart-main .kline {
-    height: 340px;
+    height: 320px;
   }
   .chart-mini .kline {
-    height: 210px;
+    height: 150px;
   }
   .chart-tools .chart-now,
   .lg-ma,
@@ -1329,6 +1435,7 @@
   .kline-legend {
     flex-wrap: nowrap;
     gap: 8px;
+    padding: 4px 12px;
     overflow: hidden;
     white-space: nowrap;
   }
@@ -1342,9 +1449,9 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    margin: 0 -8px -16px;
-    padding: 6px 8px calc(6px + env(safe-area-inset-bottom)) 12px;
-    font-size: 12px;
+    margin: 0 0 -16px;
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom)) 14px;
+    font-size: 12.5px;
     /* --focus: the accent, lighter on dark, so the time reads on the tinted bar. */
     color: var(--focus);
     background: color-mix(in srgb, var(--accent-soft) 92%, transparent);
@@ -1357,8 +1464,8 @@
     font-weight: 650;
   }
   .pin-bar .icon-btn {
-    width: 36px;
-    height: 32px;
+    width: 40px;
+    height: 36px;
     background: var(--bg-panel);
     border-color: color-mix(in srgb, var(--accent) 28%, var(--line-strong));
   }
@@ -1397,4 +1504,23 @@
 /* A label whose meaning is in its tooltip. */
 .has-hint {
   cursor: help;
+}
+
+/* Narrow phones: the range's stats two by two, each label beside its figure. */
+@media (max-width: 420px) {
+  .quote-banner .statbook {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px 20px;
+  }
+  .quote-banner .statbook div {
+    flex-direction: row;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 0;
+    border-left: 0;
+  }
+  .quote-banner .statbook dt {
+    font-size: 11.5px;
+  }
 }

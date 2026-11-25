@@ -8,6 +8,7 @@ import { useLocation, useMatch, useNavigate } from 'react-router'
 import { fitRange, useAvailableRanges, useClientOps, useConnHistory, useExpiryLeadDays, useHistory, useIsAdmin } from '../../lib/api'
 import { buildCandles, buildVolume, inferEvents, isCandle, rangeStats } from '../../lib/candles'
 import { ago, clock, finite, pct, ratio, signed, utcOffset } from '../../lib/format'
+import { useIsPhone } from '../../lib/media'
 import type { Row } from '../../lib/model'
 import { usePrefs, type ChartStyle, type Range, type ThemeSettings } from '../../lib/settings'
 import { Flag, Segmented, Tick } from '../primitives'
@@ -49,6 +50,7 @@ function RangeNote({ stats }: { stats: ReturnType<typeof rangeStats> }) {
 
 function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange, ping, onPing, sub, onSub, onStep }: { r: Row; rows: Row[]; settings: ThemeSettings; traffic: { up: number; down: number } | null; monthly: boolean; now: number; picked: Range; onRange: (r: Range) => void; ping: PingPick | null; onPing: (p: PingPick | null) => void; sub: SubPane; onSub: (s: SubPane) => void; onStep: (d: number) => void }) {
   const { t } = useTranslation()
+  const phone = useIsPhone()
   const admin = useIsAdmin()
   const ops = useClientOps(admin).data?.[r.node.uuid]
   const leadDays = useExpiryLeadDays(admin)
@@ -137,70 +139,105 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange,
     if (!reduce) grid.current?.animate([{ opacity: 0.4 }, { opacity: 1 }], { duration: 120, easing: 'ease-out' })
   }, [uuid, reduce])
 
+  const name = (
+    <div className="qb-name">
+      <Dialog.Title asChild>
+        <h2 className="num" title={r.node.name}>
+          {r.node.name}
+        </h2>
+      </Dialog.Title>
+      <span className="node-code num">
+        {r.code.area}·<em>{r.code.hash}</em>
+      </span>
+    </div>
+  )
+  const badges = (
+    <>
+      <span className={clsx('badge', r.online ? 'badge-on' : 'badge-off')}>
+        <i aria-hidden="true" />
+        {r.online ? t('common.online') : t('common.offline')}
+      </span>
+      {r.node.hidden && (
+        <span className="badge badge-hidden" title={t('common.hiddenHint')}>
+          {t('common.hidden')}
+        </span>
+      )}
+    </>
+  )
+  const quote = (
+    <div className={clsx('qb-price', dir)}>
+      <span className="qb-label">{r.online ? 'CPU' : t('detail.cpuLast')}</span>
+      <b className="num">
+        <Tick value={price} threshold={0.5}>{pct(price)}</Tick>
+      </b>
+      <span className="qb-change num">
+        <span>{dir === 'up' ? '▲' : dir === 'down' ? '▼' : '■'} {finite(change) ? signed(change, 1) : '—'}
+          {finite(change) && <small>pp</small>}
+        </span>
+        <span>{finite(changePct) ? `${signed(changePct, 2)}%` : ''}</span>
+      </span>
+    </div>
+  )
+  const book = <StatBook stats={cpuStats} format={fmtPct} items={['high', 'low', 'avg', 'p95']} />
+  const nav = (
+    <div className="qb-nav">
+      <button type="button" className="icon-btn" onClick={() => onStep(-1)} disabled={rows.length < 2} aria-label={t('detail.prev')} title={t('detail.prevHint')}>
+        <ChevronLeft size={phone ? 18 : 15} />
+      </button>
+      <span className="num dim">
+        {idx + 1}/{rows.length}
+      </span>
+      <button type="button" className="icon-btn" onClick={() => onStep(1)} disabled={rows.length < 2} aria-label={t('detail.next')} title={t('detail.nextHint')}>
+        <ChevronRight size={phone ? 18 : 15} />
+      </button>
+    </div>
+  )
+
   return (
     <div className="detail">
-      <header className="quote-banner">
-        <div className="qb-id">
-          <Flag code={r.region.code} title={r.region.name} />
-          <div className="qb-name">
-            <Dialog.Title asChild>
-              <h2 className="num" title={r.node.name}>
-                {r.node.name}
-              </h2>
-            </Dialog.Title>
-            <span className="node-code num">
-              {r.code.area}·<em>{r.code.hash}</em>
-            </span>
+      {phone ? (
+        // Phones: a bar held at the top while the page scrolls, so closing and paging are always at
+        // hand; the reading and its range stats scroll with the page under it.
+        <>
+          <div className="qb-bar">
+            <Dialog.Close asChild>
+              <button type="button" className="icon-btn qb-close" aria-label={t('detail.closeLabel')}>
+                <X size={20} />
+              </button>
+            </Dialog.Close>
+            <Flag code={r.region.code} title={r.region.name} />
+            {name}
+            {nav}
           </div>
-          <span className={clsx('badge', r.online ? 'badge-on' : 'badge-off')}>
-            <i aria-hidden="true" />
-            {r.online ? t('common.online') : t('common.offline')}
-          </span>
-          {r.node.hidden && (
-            <span className="badge badge-hidden" title={t('common.hiddenHint')}>
-              {t('common.hidden')}
-            </span>
-          )}
-        </div>
-
-        <div className={clsx('qb-price', dir)}>
-          <span className="qb-label">{r.online ? 'CPU' : t('detail.cpuLast')}</span>
-          <b className="num">
-            <Tick value={price} threshold={0.5}>{pct(price)}</Tick>
-          </b>
-          <span className="qb-change num">
-            <span>{dir === 'up' ? '▲' : dir === 'down' ? '▼' : '■'} {finite(change) ? signed(change, 1) : '—'}
-              {finite(change) && <small>pp</small>}
-            </span>
-            <span>{finite(changePct) ? `${signed(changePct, 2)}%` : ''}</span>
-          </span>
-        </div>
-
-        <StatBook stats={cpuStats} format={fmtPct} items={['high', 'low', 'avg', 'p95']} />
-
-        <div className="qb-tools">
-          <span className="qb-seen">
-            <span>{t('common.lastSeen')} <b className="num">{ago(r.lastSeen, now)}</b></span>
-            <small className="num">{r.lastSeen ? `${clock(r.lastSeen)} ${utcOffset(r.lastSeen)}` : '—'}</small>
-          </span>
-          <div className="qb-nav">
-            <button type="button" className="icon-btn" onClick={() => onStep(-1)} disabled={rows.length < 2} aria-label={t('detail.prev')} title={t('detail.prevHint')}>
-              <ChevronLeft size={15} />
-            </button>
-            <span className="num dim">
-              {idx + 1}/{rows.length}
-            </span>
-            <button type="button" className="icon-btn" onClick={() => onStep(1)} disabled={rows.length < 2} aria-label={t('detail.next')} title={t('detail.nextHint')}>
-              <ChevronRight size={15} />
-            </button>
+          <header className="quote-banner">
+            {quote}
+            <div className="qb-badges">{badges}</div>
+            {book}
+          </header>
+        </>
+      ) : (
+        <header className="quote-banner">
+          <div className="qb-id">
+            <Flag code={r.region.code} title={r.region.name} />
+            {name}
+            {badges}
           </div>
-          <Dialog.Close asChild>
-            <button type="button" className="close-btn" aria-label={t('detail.closeLabel')}>
-              {t('common.close')} <X size={14} />
-            </button>
-          </Dialog.Close>
-        </div>
-      </header>
+          {quote}
+          {book}
+          <div className="qb-tools">
+            <span className="qb-seen">
+              <span>{t('common.lastSeen')} <b className="num">{ago(r.lastSeen, now)}</b></span>
+              <small className="num">{r.lastSeen ? `${clock(r.lastSeen)} ${utcOffset(r.lastSeen)}` : '—'}</small>
+            </span>
+            {nav}
+            <Dialog.Close asChild>
+              <button type="button" className="close-btn" aria-label={t('detail.closeLabel')}>
+                {t('common.close')} <X size={14} />
+              </button>
+            </Dialog.Close>
+          </div>
+        </header>
+      )}
 
       <Suspense fallback={<div className="detail-grid" aria-busy="true" />}>
       <div className="detail-grid" ref={grid}>
