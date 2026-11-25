@@ -113,11 +113,6 @@
   color: var(--offline);
   background: var(--flat-soft);
 }
-.panel-lock {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
 .badge-hidden {
   color: var(--text-2);
   border: 1px dashed var(--line-strong);
@@ -370,31 +365,16 @@
   .detail-side > * {
     flex: none;
   }
-  /* The height is set here, so the box keeps its column's width (no aspect ratio): sized from the
-     height it ran past the card's edge, and the card cut off the map's east side. The dots and
-     the pin scale together inside it. */
-  .detail-side .geo-card .world-map {
-    height: clamp(56px, 11vh, 120px);
-    aspect-ratio: auto;
-  }
-  /* The events take the rest of the column and scroll inside; with none, a one-line strip. */
+  /* The events take the rest of the column and scroll inside, but never below the availability
+     strip (with an opened day) and two events: clipped rather than hidden, the card's least height
+     is its content's, and the column scrolls instead. With no events, the strip alone. */
   .detail-side > .events-panel:not(.is-empty) {
     flex: 1 1 0;
-    min-height: 96px;
+    min-height: auto;
+    overflow: clip;
   }
-  /* Nothing to fill the rest (no events, or events turned off): the fact rows share it instead,
-     so the column has no empty block at its foot. */
-  .detail-side:not(:has(> .events-panel:not(.is-empty))) > .side-panel:has(> .facts-2) {
-    display: flex;
-    flex: 1 0 auto;
-    flex-direction: column;
-  }
-  .detail-side:not(:has(> .events-panel:not(.is-empty))) > .system-panel {
-    flex-grow: 2;
-  }
-  .detail-side:not(:has(> .events-panel:not(.is-empty))) .facts-2 {
-    flex: 1 1 auto;
-    grid-auto-rows: 1fr;
+  .detail-side .events-body {
+    min-height: 52px;
   }
   .detail-side .events {
     grid-template-columns: minmax(0, 1fr);
@@ -402,18 +382,6 @@
   /* The column is narrow: an event's text wraps rather than losing its closing value. */
   .detail-side .event span {
     white-space: normal;
-  }
-}
-/* Short desktop screens: the map gives way to the region line beside it. */
-@media (min-width: 1181px) and (min-height: 620px) and (max-height: 720px) {
-  .detail-side .geo-card {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .detail-side .geo-card .world-map {
-    display: none;
-  }
-  .detail-side .geo-meta {
-    padding-right: 12px;
   }
 }
 /* Narrow desktop: the banner keeps one line by dropping P95, and the small charts' heads keep to
@@ -945,21 +913,8 @@
   flex-direction: row;
   gap: 10px;
 }
-/* A traffic sum, and from when it counts when older data has passed retention. */
 .traffic-fact {
   display: inline-flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: flex-end;
-  gap: 2px 10px;
-}
-.is-partial .traffic-fact {
-  cursor: help;
-}
-.traffic-since {
-  font-size: 10.5px;
-  color: var(--warn);
-  white-space: nowrap;
 }
 .fact .pair-line {
   font-size: 12px;
@@ -1085,12 +1040,68 @@
   }
 }
 
-/* Login-only panel: the lock note and the address mask toggle share the head. */
-.admin-extra {
+/* Info panel: system, billing and machine as tabs in the head (the last two for a logged-in viewer).
+   Every tab sits in one grid cell, so the panel is as tall as the tallest and a switch moves
+   nothing under it. */
+.panel-head.compact.info-head {
+  padding-block: 0;
+  gap: 8px;
+}
+.info-tabs {
+  display: flex;
+  align-self: stretch;
+  gap: 16px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.info-tab {
+  position: relative;
   display: inline-flex;
+  flex: none;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  color: var(--text-3);
+  white-space: nowrap;
+  transition: color 120ms ease;
+}
+.info-tab:hover {
+  color: var(--text-2);
+}
+.info-tab[data-state='active'] {
+  color: var(--text-1);
+}
+.info-tab[data-state='active']::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 -1px;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 1px;
+}
+.info-tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  border-radius: 3px;
+}
+.info-tab svg {
+  opacity: 0.7;
+}
+.info-head .copy-btn {
   margin-right: -4px;
+}
+.info-stack {
+  display: grid;
+}
+.info-stack > [role='tabpanel'] {
+  grid-area: 1 / 1;
+  min-width: 0;
+}
+.info-stack > [data-state='inactive'] {
+  visibility: hidden;
 }
 .addr {
   display: inline-flex;
@@ -1113,21 +1124,29 @@
   color: var(--text-1);
   background: var(--bg-hover);
 }
-/* Geo card: region, group and tags, and the public note on the left; the map on the right. */
+/* Geo card: region, group and tags on one line and the public note under them; the map below at
+   the card's full width, nothing over or beside it. */
 .geo-card {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
-  align-items: center;
+  display: flex;
+  flex-direction: column;
+  container-type: inline-size;
 }
 .geo-meta {
   display: flex;
   flex-direction: column;
   gap: 5px;
   min-width: 0;
-  padding: 8px 0 8px 12px;
+  padding: 9px 12px 0;
   font-size: 12.5px;
 }
-.geo-meta > b {
+.geo-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 10px;
+}
+.geo-head > b {
   font-weight: 700;
 }
 .geo-meta .dim {
@@ -1152,9 +1171,12 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
+/* As tall as the card's width allows the whole map (its ratio comes from the map), and no more than
+   a sixth of the screen or so, so the panels under it keep their room. */
 .geo-card .world-map {
-  aspect-ratio: 2.3 / 1;
-  margin: 6px 10px 6px 4px;
+  aspect-ratio: auto;
+  height: min(calc((100cqi - 24px) * var(--map-ratio, 0.5)), max(96px, 17vh));
+  margin: 8px 12px 10px;
 }
 .net-extra {
   display: inline-flex;
@@ -1169,16 +1191,20 @@
   display: flex;
   flex-direction: column;
 }
-.events-panel:not(.is-empty) {
-  min-height: 148px;
-}
-.events-panel.is-empty .panel-head {
+.events-panel.is-empty .events-head {
   border-bottom: 0;
 }
-/* The list scrolls inside the panel instead of growing the row. */
+.events-panel > .uptime-strip {
+  flex: none;
+}
+/* Under the availability strip, the events' own head marks where they start. */
+.uptime-strip + .events-head {
+  border-top: 1px solid var(--line);
+}
+/* The list scrolls inside the panel instead of growing the row; about four events show. */
 .events-body {
   flex: 1 1 0;
-  min-height: 0;
+  min-height: 112px;
   overflow-y: auto;
 }
 .events {
@@ -1241,6 +1267,223 @@
 }
 .ev-high-mem b {
   color: var(--warn);
+}
+
+/* Availability: one bar a day over the events, today at the right end of 30 columns. */
+.uptime-head h3 {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.uptime-help {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  color: var(--text-3);
+  background: none;
+  border: 0;
+  border-radius: 50%;
+  cursor: help;
+}
+.uptime-help:hover,
+.uptime-help[aria-expanded='true'] {
+  color: var(--text-1);
+}
+.uptime-sum {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  white-space: nowrap;
+}
+.uptime-sum b {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-1);
+}
+.uptime-note {
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--text-2);
+  border-bottom: 1px solid var(--line);
+}
+.uptime-body {
+  padding: 6px 12px 4px;
+}
+.uptime-bars {
+  display: grid;
+  grid-template-columns: repeat(30, minmax(0, 1fr));
+  column-gap: 3px;
+  height: 26px;
+  /* A finger moving sideways scrubs through the days; up and down still scrolls the page. */
+  touch-action: pan-y;
+}
+/* A bar is an 18px track filled to its level's height, in its level's color, so a dip shows
+   without telling the colors apart. The button reaches 4px above and below, a larger target, and
+   today has a short line in the space below. */
+.ubar {
+  position: relative;
+  min-width: 0;
+  padding: 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.ubar::before,
+.ubar::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  border-radius: var(--radius-sm);
+}
+.ubar::before {
+  top: 4px;
+  bottom: 4px;
+  background: var(--meter-track);
+}
+.ubar::after {
+  bottom: 4px;
+  height: calc(18px * var(--fill));
+  background: var(--ub);
+}
+.ub-ok {
+  --fill: 1;
+  --ub: var(--online);
+}
+.ub-brief {
+  --fill: 0.8;
+  --ub: var(--uptime-brief);
+}
+.ub-partial {
+  --fill: 0.6;
+  --ub: var(--uptime-partial);
+}
+.ub-severe {
+  --fill: 0.4;
+  --ub: var(--alert);
+}
+.ub-severe::before {
+  background: var(--red-soft);
+}
+.ubar.is-today {
+  background: linear-gradient(var(--text-3), var(--text-3)) bottom / 100% 2px no-repeat;
+}
+.ubar:hover::after {
+  filter: brightness(1.18);
+}
+.ubar:focus-visible {
+  outline: none;
+}
+.ubar.is-open::before,
+.ubar:focus-visible::before {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
+.ubar:focus-visible::before {
+  outline-width: 2px;
+}
+/* The axis, or the day pointed at: one line of fixed height, so pointing moves nothing. */
+.uptime-axis {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 16px;
+  /* The first day's date starts under its bar. */
+  padding-left: calc((100% + 3px) * var(--skip) / 30);
+  font-size: 10.5px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.uptime-axis.is-peek {
+  padding-left: 0;
+  font-size: 11px;
+  color: var(--text-2);
+}
+.uptime-today {
+  margin-left: auto;
+}
+.uptime-peek {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+}
+.uptime-peek > * {
+  flex: none;
+}
+.uptime-peek > :last-child {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.uptime-peek b,
+.uptime-day-head b {
+  font-weight: 650;
+  color: var(--text-1);
+}
+.uptime-strip .ul-ok {
+  color: var(--online);
+}
+.uptime-strip .ul-brief {
+  color: var(--warn);
+}
+.uptime-strip .ul-partial {
+  color: var(--uptime-partial);
+}
+.uptime-strip .ul-severe {
+  color: var(--alert);
+}
+/* The opened day, under the strip. */
+.uptime-day {
+  margin: 4px 0 2px;
+  padding: 5px 6px 6px 8px;
+  font-size: 11.5px;
+  background: var(--bg-inset);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.uptime-day-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.uptime-day-tools {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: auto;
+}
+.uptime-day-tools .icon-btn {
+  width: 22px;
+  height: 22px;
+}
+.uptime-day p {
+  margin: 3px 0 0;
+  color: var(--text-2);
+}
+.uptime-day .sep {
+  margin: 0 6px;
+  color: var(--text-3);
+}
+.uptime-show {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 6px;
+  padding: 3px 8px;
+  font: inherit;
+  font-size: 11px;
+  color: var(--accent);
+  background: none;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.uptime-show:hover {
+  border-color: var(--accent);
 }
 
 /* ---------- responsive detail ---------- */
@@ -1603,14 +1846,16 @@
     height: 200px;
   }
 
-  /* Facts. Network and admin: one column, each label beside its figure, so two rates or an address
-     never squeeze into half a row. */
+  /* Facts. Network, billing and machine: one column, each label beside its figure, so two rates or
+     an address never squeeze into half a row. */
   .net-panel .facts-2,
-  .admin-panel .facts-2 {
+  .info-billing .facts-2,
+  .info-machine .facts-2 {
     grid-template-columns: minmax(0, 1fr);
   }
   .net-panel .facts-2 > .fact,
-  .admin-panel .facts-2 > .fact {
+  .info-billing .facts-2 > .fact,
+  .info-machine .facts-2 > .fact {
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
@@ -1619,12 +1864,14 @@
     padding: 6px 12px;
   }
   .net-panel .facts-2 > .fact dt,
-  .admin-panel .facts-2 > .fact dt {
+  .info-billing .facts-2 > .fact dt,
+  .info-machine .facts-2 > .fact dt {
     font-size: 12px;
     line-height: normal;
   }
   .net-panel .facts-2 > .fact dd,
-  .admin-panel .facts-2 > .fact dd {
+  .info-billing .facts-2 > .fact dd,
+  .info-machine .facts-2 > .fact dd {
     justify-content: flex-end;
     font-size: 13px;
     text-align: right;
@@ -1634,7 +1881,7 @@
   }
   /* System: two columns, every cell label over value; long names (CPU, GPU, OS) run to two
      lines before they are cut. */
-  .system-panel .facts-2 > .fact {
+  .info-system .facts-2 > .fact {
     flex-direction: column;
     align-items: stretch;
     justify-content: flex-start;
@@ -1642,17 +1889,17 @@
     min-height: 0;
     padding: 7px 12px;
   }
-  .system-panel .facts-2 > .fact dt {
+  .info-system .facts-2 > .fact dt {
     font-size: 11px;
     line-height: 1.25;
   }
-  .system-panel .facts-2 > .fact dd {
+  .info-system .facts-2 > .fact dd {
     justify-content: flex-start;
     font-size: 13px;
     line-height: 1.35;
     text-align: left;
   }
-  .system-panel .clip {
+  .info-system .clip {
     display: -webkit-box;
     white-space: normal;
     overflow-wrap: anywhere;
@@ -1666,8 +1913,15 @@
     height: 36px;
     margin: -10px -10px -10px -4px;
   }
-  .admin-extra .copy-btn {
+  .info-head .copy-btn {
     margin-block: -8px;
+  }
+  .detail .panel-head.compact.info-head {
+    padding-block: 0;
+  }
+  /* The page scrolls here, so the info panel takes the height of the tab on show. */
+  .info-stack > [data-state='inactive'] {
+    display: none;
   }
   /* A side panel's title keeps one line; its note beside it wraps instead. */
   .side-panel .panel-head h3 {
@@ -1679,11 +1933,9 @@
   }
   /* Events: the list in full (at most eight), not a box that scrolls inside the page; a long note
      takes two lines. */
-  .events-panel:not(.is-empty) {
-    min-height: 0;
-  }
   .events-body {
     flex: none;
+    min-height: 0;
     overflow: visible;
   }
   .events {

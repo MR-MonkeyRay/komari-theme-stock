@@ -1,3 +1,4 @@
+import * as Tabs from '@radix-ui/react-tabs'
 import clsx from 'clsx'
 import copy from 'copy-to-clipboard'
 import { Check, Copy, Eye, EyeOff, Lock } from 'lucide-react'
@@ -40,7 +41,8 @@ function Fact({ k, children, className, wide }: { k: ReactNode; children: ReactN
   )
 }
 
-/** Where the node is and how it is filed: region, group, tags and the public note, beside the map. */
+/** Where the node is and how it is filed: region, group and tags on one line, the public note under
+ * them, and the map below at the card's full width, so neither crowds the other. */
 export function LocationPanel({ r }: { r: Row }) {
   const { t } = useTranslation()
   const n = r.node
@@ -48,19 +50,21 @@ export function LocationPanel({ r }: { r: Row }) {
   return (
     <section className="panel side-panel geo-card" aria-label={t('panel.location')}>
       <div className="geo-meta">
-        <b>
-          {r.region.name} <span className="dim">· {continentName(r.region.continent)}</span>
-        </b>
-        {(n.group || tagged) && (
-          <span className="geo-tags">
-            {n.group && (
-              <span className="tag tag-group" title={t('panel.group')}>
-                {n.group}
-              </span>
-            )}
-            {tagged && <Tags tags={n.tags} max={3} />}
-          </span>
-        )}
+        <div className="geo-head">
+          <b>
+            {r.region.name} <span className="dim">· {continentName(r.region.continent)}</span>
+          </b>
+          {(n.group || tagged) && (
+            <span className="geo-tags">
+              {n.group && (
+                <span className="tag tag-group" title={t('panel.group')}>
+                  {n.group}
+                </span>
+              )}
+              {tagged && <Tags tags={n.tags} max={3} />}
+            </span>
+          )}
+        </div>
         {n.public_remark && (
           <p className="geo-remark" title={n.public_remark}>
             {n.public_remark}
@@ -89,15 +93,14 @@ function trafficUsed(type: string, up: number, down: number) {
   }
 }
 
-/** A traffic sum; one that only covers part of its period is marked and says from when it counts. */
+/** A traffic sum; one that only covers part of its period is marked, and its tooltip says from when it counts. */
 function TrafficFact({ k, v }: { k: string; v: TrafficSum | undefined }) {
   const { t } = useTranslation()
   const partial = v?.since != null
   return (
     <Fact k={k} wide className={clsx(partial && 'is-partial')}>
-      <span className="traffic-fact" title={partial ? t('board.partialSince', { date: monthDay(v.since!) }) : undefined}>
+      <span className={clsx('traffic-fact', partial && 'has-hint')} title={partial ? t('board.partialSince', { date: monthDay(v.since!) }) : undefined}>
         <Pair up={v?.up} down={v?.down} />
-        {partial && <small className="traffic-since">{t('panel.since', { date: monthDay(v.since!) })}</small>}
       </span>
     </Fact>
   )
@@ -213,126 +216,162 @@ function Address({ ip, label, shown }: { ip: string; label: string; shown: boole
   )
 }
 
+type InfoTab = 'system' | 'billing' | 'machine'
+// The picked tab holds while paging between nodes (where the node has it) and resets on reload.
+const useInfoTab = create<{ tab: InfoTab }>(() => ({ tab: 'system' }))
+
 /**
- * What only a logged-in viewer sees, in one panel: the agent's addresses and version from Komari's
- * admin list (`ops`), and the billing fields. `leadDays`: how close to expiry counts as due soon
- * (Komari's expiry notice setting).
+ * The node's facts in one panel: its system, and for a logged-in viewer two more tabs, billing and
+ * the machine (the agent's addresses and version from Komari's admin list, `ops`). A visitor gets
+ * the system facts under a plain title. Every tab is laid in the same cell, so the panel keeps the
+ * height of the tallest and nothing below it moves on a switch. `leadDays`: how close to expiry
+ * counts as due soon (Komari's expiry notice setting).
  */
-export function AdminPanel({ r, now, leadDays, ops }: { r: Row; now: number; leadDays: number; ops?: ClientOps }) {
+export function InfoPanel({ r, admin, now, leadDays, ops }: { r: Row; admin: boolean; now: number; leadDays: number; ops?: ClientOps }) {
   const { t, i18n } = useTranslation()
   const shown = useReveal((s) => s.shown)
+  const picked = useInfoTab((s) => s.tab)
   const n = r.node
+  const st = r.online ? r.status : undefined
   const cycle = Number.isInteger(n.billing_cycle) ? n.billing_cycle : 0
   const expiry = parseTime(n.expired_at)
   const left = daysLeft(n, now)
   const amount = finite(n.price) && n.price > 0 ? `${n.currency ? n.currency + ' ' : ''}${n.price.toLocaleString(i18n.language, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}` : n.price === -1 ? t('panel.free') : '—'
-  const billing = amount !== '—' || expiry !== null || cycle !== 0
-  if (!billing && !ops) return null
+  const billing = admin && (amount !== '—' || expiry !== null || cycle !== 0)
+  const machine = admin && !!ops
+  const tab: InfoTab = (picked === 'billing' && billing) || (picked === 'machine' && machine) ? picked : 'system'
+  const tabbed = billing || machine
+
+  const system = (
+    /* Cells pair up; a long value without a partner (GPU, an OS without a kernel version) takes the row. */
+    <dl className="facts facts-2">
+      <Fact k={t('panel.cpu')}>
+        <span className="clip" title={n.cpu_name}>{n.cpu_name || '—'}</span>
+      </Fact>
+      <Fact k={t('panel.cores')}>
+        <span className="num">{n.cpu_cores ? (n.cpu_physical_cores ? t('panel.coresBoth', { logical: n.cpu_cores, physical: n.cpu_physical_cores }) : t('panel.coresLogical', { logical: n.cpu_cores })) : '—'}</span>
+      </Fact>
+      {n.gpu_name && (
+        <Fact k="GPU" wide>
+          <span className="clip" title={n.gpu_name}>{n.gpu_name}</span>
+        </Fact>
+      )}
+      <Fact k={t('panel.os')} wide={!n.kernel_version}>
+        <span className="clip" title={n.os}>{n.os || '—'}</span>
+      </Fact>
+      {n.kernel_version && (
+        <Fact k={t('panel.kernel')}>
+          <span className="num clip" title={n.kernel_version}>{n.kernel_version}</span>
+        </Fact>
+      )}
+      <Fact k={t('panel.arch')}>
+        <span className="num">
+          {n.arch || '—'} / {n.virtualization || '—'}
+        </span>
+      </Fact>
+      <Fact k={t('panel.memSwap')}>
+        <span className="num">
+          {size(st?.ram_total || n.mem_total)} / {size(st?.swap_total || n.swap_total)}
+        </span>
+      </Fact>
+      <Fact k={t('panel.diskTotal')}>
+        <span className="num">{size(st?.disk_total || n.disk_total)}</span>
+      </Fact>
+      <Fact k={t('panel.uptime')}>
+        <span className="num">{duration(st?.uptime)}</span>
+      </Fact>
+      <Fact k={t('panel.load')}>
+        <span className="num">{st ? [st.load, st.load5, st.load15].map((x) => (finite(x) ? x.toFixed(2) : '—')).join(' / ') : '—'}</span>
+      </Fact>
+      <Fact k={t('panel.processes')}>
+        <span className="num">{st?.process ?? '—'}</span>
+      </Fact>
+    </dl>
+  )
+
+  if (!tabbed)
+    return (
+      <Panel title={t('panel.system')} className="info-panel">
+        <div className="info-system">{system}</div>
+      </Panel>
+    )
+
+  const lock = <Lock size={10} strokeWidth={2.2} aria-hidden="true" />
+  // Radix focuses a tab from script on mousedown, and Chrome shows a focus ring for that (after the
+  // drawer opened from a link, say). A click switches the tab here instead, without the script
+  // focus; the keyboard (Tab, then the arrow keys) still goes through Radix, ring and all.
+  const click = (value: InfoTab) => ({
+    onMouseDown: (e: React.MouseEvent) => e.button === 0 && !e.ctrlKey && e.preventDefault(),
+    onClick: () => useInfoTab.setState({ tab: value }),
+  })
   return (
-    <Panel
-      className="admin-panel"
-      title={ops && billing ? t('panel.opsBilling') : ops ? t('panel.ops') : t('panel.billing')}
-      extra={
-        <span className="admin-extra">
-          <span className="panel-lock has-hint" title={t('panel.lockHint')}>
-            <Lock size={11} aria-hidden="true" />
-            {t('panel.loginOnly')}
-          </span>
-          {ops && (ops.ipv4 || ops.ipv6) && (
+    <section className="panel side-panel info-panel">
+      <Tabs.Root value={tab} onValueChange={(v) => useInfoTab.setState({ tab: v as InfoTab })}>
+        <div className="panel-head compact info-head">
+          <Tabs.List className="info-tabs" aria-label={t('panel.info')}>
+            <Tabs.Trigger value="system" className="info-tab" {...click('system')}>
+              {t('panel.system')}
+            </Tabs.Trigger>
+            {billing && (
+              <Tabs.Trigger value="billing" className="info-tab" title={t('panel.lockHint')} {...click('billing')}>
+                {lock}
+                {t('panel.billing')}
+              </Tabs.Trigger>
+            )}
+            {machine && (
+              <Tabs.Trigger value="machine" className="info-tab" title={t('panel.loginOnly')} {...click('machine')}>
+                {lock}
+                {t('panel.ops')}
+              </Tabs.Trigger>
+            )}
+          </Tabs.List>
+          {tab === 'machine' && (ops!.ipv4 || ops!.ipv6) && (
             <button type="button" className="copy-btn" aria-pressed={shown} onClick={() => useReveal.setState({ shown: !shown })} aria-label={t('panel.reveal')} title={shown ? t('panel.mask') : t('panel.reveal')}>
               {shown ? <EyeOff size={12} aria-hidden="true" /> : <Eye size={12} aria-hidden="true" />}
             </button>
           )}
-        </span>
-      }
-    >
-      <dl className="facts facts-2">
-        {ops && (
-          <>
-            <Fact k="IPv4">{ops.ipv4 ? <Address key={ops.ipv4} ip={ops.ipv4} label="IPv4" shown={shown} /> : '—'}</Fact>
-            <Fact k={t('panel.agent')}>
-              <span className="num">{ops.version || '—'}</span>
-            </Fact>
-            <Fact k="IPv6" wide>
-              {ops.ipv6 ? <Address key={ops.ipv6} ip={ops.ipv6} label="IPv6" shown={shown} /> : '—'}
-            </Fact>
-          </>
-        )}
-        {billing && (
-          <>
-            <Fact k={t('panel.cycleLabel')}>{cycle === -1 ? t('panel.oneTime') : cycle > 0 ? <span className="num">{CYCLES[cycle] ? `${t(`panel.cycle.${CYCLES[cycle]}`)} · ` : ''}{t('format.days', { count: cycle })}</span> : '—'}</Fact>
-            <Fact k={t('panel.price')}>
-              <span className="num">{amount}</span>
-            </Fact>
-            <Fact k={t('panel.expiry')}>
-              {expiry !== null ? (
-                <span className="num">
-                  {dateText(expiry)}
-                  {left !== null && <em className={clsx('left', left <= 0 ? 'bad' : left <= leadDays ? 'warn' : 'dim')}> {expiryNote(left)}</em>}
-                </span>
-              ) : (
-                '—'
-              )}
-            </Fact>
-            <Fact k={t('panel.autoRenew')}>{n.auto_renewal ? t('panel.on') : t('panel.off')}</Fact>
-          </>
-        )}
-      </dl>
-    </Panel>
-  )
-}
-
-export function SystemPanel({ r }: { r: Row }) {
-  const { t } = useTranslation()
-  const n = r.node
-  const st = r.online ? r.status : undefined
-  return (
-    <Panel title={t('panel.system')} className="system-panel">
-      {/* Cells pair up; a long value without a partner (GPU, an OS without a kernel version) takes the row. */}
-      <dl className="facts facts-2">
-        <Fact k={t('panel.cpu')}>
-          <span className="clip" title={n.cpu_name}>{n.cpu_name || '—'}</span>
-        </Fact>
-        <Fact k={t('panel.cores')}>
-          <span className="num">{n.cpu_cores ? (n.cpu_physical_cores ? t('panel.coresBoth', { logical: n.cpu_cores, physical: n.cpu_physical_cores }) : t('panel.coresLogical', { logical: n.cpu_cores })) : '—'}</span>
-        </Fact>
-        {n.gpu_name && (
-          <Fact k="GPU" wide>
-            <span className="clip" title={n.gpu_name}>{n.gpu_name}</span>
-          </Fact>
-        )}
-        <Fact k={t('panel.os')} wide={!n.kernel_version}>
-          <span className="clip" title={n.os}>{n.os || '—'}</span>
-        </Fact>
-        {n.kernel_version && (
-          <Fact k={t('panel.kernel')}>
-            <span className="num clip" title={n.kernel_version}>{n.kernel_version}</span>
-          </Fact>
-        )}
-        <Fact k={t('panel.arch')}>
-          <span className="num">
-            {n.arch || '—'} / {n.virtualization || '—'}
-          </span>
-        </Fact>
-        <Fact k={t('panel.memSwap')}>
-          <span className="num">
-            {size(st?.ram_total || n.mem_total)} / {size(st?.swap_total || n.swap_total)}
-          </span>
-        </Fact>
-        <Fact k={t('panel.diskTotal')}>
-          <span className="num">{size(st?.disk_total || n.disk_total)}</span>
-        </Fact>
-        <Fact k={t('panel.uptime')}>
-          <span className="num">{duration(st?.uptime)}</span>
-        </Fact>
-        <Fact k={t('panel.load')}>
-          <span className="num">{st ? [st.load, st.load5, st.load15].map((x) => (finite(x) ? x.toFixed(2) : '—')).join(' / ') : '—'}</span>
-        </Fact>
-        <Fact k={t('panel.processes')}>
-          <span className="num">{st?.process ?? '—'}</span>
-        </Fact>
-      </dl>
-    </Panel>
+        </div>
+        <div className="info-stack">
+          <Tabs.Content value="system" className="info-system" forceMount>
+            {system}
+          </Tabs.Content>
+          {billing && (
+            <Tabs.Content value="billing" className="info-billing" forceMount>
+              <dl className="facts facts-2">
+                <Fact k={t('panel.cycleLabel')}>{cycle === -1 ? t('panel.oneTime') : cycle > 0 ? <span className="num">{CYCLES[cycle] ? `${t(`panel.cycle.${CYCLES[cycle]}`)} · ` : ''}{t('format.days', { count: cycle })}</span> : '—'}</Fact>
+                <Fact k={t('panel.price')}>
+                  <span className="num">{amount}</span>
+                </Fact>
+                <Fact k={t('panel.expiry')}>
+                  {expiry !== null ? (
+                    <span className="num">
+                      {dateText(expiry)}
+                      {left !== null && <em className={clsx('left', left <= 0 ? 'bad' : left <= leadDays ? 'warn' : 'dim')}> {expiryNote(left)}</em>}
+                    </span>
+                  ) : (
+                    '—'
+                  )}
+                </Fact>
+                <Fact k={t('panel.autoRenew')}>{n.auto_renewal ? t('panel.on') : t('panel.off')}</Fact>
+              </dl>
+            </Tabs.Content>
+          )}
+          {machine && (
+            <Tabs.Content value="machine" className="info-machine" forceMount>
+              <dl className="facts facts-2">
+                <Fact k="IPv4">{ops!.ipv4 ? <Address key={ops!.ipv4} ip={ops!.ipv4} label="IPv4" shown={shown} /> : '—'}</Fact>
+                <Fact k={t('panel.agent')}>
+                  <span className="num">{ops!.version || '—'}</span>
+                </Fact>
+                <Fact k="IPv6" wide>
+                  {ops!.ipv6 ? <Address key={ops!.ipv6} ip={ops!.ipv6} label="IPv6" shown={shown} /> : '—'}
+                </Fact>
+              </dl>
+            </Tabs.Content>
+          )}
+        </div>
+      </Tabs.Root>
+    </section>
   )
 }
 
@@ -356,13 +395,24 @@ function eventText(e: NodeEvent, t: TFunction) {
   }
 }
 
-export function EventsPanel({ events, now }: { events: NodeEvent[]; now: number }) {
+/**
+ * The availability strip (`top`) over the node's events. `events` is null when the events are
+ * turned off in the settings: the card then holds the strip alone.
+ */
+export function EventsPanel({ events, now, top }: { events: NodeEvent[] | null; now: number; top: ReactNode }) {
   const { t } = useTranslation()
   // Dates are shown for every row as soon as one event is not from today, so the columns line up.
-  const withDate = events.some((e) => !sameDay(e.time, now))
+  const withDate = !!events?.some((e) => !sameDay(e.time, now))
   return (
-    <Panel title={t('panel.events')} extra={events.length ? t('panel.inferred') : t('panel.noEvents')} className={clsx('events-panel', !events.length && 'is-empty')}>
-      {events.length > 0 && (
+    <section className={clsx('panel side-panel events-panel', !events?.length && 'is-empty')}>
+      {top}
+      {events && (
+        <div className="panel-head compact events-head">
+          <h3>{t('panel.events')}</h3>
+          <span className="panel-extra">{events.length ? t('panel.inferred') : t('panel.noEvents')}</span>
+        </div>
+      )}
+      {events && events.length > 0 && (
         <div className="events-body">
           <ol className={clsx('events', withDate && 'with-date')}>
             {events.map((e, i) => {
@@ -389,7 +439,7 @@ export function EventsPanel({ events, now }: { events: NodeEvent[]; now: number 
           </ol>
         </div>
       )}
-    </Panel>
+    </section>
   )
 }
 

@@ -319,7 +319,6 @@
     "rangePeak": "Range peak ↑ / ↓",
     "month": "This month ↑ / ↓",
     "cumulative": "Total ↑ / ↓",
-    "since": "since {{date}}",
     "quota": "Traffic quota",
     "cycle": {
       "month": "Monthly",
@@ -334,8 +333,7 @@
     "copyHint": "Copy the full address",
     "copied": "Copied",
     "free": "Free",
-    "opsBilling": "Ops · billing",
-    "ops": "Ops",
+    "ops": "Machine",
     "billing": "Billing",
     "lockHint": "Komari's public API still sends the billing fields to visitors; the theme only hides them. To keep them private, turn on the private site setting in the admin panel, or leave the price empty",
     "loginOnly": "Logged-in only",
@@ -350,6 +348,7 @@
     "on": "On",
     "off": "Off",
     "system": "System",
+    "info": "Node info",
     "cpu": "Processor",
     "cores": "Cores",
     "coresLogical": "{{logical}} logical",
@@ -384,6 +383,35 @@
     "gapMany_one": "No reports for {{count}} period in a row (about {{span}})",
     "gapMany_other": "No reports for {{count}} periods in a row (about {{span}})",
     "offline": "No live samples since the last report"
+  },
+  "uptime": {
+    "title": "Availability",
+    "help": "About availability",
+    "hint": "Inferred from how many samples the node reports each hour: time without reports counts as offline, as Komari itself judges it. Only time Komari still keeps data for is counted, 30 days at most; days before the node was added are not shown.",
+    "range_one": "Last day",
+    "range_other": "Last {{count}} days",
+    "bars": "Daily availability",
+    "bar": "{{date}}: {{level}}, online {{value}}",
+    "today": "Today",
+    "level": {
+      "ok": "Normal",
+      "brief": "Brief outage",
+      "partial": "Partial outage",
+      "severe": "Major outage"
+    },
+    "online": "Online {{value}}",
+    "offlineFor": "Offline about {{span}}",
+    "allDay": "No reports all day",
+    "noGap": "No downtime",
+    "gaps": "Offline {{list}}",
+    "gapsMore_one": "Offline {{list}} and more ({{count}} in all)",
+    "gapsMore_other": "Offline {{list}} and more ({{count}} in all)",
+    "listSep": ", ",
+    "asOf": "as of {{time}}",
+    "show": "Show in charts",
+    "prev": "Previous day",
+    "next": "Next day",
+    "close": "Close"
   },
   "spark": {
     "empty": "No reports in the last hour"

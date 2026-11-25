@@ -304,7 +304,6 @@
     "rangePeak": "구간 최고 ↑ / ↓",
     "month": "이번 달 ↑ / ↓",
     "cumulative": "누적 ↑ / ↓",
-    "since": "{{date}}부터",
     "quota": "트래픽 할당량",
     "cycle": {
       "month": "월간",
@@ -319,8 +318,7 @@
     "copyHint": "전체 주소 복사",
     "copied": "복사됨",
     "free": "무료",
-    "opsBilling": "운영 · 갱신",
-    "ops": "운영 정보",
+    "ops": "머신 정보",
     "billing": "갱신 정보",
     "lockHint": "Komari 공개 API는 갱신 필드를 방문자에게도 그대로 내려보냅니다. 테마는 표시만 숨깁니다. 실제로 숨기려면 관리 페이지에서 비공개 사이트를 켜거나 금액을 비워 두세요.",
     "loginOnly": "로그인 후 표시",
@@ -335,6 +333,7 @@
     "on": "켜짐",
     "off": "꺼짐",
     "system": "시스템 정보",
+    "info": "노드 정보",
     "cpu": "프로세서",
     "cores": "코어",
     "coresLogical": "{{logical}} 논리",
@@ -368,6 +367,33 @@
     "gapOne": "1구간 보고 없음 (약 {{span}})",
     "gapMany_other": "연속 {{count}}구간 보고 없음 (약 {{span}})",
     "offline": "마지막 보고 이후 실시간 샘플 없음"
+  },
+  "uptime": {
+    "title": "가용률",
+    "help": "가용률 안내",
+    "hint": "노드가 시간마다 보고한 샘플 수로 추정합니다. 보고가 없는 시간은 오프라인으로 계산하며, Komari 자체 판정과 같습니다. Komari가 아직 데이터를 보관 중인 기간만 집계하고(최대 30일), 노드 추가 이전 날짜는 표시하지 않습니다.",
+    "range_other": "최근 {{count}}일",
+    "bars": "일별 가용률",
+    "bar": "{{date}}: {{level}}, 온라인 {{value}}",
+    "today": "오늘",
+    "level": {
+      "ok": "정상",
+      "brief": "짧은 오프라인",
+      "partial": "부분 오프라인",
+      "severe": "심각한 오프라인"
+    },
+    "online": "온라인 {{value}}",
+    "offlineFor": "오프라인 약 {{span}}",
+    "allDay": "종일 보고 없음",
+    "noGap": "오프라인 없음",
+    "gaps": "오프라인 구간 {{list}}",
+    "gapsMore_other": "오프라인 구간 {{list}} 외 (총 {{count}}개)",
+    "listSep": ", ",
+    "asOf": "{{time}} 기준",
+    "show": "차트에서 보기",
+    "prev": "이전 날",
+    "next": "다음 날",
+    "close": "닫기"
   },
   "spark": {
     "empty": "최근 1시간 보고 데이터 없음"

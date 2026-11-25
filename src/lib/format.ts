@@ -70,6 +70,16 @@ export function monthDay(ms: number, pad = true) {
   return f.format(ms)
 }
 
+const weekdayFormats = new Map<string, Intl.DateTimeFormat>()
+
+/** Short weekday in the page language: 周二 / Tue / Di. */
+export function weekday(ms: number) {
+  const lang = currentLanguage()
+  let f = weekdayFormats.get(lang)
+  if (!f) weekdayFormats.set(lang, (f = new Intl.DateTimeFormat(lang, { weekday: 'short' })))
+  return f.format(ms)
+}
+
 /** Month/day and time: 11/24 17:30. */
 export function monthDayTime(ms: number) {
   return `${monthDay(ms)} ${clock(ms, false)}`

@@ -127,7 +127,10 @@ function crosshairAt(c: IChartApi, lineMap: Map<string, ISeriesApi<'Line'>>, los
 }
 
 /** Applies a shared window; one outside this chart's data (before ping retention) is skipped. */
-function showRange(c: IChartApi, r: SharedRange) {
+/** Applies a shared window. One that ends before this chart's first sample (ping keeps less
+ * history than the other metrics) is skipped: lightweight-charts would squeeze it to a sliver. */
+function showRange(c: IChartApi, r: SharedRange, first: number | undefined) {
+  if (first === undefined || r.to <= first) return
   try {
     c.timeScale().setVisibleRange({ from: asTs(r.from), to: asTs(r.to) })
   } catch {
@@ -271,7 +274,7 @@ export default function PingChart({ lines, selected, loading, stale, offline, ra
       if (st.time !== prev.time && st.timeFrom !== id) followTime(st.time)
       if (st.range !== prev.range && st.range) {
         const r = sharedRangeFor(id, latest.current.rangeKey)
-        if (r) showRange(c, r)
+        if (r) showRange(c, r, latest.current.times[0])
       }
       if (st.pin !== prev.pin) showPin.current(st.pin, true)
     })
@@ -357,7 +360,7 @@ export default function PingChart({ lines, selected, loading, stale, offline, ra
     else c.timeScale().fitContent()
     // Another chart was zoomed on this data before it arrived here: join it.
     const shared = sharedRangeFor(id, rangeKey)
-    if (shared) showRange(c, shared)
+    if (shared) showRange(c, shared, times[0])
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rangeKey, times.length > 0])
 

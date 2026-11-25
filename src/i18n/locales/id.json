@@ -304,7 +304,6 @@
     "rangePeak": "Puncak rentang ↑ / ↓",
     "month": "Bulan ini ↑ / ↓",
     "cumulative": "Total ↑ / ↓",
-    "since": "sejak {{date}}",
     "quota": "Kuota trafik",
     "cycle": {
       "month": "Bulanan",
@@ -319,8 +318,7 @@
     "copyHint": "Salin alamat lengkap",
     "copied": "Tersalin",
     "free": "Gratis",
-    "opsBilling": "Ops · tagihan",
-    "ops": "Ops",
+    "ops": "Mesin",
     "billing": "Tagihan",
     "lockHint": "API publik Komari tetap mengirim kolom tagihan ke pengunjung; tema hanya menyembunyikannya. Untuk benar-benar merahasiakannya, aktifkan situs privat di panel admin, atau kosongkan harga",
     "loginOnly": "Hanya untuk yang sudah login",
@@ -335,6 +333,7 @@
     "on": "Aktif",
     "off": "Nonaktif",
     "system": "Sistem",
+    "info": "Info node",
     "cpu": "Prosesor",
     "cores": "Core",
     "coresLogical": "{{logical}} logis",
@@ -368,6 +367,33 @@
     "gapOne": "Tidak ada laporan selama 1 periode (sekitar {{span}})",
     "gapMany_other": "Tidak ada laporan selama {{count}} periode berturut-turut (sekitar {{span}})",
     "offline": "Tidak ada sampel live sejak laporan terakhir"
+  },
+  "uptime": {
+    "title": "Ketersediaan",
+    "help": "Tentang ketersediaan",
+    "hint": "Disimpulkan dari jumlah sampel yang dilaporkan node tiap jam: waktu tanpa laporan dihitung offline, sama seperti penilaian Komari sendiri. Hanya waktu yang datanya masih disimpan Komari yang dihitung, paling lama 30 hari; hari sebelum node ditambahkan tidak ditampilkan.",
+    "range_other": "{{count}} hari terakhir",
+    "bars": "Ketersediaan harian",
+    "bar": "{{date}}: {{level}}, online {{value}}",
+    "today": "Hari ini",
+    "level": {
+      "ok": "Normal",
+      "brief": "Gangguan singkat",
+      "partial": "Gangguan sebagian",
+      "severe": "Gangguan berat"
+    },
+    "online": "Online {{value}}",
+    "offlineFor": "Offline sekitar {{span}}",
+    "allDay": "Tanpa laporan seharian",
+    "noGap": "Tanpa gangguan",
+    "gaps": "Offline {{list}}",
+    "gapsMore_other": "Offline {{list}} dan lainnya ({{count}} total)",
+    "listSep": ", ",
+    "asOf": "per {{time}}",
+    "show": "Lihat di grafik",
+    "prev": "Hari sebelumnya",
+    "next": "Hari berikutnya",
+    "close": "Tutup"
   },
   "spark": {
     "empty": "Tidak ada laporan dalam 1 jam terakhir"

@@ -319,7 +319,6 @@
     "rangePeak": "Pico del rango ↑ / ↓",
     "month": "Este mes ↑ / ↓",
     "cumulative": "Total ↑ / ↓",
-    "since": "desde {{date}}",
     "quota": "Cuota de tráfico",
     "cycle": {
       "month": "Mensual",
@@ -334,8 +333,7 @@
     "copyHint": "Copiar la dirección completa",
     "copied": "Copiado",
     "free": "Gratis",
-    "opsBilling": "Ops · facturación",
-    "ops": "Ops",
+    "ops": "Máquina",
     "billing": "Facturación",
     "lockHint": "La API pública de Komari sigue enviando los campos de facturación a los visitantes; el tema solo los oculta. Para mantenerlos privados, activa el sitio privado en el panel de administración o deja el precio vacío",
     "loginOnly": "Solo con sesión iniciada",
@@ -350,6 +348,7 @@
     "on": "Activada",
     "off": "Desactivada",
     "system": "Sistema",
+    "info": "Información del nodo",
     "cpu": "Procesador",
     "cores": "Núcleos",
     "coresLogical": "{{logical}} lógicos",
@@ -384,6 +383,35 @@
     "gapMany_one": "Sin reportes durante {{count}} periodo seguido (unos {{span}})",
     "gapMany_other": "Sin reportes durante {{count}} periodos seguidos (unos {{span}})",
     "offline": "Sin muestras en vivo desde el último reporte"
+  },
+  "uptime": {
+    "title": "Disponibilidad",
+    "help": "Acerca de la disponibilidad",
+    "hint": "Se deduce de cuántas muestras envía el nodo cada hora: el tiempo sin envíos cuenta como sin conexión, igual que lo considera Komari. Solo se cuenta el tiempo del que Komari aún conserva datos, 30 días como máximo; los días anteriores a la incorporación del nodo no se muestran.",
+    "range_one": "Último día",
+    "range_other": "Últimos {{count}} días",
+    "bars": "Disponibilidad diaria",
+    "bar": "{{date}}: {{level}}, en línea {{value}}",
+    "today": "Hoy",
+    "level": {
+      "ok": "Normal",
+      "brief": "Caída breve",
+      "partial": "Caída parcial",
+      "severe": "Caída grave"
+    },
+    "online": "En línea {{value}}",
+    "offlineFor": "Sin conexión unos {{span}}",
+    "allDay": "Sin envíos en todo el día",
+    "noGap": "Sin caídas",
+    "gaps": "Sin conexión {{list}}",
+    "gapsMore_one": "Sin conexión {{list}} y más ({{count}} en total)",
+    "gapsMore_other": "Sin conexión {{list}} y más ({{count}} en total)",
+    "listSep": ", ",
+    "asOf": "a las {{time}}",
+    "show": "Ver en los gráficos",
+    "prev": "Día anterior",
+    "next": "Día siguiente",
+    "close": "Cerrar"
   },
   "spark": {
     "empty": "Sin reportes en la última hora"

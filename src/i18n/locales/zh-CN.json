@@ -304,7 +304,6 @@
     "rangePeak": "区间峰值 ↑ / ↓",
     "month": "本月 ↑ / ↓",
     "cumulative": "累计 ↑ / ↓",
-    "since": "自 {{date}} 起",
     "quota": "流量配额",
     "cycle": {
       "month": "月付",
@@ -319,9 +318,8 @@
     "copyHint": "复制完整地址",
     "copied": "已复制",
     "free": "免费",
-    "opsBilling": "运维 · 续费",
-    "ops": "运维信息",
-    "billing": "续费信息",
+    "ops": "机器信息",
+    "billing": "续费",
     "lockHint": "Komari 的公开接口仍会把续费字段下发给访客，主题只是不显示；要真正保密，请在后台开启私有站点，或不填写金额",
     "loginOnly": "仅登录可见",
     "reveal": "显示完整地址",
@@ -335,6 +333,7 @@
     "on": "已开启",
     "off": "未开启",
     "system": "系统信息",
+    "info": "节点信息",
     "cpu": "处理器",
     "cores": "核心",
     "coresLogical": "{{logical}} 逻辑",
@@ -368,6 +367,33 @@
     "gapOne": "1 个时段无上报（约 {{span}}）",
     "gapMany_other": "连续 {{count}} 个时段无上报（约 {{span}}）",
     "offline": "最后上报后无实时样本"
+  },
+  "uptime": {
+    "title": "在线率",
+    "help": "在线率说明",
+    "hint": "按节点每小时上报的样本数推断：没有上报的时段记为离线，与 Komari 的在线判定一致。只统计 Komari 仍保留数据的时段，最多 30 天，节点添加之前的日子不显示。",
+    "range_other": "近 {{count}} 日",
+    "bars": "每日在线率",
+    "bar": "{{date}}：{{level}}，在线 {{value}}",
+    "today": "今天",
+    "level": {
+      "ok": "正常",
+      "brief": "短暂离线",
+      "partial": "部分离线",
+      "severe": "严重离线"
+    },
+    "online": "在线 {{value}}",
+    "offlineFor": "离线约 {{span}}",
+    "allDay": "全天无上报",
+    "noGap": "无离线",
+    "gaps": "离线时段 {{list}}",
+    "gapsMore_other": "离线时段 {{list}} 等 {{count}} 段",
+    "listSep": "、",
+    "asOf": "截至 {{time}}",
+    "show": "在图表中查看",
+    "prev": "前一天",
+    "next": "后一天",
+    "close": "收起"
   },
   "spark": {
     "empty": "近 1 小时无上报数据"

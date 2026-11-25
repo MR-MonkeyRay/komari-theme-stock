@@ -47,6 +47,9 @@
   --online: #16c784;
   --offline: #6c7483;
   --alert: #e5484d;
+  /* Availability levels between online green and alert red: a short outage, a longer one. */
+  --uptime-brief: #e5c038;
+  --uptime-partial: #f07d24;
 
   --meter: #4f7fb8;
   --meter-track: #1a1f28;
@@ -151,6 +154,8 @@
   --online: #0d9460;
   --offline: #8c95a6;
   --alert: #c81e32;
+  --uptime-brief: #d9a406;
+  --uptime-partial: #e2620c;
 
   --meter: #5a82b8;
   --meter-track: #e6eaf0;

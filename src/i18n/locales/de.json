@@ -319,7 +319,6 @@
     "rangePeak": "Spitze Zeitraum ↑ / ↓",
     "month": "Diesen Monat ↑ / ↓",
     "cumulative": "Gesamt ↑ / ↓",
-    "since": "seit {{date}}",
     "quota": "Traffic-Kontingent",
     "cycle": {
       "month": "Monatlich",
@@ -334,8 +333,7 @@
     "copyHint": "Vollständige Adresse kopieren",
     "copied": "Kopiert",
     "free": "Kostenlos",
-    "opsBilling": "Betrieb · Abrechnung",
-    "ops": "Betrieb",
+    "ops": "Maschine",
     "billing": "Abrechnung",
     "lockHint": "Die öffentliche API von Komari liefert die Abrechnungsfelder weiterhin an Besucher aus; das Theme blendet sie nur aus. Um sie wirklich geheim zu halten, im Admin-Bereich den privaten Modus der Website aktivieren oder keinen Betrag eintragen",
     "loginOnly": "Nur für Angemeldete",
@@ -350,6 +348,7 @@
     "on": "An",
     "off": "Aus",
     "system": "System",
+    "info": "Knoteninfos",
     "cpu": "Prozessor",
     "cores": "Kerne",
     "coresLogical": "{{logical}} logisch",
@@ -384,6 +383,35 @@
     "gapMany_one": "Keine Meldung für {{count}} Periode in Folge (ca. {{span}})",
     "gapMany_other": "Keine Meldung für {{count}} Perioden in Folge (ca. {{span}})",
     "offline": "Seit der letzten Meldung keine Live-Messwerte"
+  },
+  "uptime": {
+    "title": "Verfügbarkeit",
+    "help": "Über die Verfügbarkeit",
+    "hint": "Abgeleitet aus der Zahl der Messwerte, die der Knoten je Stunde meldet: Zeit ohne Meldungen zählt als offline, wie Komari selbst es wertet. Gezählt wird nur die Zeit, für die Komari noch Daten aufbewahrt, höchstens 30 Tage; Tage vor dem Hinzufügen des Knotens werden nicht gezeigt.",
+    "range_one": "Letzter Tag",
+    "range_other": "Letzte {{count}} Tage",
+    "bars": "Tägliche Verfügbarkeit",
+    "bar": "{{date}}: {{level}}, online {{value}}",
+    "today": "Heute",
+    "level": {
+      "ok": "Normal",
+      "brief": "Kurzer Ausfall",
+      "partial": "Teilausfall",
+      "severe": "Schwerer Ausfall"
+    },
+    "online": "Online {{value}}",
+    "offlineFor": "Etwa {{span}} offline",
+    "allDay": "Ganztägig keine Meldungen",
+    "noGap": "Kein Ausfall",
+    "gaps": "Offline {{list}}",
+    "gapsMore_one": "Offline {{list}} u. a. ({{count}} insgesamt)",
+    "gapsMore_other": "Offline {{list}} u. a. ({{count}} insgesamt)",
+    "listSep": ", ",
+    "asOf": "Stand {{time}}",
+    "show": "In den Diagrammen zeigen",
+    "prev": "Vorheriger Tag",
+    "next": "Nächster Tag",
+    "close": "Schließen"
   },
   "spark": {
     "empty": "Keine Meldungen in der letzten Stunde"
