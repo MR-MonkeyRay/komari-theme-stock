@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useSearchParams } from 'react-router'
 import { create } from 'zustand'
 import type { TFunction } from 'i18next'
+import type { NodeTraffic } from './api'
 import { parseTags } from './format'
 import { isHot } from './market'
 import type { Row } from './model'
@@ -11,7 +12,7 @@ import type { SiteSettings } from './settings'
 // Board view state (search, group tab, quick filter, sort) lives in the URL query, so a reload or a
 // shared link shows the same board, and the detail drawer keeps it while it is open.
 
-export type SortKey = 'name' | 'uptime' | 'cpu' | 'ram' | 'disk' | 'load' | 'traffic' | 'net' | 'seen'
+export type SortKey = 'name' | 'uptime' | 'cpu' | 'ram' | 'disk' | 'load' | 'net' | 'month' | 'total' | 'seen'
 export type Sort = { key: SortKey; dir: 'asc' | 'desc' } | null
 
 /** Quick filters from the index strip: only offline nodes, or only high-load ones. */
@@ -26,7 +27,7 @@ export interface BoardQuery {
   sort: Sort
 }
 
-const SORT_KEYS: SortKey[] = ['name', 'uptime', 'cpu', 'ram', 'disk', 'load', 'traffic', 'net', 'seen']
+const SORT_KEYS: SortKey[] = ['name', 'uptime', 'cpu', 'ram', 'disk', 'load', 'net', 'month', 'total', 'seen']
 
 function parseSort(raw: string | null): Sort {
   const [key, dir] = (raw ?? '').split('-')
@@ -152,9 +153,7 @@ export function groupRows(rows: Row[], by: SiteSettings['groupBy'], t: TFunction
   return [...map.entries()].map(([k, rs]) => ({ key: k, label: k === UNGROUPED ? t('board.ungrouped') : k, rows: rs }))
 }
 
-type Traffic = (r: Row) => { up: number; down: number } | null
-
-function sortValue(r: Row, key: SortKey, traffic: Traffic): number | string | null {
+function sortValue(r: Row, key: SortKey, traffic: NodeTraffic | undefined): number | string | null {
   const st = r.online ? r.status : undefined
   switch (key) {
     case 'name':
@@ -169,12 +168,13 @@ function sortValue(r: Row, key: SortKey, traffic: Traffic): number | string | nu
       return r.disk
     case 'load':
       return st?.load ?? null
-    case 'traffic': {
-      const t = traffic(r)
-      return t ? t.up + t.down : null
-    }
     case 'net':
       return st ? st.net_in + st.net_out : null
+    case 'month':
+    case 'total': {
+      const t = traffic?.[key].get(r.node.uuid)
+      return t ? t.up + t.down : null
+    }
     case 'seen':
       return r.lastSeen
   }
@@ -194,7 +194,7 @@ export interface BoardView {
 }
 
 /** `t` gives the group labels. */
-export function boardView(rows: Row[], by: SiteSettings['groupBy'], query: BoardQuery, traffic: Traffic, t: TFunction): BoardView {
+export function boardView(rows: Row[], by: SiteSettings['groupBy'], query: BoardQuery, traffic: NodeTraffic | undefined, t: TFunction): BoardView {
   const allGroups = groupRows(rows, by, t)
   // A tab from an old link that no longer exists (or grouping switched off) shows everything.
   const filter = by !== 'none' && allGroups.some((g) => g.key === query.group) ? query.group : 'all'

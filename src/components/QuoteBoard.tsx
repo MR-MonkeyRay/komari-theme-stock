@@ -1,15 +1,15 @@
 import * as Popover from '@radix-ui/react-popover'
 import * as RadioGroup from '@radix-ui/react-radio-group'
 import clsx from 'clsx'
-import { ArrowDownUp, Check, ChevronRight, Eye, EyeOff, Search, X } from 'lucide-react'
+import { ArrowDownUp, Check, ChevronRight, CircleQuestionMark, Eye, EyeOff, Search, X } from 'lucide-react'
 import { motion } from 'motion/react'
-import { memo, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
+import { createContext, memo, useContext, useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent, type UIEvent } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import { Link, useLocation } from 'react-router'
-import type { Sparks } from '../lib/api'
+import type { NodeTraffic, Sparks, TrafficSum } from '../lib/api'
 import { firstDir, useBoardQuery, type BoardView, type Sort, type SortKey } from '../lib/board'
-import { ago, duration, finite, levelOf, parseTags, pct, signed, size } from '../lib/format'
+import { ago, duration, finite, levelOf, monthDay, parseTags, pct, signed, size } from '../lib/format'
 import { metricTrail, useNow, type BoardMetric, type Row } from '../lib/model'
+import { newTabKey, useOpenNode } from '../lib/nav'
 import type { ThemeSettings } from '../lib/settings'
 import { Flag, Meter, Pair, Segmented, Sparkline, Tick } from './primitives'
 
@@ -17,8 +17,7 @@ import { Flag, Meter, Pair, Segmented, Sparkline, Tick } from './primitives'
 // second (the "x s ago" label keeps its own clock), so a large board stays cheap between refreshes.
 export interface BoardExtras {
   sparks: Sparks | undefined
-  traffic: (r: Row) => { up: number; down: number } | null
-  trafficMonthly: boolean
+  traffic: NodeTraffic | undefined
   /** Current time, refreshed once a minute: moves the 1h trails of nodes that stopped reporting. */
   minute: number
 }
@@ -46,19 +45,34 @@ export function Tags({ tags, max }: { tags: string; max?: number }) {
   )
 }
 
-/** Columns; `col` names the header (board.col.*), the traffic one depends on the period. */
-const HEAD: { key: SortKey | null; col: 'name' | 'state' | 'cpu' | 'ram' | 'disk' | 'load' | 'traffic' | 'net' | 'tags' | 'seen'; cls: string; trail?: boolean }[] = [
+/** Columns; `col` names the header (board.col.*). `sub` follows the name in small type; a column
+ * with a `hint` explains itself under a ? mark. */
+const HEAD: { key: SortKey | null; col: 'name' | 'state' | 'cpu' | 'ram' | 'disk' | 'load' | 'net' | 'trafficMonth' | 'trafficTotal' | 'tags' | 'seen'; cls: string; trail?: boolean; sub?: string; hint?: 'board.col.trafficMonthHint' | 'board.col.trafficTotalHint' }[] = [
   { key: 'name', col: 'name', cls: 'c-name' },
   { key: 'uptime', col: 'state', cls: 'c-state' },
   { key: 'cpu', col: 'cpu', cls: 'c-cpu', trail: true },
   { key: 'ram', col: 'ram', cls: 'c-ram', trail: true },
   { key: 'disk', col: 'disk', cls: 'c-disk', trail: true },
-  { key: 'load', col: 'load', cls: 'c-load' },
-  { key: 'traffic', col: 'traffic', cls: 'c-traffic' },
+  { key: 'load', col: 'load', cls: 'c-load', sub: '1m' },
   { key: 'net', col: 'net', cls: 'c-net' },
+  { key: 'month', col: 'trafficMonth', cls: 'c-month', hint: 'board.col.trafficMonthHint' },
+  { key: 'total', col: 'trafficTotal', cls: 'c-total', hint: 'board.col.trafficTotalHint' },
   { key: null, col: 'tags', cls: 'c-tags' },
   { key: 'seen', col: 'seen', cls: 'c-seen' },
 ]
+
+/** A traffic sum; one that only covers part of its period (older data past retention) is marked
+ * in its own color and says from when it counts. */
+function TrafficCell({ cls, label, v }: { cls: string; label: string; v: TrafficSum | undefined }) {
+  const { t } = useTranslation()
+  const partial = v?.since != null
+  return (
+    <span className={clsx(cls, partial && 'is-partial')} title={partial ? t('board.partialSince', { date: monthDay(v.since!) }) : undefined}>
+      <span className="m-label">{label}</span>
+      <Pair up={v?.up} down={v?.down} byUnit />
+    </span>
+  )
+}
 /** Disk barely moves within an hour; a wider minimum range keeps its trail visibly flat. */
 const MIN_SPAN: Record<BoardMetric, number> = { cpu: 6, ram: 6, disk: 10 }
 
@@ -89,9 +103,12 @@ function MetricCell({ r, k, x, showSpark, title }: { r: Row; k: BoardMetric; x: 
   )
 }
 
+/** True while a node's drawer covers the board: its "x s ago" labels stop counting. */
+const Covered = createContext(false)
+
 /** "x s ago" on the shared 1 s clock, so only this label re-renders every second, not its row. */
 function Ago({ t }: { t: number | null }) {
-  const now = useNow(1000)
+  const now = useNow(1000, useContext(Covered))
   return (
     <time className="num" dateTime={t ? new Date(t).toISOString() : undefined}>
       {ago(t, now, true)}
@@ -100,10 +117,9 @@ function Ago({ t }: { t: number | null }) {
 }
 
 /** `rank` is the row's place in a sorted board (null when grouped); a change of place slides it. */
-const QuoteRow = memo(function QuoteRow({ r, x, showSpark, search, rank }: { r: Row; x: BoardExtras; showSpark: boolean; search: string; rank: number | null }) {
+const QuoteRow = memo(function QuoteRow({ r, x, showSpark, rank }: { r: Row; x: BoardExtras; showSpark: boolean; rank: number | null }) {
   const { t } = useTranslation()
   const st = r.online ? r.status : undefined
-  const tr = x.traffic(r)
   const memText = st ? `${size(st.ram)} / ${size(st.ram_total || r.node.mem_total)}` : undefined
   const diskText = st ? `${size(st.disk)} / ${size(st.disk_total || r.node.disk_total)}` : undefined
   return (
@@ -111,7 +127,8 @@ const QuoteRow = memo(function QuoteRow({ r, x, showSpark, search, rank }: { r: 
     // with the rank as its dependency it measures a row only when its place changes (rows are of
     // equal height, so a row that keeps its rank keeps its position).
     <motion.div layout={rank !== null ? 'position' : false} layoutDependency={rank} transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="row-wrap">
-      <Link to={{ pathname: `/instance/${r.node.uuid}`, search }} state={{ fromBoard: true }} className={clsx('qrow', !r.online && 'is-off')} data-uuid={r.node.uuid} aria-label={t(r.node.hidden ? 'board.rowHidden' : 'board.row', { name: r.node.name, region: r.region.name, state: r.online ? t('common.online') : t('common.offline') })}>
+      {/* A button that opens the node's drawer (the board's list handles the click, see onRowClick). */}
+      <button type="button" aria-haspopup="dialog" className={clsx('qrow', !r.online && 'is-off')} data-uuid={r.node.uuid} aria-label={t(r.node.hidden ? 'board.rowHidden' : 'board.row', { name: r.node.name, region: r.region.name, state: r.online ? t('common.online') : t('common.offline') })}>
         <span className="c-name">
           <Flag code={r.region.code} title={r.region.name} />
           <span className="name-stack">
@@ -138,21 +155,14 @@ const QuoteRow = memo(function QuoteRow({ r, x, showSpark, search, rank }: { r: 
         <MetricCell r={r} k="disk" x={x} showSpark={showSpark} title={diskText} />
         <span className="c-load num">
           <span className="m-label">{t('board.load')}</span>
-          {(['load', 'load5', 'load15'] as const).map((k, i) => (
-            <span key={k} className="load-cell">
-              <small>{[1, 5, 15][i]}m</small>
-              <b>{finite(st?.[k]) ? st![k].toFixed(2) : '—'}</b>
-            </span>
-          ))}
-        </span>
-        <span className="c-traffic">
-          <span className="m-label">{x.trafficMonthly ? t('board.trafficMonth') : t('board.trafficTotal')}</span>
-          <Pair up={tr?.up} down={tr?.down} byUnit />
+          <b>{finite(st?.load) ? st!.load.toFixed(2) : '—'}</b>
         </span>
         <span className="c-net">
           <span className="m-label">{t('board.network')}</span>
           <Pair up={st?.net_out} down={st?.net_in} rate tickUp tickDown byUnit />
         </span>
+        <TrafficCell cls="c-month" label={t('board.trafficMonth')} v={x.traffic?.month.get(r.node.uuid)} />
+        <TrafficCell cls="c-total" label={t('board.trafficTotal')} v={x.traffic?.total.get(r.node.uuid)} />
         <span className="c-tags">
           <Tags tags={r.node.tags} max={2} />
         </span>
@@ -160,12 +170,12 @@ const QuoteRow = memo(function QuoteRow({ r, x, showSpark, search, rank }: { r: 
           <Ago t={r.lastSeen} />
           <ChevronRight className="row-arrow" size={14} aria-hidden="true" />
         </span>
-      </Link>
+      </button>
     </motion.div>
   )
 })
 
-const SORT_KEYS: SortKey[] = ['cpu', 'ram', 'disk', 'load', 'net', 'traffic', 'uptime', 'seen', 'name']
+const SORT_KEYS: SortKey[] = ['cpu', 'ram', 'disk', 'load', 'net', 'month', 'total', 'uptime', 'seen', 'name']
 
 /**
  * Phones hide the column headers, so the sort lives behind a button beside the search box:
@@ -220,10 +230,10 @@ function SortMenu({ sort, grouped, onChange }: { sort: Sort; grouped: boolean; o
 }
 
 // Memoized: the app re-renders every second for its clocks, the board only when its data does.
-export const QuoteBoard = memo(function QuoteBoard({ rows, view, onHold, hiddenCount, showHidden, onToggleHidden, settings, x, loading, searchRef }: { rows: Row[]; view: BoardView; onHold: (hold: boolean) => void; hiddenCount: number; showHidden: boolean; onToggleHidden: () => void; settings: ThemeSettings; x: BoardExtras; loading: boolean; searchRef: React.RefObject<HTMLInputElement | null> }) {
+export const QuoteBoard = memo(function QuoteBoard({ rows, view, paused, onHold, hiddenCount, showHidden, onToggleHidden, settings, x, loading, searchRef }: { rows: Row[]; view: BoardView; paused: boolean; onHold: (hold: boolean) => void; hiddenCount: number; showHidden: boolean; onToggleHidden: () => void; settings: ThemeSettings; x: BoardExtras; loading: boolean; searchRef: React.RefObject<HTMLInputElement | null> }) {
   const { t } = useTranslation()
   const [{ q: query, quick, sort }, setBoard, flushQuery] = useBoardQuery()
-  const { search } = useLocation()
+  const openNode = useOpenNode()
   const listRef = useRef<HTMLDivElement>(null)
   const showSpark = settings.showSparkline
 
@@ -234,12 +244,33 @@ export const QuoteBoard = memo(function QuoteBoard({ rows, view, onHold, hiddenC
   const cycleSort = (key: SortKey) =>
     setBoard({ sort: sort?.key !== key ? { key, dir: firstDir(key) } : sort.dir === firstDir(key) ? { key, dir: firstDir(key) === 'asc' ? 'desc' : 'asc' } : null })
 
-  // ↑/↓ moves between rows like a quote list; Enter follows the link.
+  // One set of handlers for every row: a click opens its node, a middle click opens it in a new tab
+  // (without the middle button's autoscroll).
+  const rowOf = (e: UIEvent) => (e.target instanceof Element ? e.target.closest<HTMLElement>('.qrow')?.dataset.uuid : undefined)
+  const onRowClick = (e: MouseEvent) => {
+    const id = rowOf(e)
+    if (id) openNode(id, e)
+  }
+  const onRowAux = (e: MouseEvent) => {
+    const id = e.button === 1 ? rowOf(e) : undefined
+    if (id) openNode(id, e)
+  }
+  const onRowDown = (e: MouseEvent) => {
+    if (e.button !== 1 || !rowOf(e)) return
+    // Keeping focus where it is also keeps a search typed a moment ago from being written to the
+    // address on blur: write it now, so the new tab gets it.
+    e.preventDefault()
+    flushQuery()
+  }
+
+  // ↑/↓ moves between rows like a quote list; Enter opens the row.
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const id = rowOf(e)
+    if (id && newTabKey(e)) return openNode(id, e)
     if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
-    const items = [...(listRef.current?.querySelectorAll<HTMLAnchorElement>('a.qrow') ?? [])]
+    const items = [...(listRef.current?.querySelectorAll<HTMLElement>('.qrow') ?? [])]
     if (!items.length) return
-    const i = items.indexOf(document.activeElement as HTMLAnchorElement)
+    const i = items.indexOf(document.activeElement as HTMLElement)
     const next = e.key === 'ArrowDown' ? Math.min(items.length - 1, i + 1) : Math.max(0, i < 0 ? 0 : i - 1)
     items[next].focus()
     items[next].scrollIntoView({ block: 'nearest' })
@@ -255,7 +286,7 @@ export const QuoteBoard = memo(function QuoteBoard({ rows, view, onHold, hiddenC
       e.currentTarget.blur()
       e.preventDefault()
     } else if (e.key === 'ArrowDown') {
-      const first = listRef.current?.querySelector<HTMLAnchorElement>('a.qrow')
+      const first = listRef.current?.querySelector<HTMLElement>('.qrow')
       if (!first) return
       first.focus()
       first.scrollIntoView({ block: 'nearest' })
@@ -267,14 +298,15 @@ export const QuoteBoard = memo(function QuoteBoard({ rows, view, onHold, hiddenC
   // so release the hold whenever the rows change and neither the mouse nor a row holds it.
   useEffect(() => {
     const el = listRef.current
-    if (!el || (!el.matches(':hover') && !el.querySelector('a.qrow:focus-visible'))) onHold(false)
+    if (!el || (!el.matches(':hover') && !el.querySelector('.qrow:focus-visible'))) onHold(false)
   }, [view.order, onHold])
   useEffect(() => () => onHold(false), [onHold])
 
   const cols = clsx('board', !showSpark && 'no-spark')
-  const headLabel = (col: (typeof HEAD)[number]['col']) => (col === 'traffic' ? (x.trafficMonthly ? t('board.col.trafficMonth') : t('board.col.trafficTotal')) : t(`board.col.${col}`))
+  const hintId = useId()
 
   return (
+    <Covered.Provider value={paused}>
     <section className="panel board-panel" aria-labelledby="board-title">
       <div className="panel-head">
         <div className="panel-title">
@@ -354,24 +386,44 @@ export const QuoteBoard = memo(function QuoteBoard({ rows, view, onHold, hiddenC
         className={cols}
         ref={listRef}
         onKeyDown={onKeyDown}
+        onClick={onRowClick}
+        onAuxClick={onRowAux}
+        onMouseDown={onRowDown}
         onPointerEnter={(e) => e.pointerType === 'mouse' && onHold(true)}
-        onPointerLeave={(e) => e.pointerType === 'mouse' && !listRef.current?.querySelector('a.qrow:focus-visible') && onHold(false)}
-        onFocus={(e) => e.target.matches('a.qrow:focus-visible') && onHold(true)}
-        onBlur={(e) => !(e.relatedTarget instanceof Element && e.relatedTarget.matches('a.qrow')) && !listRef.current?.matches(':hover') && onHold(false)}
+        onPointerLeave={(e) => e.pointerType === 'mouse' && !listRef.current?.querySelector('.qrow:focus-visible') && onHold(false)}
+        onFocus={(e) => e.target.matches('.qrow:focus-visible') && onHold(true)}
+        onBlur={(e) => !(e.relatedTarget instanceof Element && e.relatedTarget.matches('.qrow')) && !listRef.current?.matches(':hover') && onHold(false)}
       >
         <div className="qhead" role="row">
           {HEAD.map((h) =>
             h.key ? (
-              <button key={h.cls} type="button" className={clsx(h.cls, 'th', sort?.key === h.key && 'is-sorted')} onClick={() => cycleSort(h.key!)} aria-sort={sort?.key === h.key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
-                <span className="th-text">{headLabel(h.col)}</span>
+              <button
+                key={h.cls}
+                type="button"
+                className={clsx(h.cls, 'th', sort?.key === h.key && 'is-sorted')}
+                onClick={() => cycleSort(h.key!)}
+                aria-sort={sort?.key === h.key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                title={h.hint ? t(h.hint) : undefined}
+                aria-describedby={h.hint ? `${hintId}-${h.col}` : undefined}
+              >
+                <span className="th-text">{t(`board.col.${h.col}`)}</span>
+                {h.sub && <small className="th-sub">{h.sub}</small>}
                 {h.trail && showSpark && <small className="th-sub">1h</small>}
+                {h.hint && (
+                  <>
+                    <CircleQuestionMark className="th-help" size={11} strokeWidth={2} aria-hidden="true" />
+                    <span id={`${hintId}-${h.col}`} hidden>
+                      {t(h.hint)}
+                    </span>
+                  </>
+                )}
                 <span className="sort-mark" aria-hidden="true">
                   {sort?.key === h.key ? (sort.dir === 'asc' ? '▲' : '▼') : '⇅'}
                 </span>
               </button>
             ) : (
               <span key={h.cls} className={clsx(h.cls, 'th')}>
-                <span className="th-text">{headLabel(h.col)}</span>
+                <span className="th-text">{t(`board.col.${h.col}`)}</span>
               </span>
             ),
           )}
@@ -397,7 +449,7 @@ export const QuoteBoard = memo(function QuoteBoard({ rows, view, onHold, hiddenC
         ) : flat ? (
           <div className="group-body">
             {flat.map((r, i) => (
-              <QuoteRow key={r.node.uuid} r={r} x={x} showSpark={showSpark} search={search} rank={i} />
+              <QuoteRow key={r.node.uuid} r={r} x={x} showSpark={showSpark} rank={i} />
             ))}
           </div>
         ) : (
@@ -426,7 +478,7 @@ export const QuoteBoard = memo(function QuoteBoard({ rows, view, onHold, hiddenC
                 )}
                 <div className="group-body">
                   {g.rows.map((r) => (
-                    <QuoteRow key={r.node.uuid} r={r} x={x} showSpark={showSpark} search={search} rank={null} />
+                    <QuoteRow key={r.node.uuid} r={r} x={x} showSpark={showSpark} rank={null} />
                   ))}
                 </div>
               </section>
@@ -435,5 +487,6 @@ export const QuoteBoard = memo(function QuoteBoard({ rows, view, onHold, hiddenC
         )}
       </div>
     </section>
+    </Covered.Provider>
   )
 })

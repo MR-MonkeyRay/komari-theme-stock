@@ -236,11 +236,12 @@
   border-radius: var(--radius);
   transition: color 120ms ease, border-color 120ms ease;
 }
-.icon-btn:hover:not(:disabled) {
+.icon-btn:hover:not(:disabled, [aria-disabled='true']) {
   color: var(--text-1);
   border-color: var(--text-3);
 }
-.icon-btn:disabled {
+.icon-btn:disabled,
+.icon-btn[aria-disabled='true'] {
   opacity: 0.4;
   cursor: default;
 }
@@ -369,8 +370,12 @@
   .detail-side > * {
     flex: none;
   }
+  /* The height is set here, so the box keeps its column's width (no aspect ratio): sized from the
+     height it ran past the card's edge, and the card cut off the map's east side. The dots and
+     the pin scale together inside it. */
   .detail-side .geo-card .world-map {
     height: clamp(56px, 11vh, 120px);
+    aspect-ratio: auto;
   }
   /* The events take the rest of the column and scroll inside; with none, a one-line strip. */
   .detail-side > .events-panel:not(.is-empty) {
@@ -384,7 +389,7 @@
     flex: 1 0 auto;
     flex-direction: column;
   }
-  .detail-side:not(:has(> .events-panel:not(.is-empty))) > .f10-panel {
+  .detail-side:not(:has(> .events-panel:not(.is-empty))) > .system-panel {
     flex-grow: 2;
   }
   .detail-side:not(:has(> .events-panel:not(.is-empty))) .facts-2 {
@@ -451,8 +456,42 @@
 }
 .chart-tools {
   display: flex;
+  flex: none;
   align-items: center;
   gap: 12px;
+}
+/* The CPU chart's title keeps one line beside its tools (five ranges, the pin, a long language):
+   what does not fit of its subtitle is cut short. */
+.chart-main .panel-head h3 {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- pinned time ---------- */
+
+/* The chip that names the pinned time and clears it; it fades while another time is hovered, as the
+   legends then read that one. */
+.pin-chip {
+  transition: opacity 120ms ease, background-color 150ms ease;
+}
+.pin-chip.is-away {
+  opacity: 0.6;
+}
+/* Phones: the same, as a bar held at the foot of the screen while the drawer scrolls. */
+.pin-bar {
+  display: none;
+}
+/* A legend reading the pinned bucket: its time in the accent, and a mark at its edge where the
+   time is left out (small charts, phones). */
+.kline-legend.is-pinned {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.kline-legend.is-pinned .lg-time,
+.ping-legend.is-pinned .lg-ctx.is-time {
+  font-weight: 650;
+  color: var(--accent);
 }
 .chart-now {
   font-size: 11px;
@@ -532,9 +571,16 @@
 .chart-ping .panel-head {
   gap: 8px;
 }
-.ping-chips {
+.ping-pick {
   display: flex;
   flex: 1 1 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  min-width: 0;
+}
+.ping-chips {
+  display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 4px;
@@ -573,21 +619,71 @@
   font-weight: 650;
   color: var(--text-1);
 }
-.ping-chip em {
-  font-style: normal;
-  font-size: 10.5px;
+/* The chip's figure keeps one width (up to 9999ms) as it follows the crosshair. */
+.ping-chip .chip-v {
+  min-width: 6ch;
+  text-align: right;
+}
+.ping-chip .chip-v.warn {
   color: var(--warn);
 }
-.ping-means {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 12px;
+
+/* Legend: the same slots in every state, each reading at a fixed width, so the crosshair changes
+   figures and never positions. The first slot holds either its label or a time, sized for both. */
+.ping-legend .lg-ctx {
+  display: inline-grid;
+  color: var(--text-3);
 }
-.ping-means > span {
+.ping-legend .lg-ctx > * {
+  grid-area: 1 / 1;
+  white-space: nowrap;
+}
+.ping-legend .lg-ctx > .off {
+  visibility: hidden;
+}
+.ping-legend .lg-ctx.is-time {
+  color: var(--text-2);
+}
+/* A reading and its label stay together, and a slot's spare room falls after the figure, between
+   readings. */
+.ping-legend > span {
+  white-space: nowrap;
+}
+.ping-legend .lg-v {
+  display: inline-block;
+  text-align: left;
+}
+.ping-legend .lg-ms {
+  min-width: 6ch;
+}
+.ping-legend .lg-spread {
+  min-width: 8ch;
+}
+.ping-legend .lg-loss {
+  min-width: 5ch;
+}
+.ping-legend .lg-sd {
+  min-width: 3.5ch;
+}
+.ping-legend .lg-v.quiet {
+  font-weight: 500;
+  color: var(--text-3);
+}
+.ping-legend .lg-v.warn {
+  color: var(--warn);
+}
+.ping-legend .lg-line {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  white-space: nowrap;
+}
+.ping-legend .lg-sub {
+  margin-left: 2px;
+}
+.ping-legend .lg-since {
+  margin-left: auto;
+  white-space: nowrap;
 }
 .ping-more {
   flex: none;
@@ -848,6 +944,22 @@
 .fact .pair {
   flex-direction: row;
   gap: 10px;
+}
+/* A traffic sum, and from when it counts when older data has passed retention. */
+.traffic-fact {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 2px 10px;
+}
+.is-partial .traffic-fact {
+  cursor: help;
+}
+.traffic-since {
+  font-size: 10.5px;
+  color: var(--warn);
+  white-space: nowrap;
 }
 .fact .pair-line {
   font-size: 12px;
@@ -1171,40 +1283,119 @@
 }
 
 @media (max-width: 860px) {
+  /* Phones: one scrolling page. Panels run edge to edge, apart by a strip of the page color, with
+     no grey head bands; a bar at the top keeps close and paging in reach. */
   .drawer {
     width: 100vw;
     border-left: 0;
   }
   .detail {
-    padding: 10px 8px 16px;
+    gap: 8px;
+    padding: 0 0 16px;
   }
+  .detail-grid,
+  .detail-main,
+  .detail-side,
+  .detail-minis {
+    gap: 8px;
+  }
+  .detail-minis,
+  .detail-side {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .detail .panel {
+    border-width: 0;
+    border-radius: 0;
+  }
+  .detail .panel-head,
+  .detail .panel-head.compact {
+    min-height: 44px;
+    padding: 8px 12px;
+    background: var(--bg-panel);
+    border-bottom: 0;
+  }
+  .detail .panel-head h3 {
+    font-size: 14.5px;
+  }
+
+  .qb-bar {
+    position: sticky;
+    z-index: 7;
+    top: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 48px;
+    padding: 0 4px;
+    background: color-mix(in srgb, var(--bg-panel) 94%, transparent);
+    border-bottom: 1px solid var(--line);
+    backdrop-filter: blur(10px);
+  }
+  .qb-bar .icon-btn {
+    width: 40px;
+    height: 40px;
+    color: var(--text-1);
+    background: none;
+    border: 0;
+    border-radius: var(--radius);
+  }
+  .qb-bar .icon-btn:active:not(:disabled) {
+    background: var(--bg-hover);
+  }
+  .qb-bar .qb-name {
+    flex: 1;
+    gap: 1px;
+  }
+  .qb-bar .qb-name h2 {
+    overflow: hidden;
+    font-family: var(--font-sans);
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: 0;
+    text-overflow: ellipsis;
+  }
+  .qb-bar .node-code {
+    font-size: 10.5px;
+  }
+  .qb-bar .qb-nav {
+    gap: 0;
+    font-size: 12px;
+  }
+  .qb-bar .qb-nav span {
+    min-width: 3ch;
+    text-align: center;
+  }
+
+  /* The reading under the bar: the CPU now and its change, the state, then the range's stats. */
   .quote-banner {
     position: static;
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:
-      'id tools'
-      'price price'
+      'price badges'
       'book book';
-    gap: 10px;
-    margin: -10px -8px 0;
-    padding: 10px 10px;
+    gap: 12px;
+    margin: -8px 0 0;
+    padding: 12px;
+    background: var(--bg-panel);
+    border-bottom: 0;
+    backdrop-filter: none;
   }
-  .qb-name h2 {
-    font-size: 21px;
-  }
-  .qb-seen,
-  .qb-nav span {
-    display: none;
-  }
-  .qb-tools {
+  .qb-badges {
+    display: flex;
+    grid-area: badges;
+    align-self: start;
     gap: 6px;
   }
+  /* A long change (+130.23%) beside a wide reading goes under it rather than into the badge. */
   .qb-price {
+    flex-wrap: wrap;
+    gap: 2px 10px;
     padding-left: 0;
     border-left: 0;
   }
   .qb-price > b {
-    font-size: 26px;
+    font-size: 28px;
   }
   .qb-change {
     flex-direction: row;
@@ -1213,19 +1404,46 @@
   .quote-banner .statbook {
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 4px 10px;
+    padding: 10px 0 0;
+    border-top-color: var(--line-faint);
   }
   .quote-banner .statbook dd {
-    font-size: 12.5px;
+    font-size: 13px;
   }
-  .detail-minis,
-  .detail-side {
-    grid-template-columns: minmax(0, 1fr);
+
+  /* Charts: the controls a finger can hit, the CPU title above its tools when they do not fit
+     beside it. */
+  .chart-main .panel-head {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+  /* The subtitle repeats the look and the lower pane, which the switches beside and under it show. */
+  .chart-main .panel-head h3 small {
+    display: none;
+  }
+  .chart-main .chart-tools {
+    flex: 0 1 auto;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-left: auto;
+  }
+  .detail .seg button {
+    height: 28px;
+    padding: 0 10px;
+    font-size: 12px;
+  }
+  .sub-switch {
+    gap: 4px;
+  }
+  .sub-switch button {
+    padding: 4px 8px;
+    font-size: 12px;
   }
   .chart-main .kline {
-    height: 340px;
+    height: 320px;
   }
   .chart-mini .kline {
-    height: 210px;
+    height: 150px;
   }
   .chart-tools .chart-now,
   .lg-ma,
@@ -1237,12 +1455,279 @@
   .kline-legend {
     flex-wrap: nowrap;
     gap: 8px;
+    padding: 4px 12px;
     overflow: hidden;
     white-space: nowrap;
+  }
+  .pin-chip {
+    display: none;
+  }
+  .pin-bar {
+    position: sticky;
+    z-index: 6;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0 0 -16px;
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom)) 14px;
+    font-size: 12.5px;
+    /* --focus: the accent, lighter on dark, so the time reads on the tinted bar. */
+    color: var(--focus);
+    background: color-mix(in srgb, var(--accent-soft) 92%, transparent);
+    border-top: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+    box-shadow: 0 -4px 12px rgb(0 0 0 / var(--pin-bar-shadow, 0.08));
+    backdrop-filter: blur(6px);
+  }
+  .pin-bar b {
+    margin-right: auto;
+    font-weight: 650;
+  }
+  .pin-bar .icon-btn {
+    width: 40px;
+    height: 36px;
+    background: var(--bg-panel);
+    border-color: color-mix(in srgb, var(--accent) 28%, var(--line-strong));
+  }
+  /* Ping: 全部 beside the title, then a card per carrier, two by two; nothing scrolls sideways. */
+  .ping-all {
+    height: 30px;
+    padding: 0 12px;
+    font-size: 12px;
+    border-radius: 15px;
+  }
+  .ping-all[aria-pressed='true'] {
+    color: var(--text-1);
+    background: var(--accent-soft);
+    border-color: var(--accent);
+  }
+  .ping-cards {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    padding: 0 12px 10px;
+  }
+  .ping-cards-group {
+    display: contents;
+  }
+  .ping-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    min-width: 0;
+    height: 48px;
+    padding: 0 10px;
+    color: var(--text-2);
+    text-align: left;
+    background: var(--bg-panel);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    transition: background-color 120ms ease, border-color 120ms ease;
+  }
+  .ping-card[data-state='checked'] {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+  }
+  .pc-top {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    font-size: 12.5px;
+  }
+  .pc-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    font-family: var(--font-sans);
+    font-weight: 600;
+    color: var(--text-1);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .ping-card .chip-v {
+    flex: none;
+    min-width: 6ch;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-1);
+    text-align: right;
+  }
+  .ping-card .chip-v.warn {
+    color: var(--warn);
+  }
+  /* Read at the pinned time: the figures in the accent, as the pinned legends' times are. */
+  .ping-cards.is-pinned .chip-v:not(.warn) {
+    color: var(--focus);
+  }
+  /* Labels in the narrower sans, figures in the mono of the rest. */
+  .pc-sub {
+    overflow: hidden;
+    font-family: var(--font-sans);
+    font-size: 11px;
+    color: var(--text-3);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .pc-sub .lg-v {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: var(--text-2);
+  }
+  .pc-sub .lg-v.quiet {
+    font-weight: 500;
+    color: var(--text-3);
+  }
+  .pc-sub .lg-v.warn {
+    color: var(--warn);
+  }
+  .ping-card.ping-more {
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    font-weight: 650;
+  }
+  /* One carrier's legend wraps instead of scrolling: its slots have fixed widths, so it breaks at
+     the same places whether it reads the range or a bucket. With every carrier drawn, the cards are
+     the legend and the row is gone unless a note needs it. */
+  .ping-legend {
+    flex-wrap: wrap;
+    padding: 4px 12px;
+  }
+  .ping-legend:empty {
+    display: none;
+  }
+  .chart-ping .kline {
+    height: 200px;
+  }
+
+  /* Facts. Network and admin: one column, each label beside its figure, so two rates or an address
+     never squeeze into half a row. */
+  .net-panel .facts-2,
+  .admin-panel .facts-2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .net-panel .facts-2 > .fact,
+  .admin-panel .facts-2 > .fact {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    min-height: 38px;
+    padding: 6px 12px;
+  }
+  .net-panel .facts-2 > .fact dt,
+  .admin-panel .facts-2 > .fact dt {
+    font-size: 12px;
+    line-height: normal;
+  }
+  .net-panel .facts-2 > .fact dd,
+  .admin-panel .facts-2 > .fact dd {
+    justify-content: flex-end;
+    font-size: 13px;
+    text-align: right;
+  }
+  .fact .pair-line {
+    font-size: 13px;
+  }
+  /* System: two columns, every cell label over value; long names (CPU, GPU, OS) run to two
+     lines before they are cut. */
+  .system-panel .facts-2 > .fact {
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 2px;
+    min-height: 0;
+    padding: 7px 12px;
+  }
+  .system-panel .facts-2 > .fact dt {
+    font-size: 11px;
+    line-height: 1.25;
+  }
+  .system-panel .facts-2 > .fact dd {
+    justify-content: flex-start;
+    font-size: 13px;
+    line-height: 1.35;
+    text-align: left;
+  }
+  .system-panel .clip {
+    display: -webkit-box;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  /* Copy and reveal: a finger-sized target that does not make its row taller. */
+  .copy-btn,
+  .facts-2 .copy-btn {
+    width: 36px;
+    height: 36px;
+    margin: -10px -10px -10px -4px;
+  }
+  .admin-extra .copy-btn {
+    margin-block: -8px;
+  }
+  /* A side panel's title keeps one line; its note beside it wraps instead. */
+  .side-panel .panel-head h3 {
+    flex: none;
+    white-space: nowrap;
+  }
+  .side-panel .panel-extra {
+    text-align: right;
+  }
+  /* Events: the list in full (at most eight), not a box that scrolls inside the page; a long note
+     takes two lines. */
+  .events-panel:not(.is-empty) {
+    min-height: 0;
+  }
+  .events-body {
+    flex: none;
+    overflow: visible;
+  }
+  .events {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 0 0 6px;
+  }
+  .event {
+    align-items: start;
+    padding: 7px 12px;
+    font-size: 12px;
+  }
+  .event .ev-text {
+    display: -webkit-box;
+    white-space: normal;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
   }
 }
 
 /* A label whose meaning is in its tooltip. */
 .has-hint {
   cursor: help;
+}
+
+/* Narrow phones: the range's stats two by two, each label beside its figure; the candle legends
+   leave out the change (the candle's fill shows its direction), so start, max, min and end fit in
+   every language at any reading. */
+@media (max-width: 420px) {
+  .kline-legend .lg-chg {
+    display: none;
+  }
+  .quote-banner .statbook {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px 20px;
+  }
+  .quote-banner .statbook div {
+    flex-direction: row;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 0;
+    border-left: 0;
+  }
+  .quote-banner .statbook dt {
+    font-size: 11.5px;
+  }
 }

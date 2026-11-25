@@ -21,9 +21,10 @@ import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type R
 import { useTranslation } from 'react-i18next'
 import i18next from '../../i18n'
 import { cssVar, usePaletteVersion } from '../../lib/appearance'
-import { lossText, ms, type PingLineData } from '../../lib/ping'
-import { asTs, baseChartOptions, breakAtGaps, chartPalette, crosshairLabel, HIDE_LINE, localLabel } from './chartBase'
-import { bucketAt, releaseTime, shareRange, sharedRangeFor, shareTime, useChartSync, userGesture, type SharedRange } from './chartSync'
+import { lossText, type PingLineData } from '../../lib/ping'
+import { asTs, baseChartOptions, breakAtGaps, chartPalette, crosshairLabel, HIDE_LINE, localLabel, revealTime } from './chartBase'
+import { bucketAt, releaseTime, shareRange, sharedRangeFor, shareTime, stepTime, togglePin, useChartSync, userGesture, type SharedRange } from './chartSync'
+import { PinMark } from './pinLine'
 
 // --- min–max band -------------------------------------------------------------------------------
 // The spread of latency inside each bucket, drawn as one translucent shape per unbroken run so a
@@ -155,21 +156,25 @@ export interface PingChartProps {
   stale?: boolean
   offline?: boolean
   rangeKey: string
-  /** Shown when nothing is hovered; replaced by the bucket's reading while one is. */
-  summary?: ReactNode
+  /** The readings over the chart, kept by the panel: it knows the range's stats and the chips. */
+  legend?: ReactNode
+  /** The legend reads the pinned bucket. */
+  legendPinned?: boolean
   /** Bucket time (s) under the crosshair, or null; the panel shows each line's value there. */
   onHover?: (time: number | null) => void
 }
 
-export default function PingChart({ lines, selected, loading, stale, offline, rangeKey, summary, onHover }: PingChartProps) {
+export default function PingChart({ lines, selected, loading, stale, offline, rangeKey, legend, legendPinned, onHover }: PingChartProps) {
   const { t, i18n } = useTranslation()
   const host = useRef<HTMLDivElement>(null)
   const chart = useRef<IChartApi | null>(null)
   const band = useRef<ISeriesApi<'Custom', Time, BandData | WhitespaceData<Time>> | null>(null)
   const loss = useRef<ISeriesApi<'Histogram'> | null>(null)
   const series = useRef(new Map<string, ISeriesApi<'Line'>>())
+  // The pinned time, on the pane and the time axis (the panel's legend reads it from the store).
+  const pinMarks = useRef<PinMark[]>([])
+  const showPin = useRef<(t: number | null, reveal?: boolean) => void>(() => {})
   const palette = usePaletteVersion()
-  const [hover, setHover] = useState<number | null>(null)
   const [cursor, setCursor] = useState<number | null>(null)
   // New data (another range or node): ←/→ starts again from the latest bucket.
   const [cursorData, setCursorData] = useState(rangeKey)
@@ -208,6 +213,16 @@ export default function PingChart({ lines, selected, loading, stale, offline, ra
       autoscaleInfoProvider: () => ({ priceRange: { minValue: 0, maxValue: 100 } }),
     })
     c.priceScale('loss').applyOptions({ visible: false, scaleMargins: { top: 0.8, bottom: 0 } })
+    const pins = [new PinMark('line', true), new PinMark('label')]
+    c.panes()[0].attachPrimitive(pins[0])
+    loss.current.attachPrimitive(pins[1])
+    pinMarks.current = pins
+    showPin.current = (t, reveal = false) => {
+      const ts = latest.current.times
+      const i = t === null ? -1 : bucketAt(ts, t)
+      for (const m of pins) m.set(i < 0 ? null : ts[i])
+      if (reveal && i >= 0) revealTime(c, ts[i])
+    }
     chart.current = c
     const lineMap = series.current
     // Show a time another chart points at: the crosshair on its bucket, the readings at it.
@@ -216,7 +231,6 @@ export default function PingChart({ lines, selected, loading, stale, offline, ra
       const i = time === null ? -1 : bucketAt(ts, time)
       // Outside this chart's buckets (ping keeps less history) the legend still shows the time.
       const t = i < 0 ? time : ts[i]
-      setHover(t)
       report.current?.(t)
       if (i < 0) c.clearCrosshairPosition()
       else crosshairAt(c, lineMap, loss.current, ls, sel, i)
@@ -228,12 +242,23 @@ export default function PingChart({ lines, selected, loading, stale, offline, ra
       // time as before, and leave it to whoever set it.
       if (!gesture.pointed()) return followTime(useChartSync.getState().time)
       const t = p.time === undefined ? null : (p.time as number)
-      setHover(t)
       report.current?.(t)
       if (t === null) releaseTime(id)
       else shareTime(id, t)
     }
     c.subscribeCrosshairMove(onMove)
+    // A click (not a drag: the library drops the click once the pointer moves) pins its bucket.
+    const onClick = (p: MouseEventParams) => {
+      if (p.time === undefined) return
+      togglePin(latest.current.times, p.time as number)
+      // A tap leaves the crosshair on the bucket it pinned; the pin marks it now.
+      if (gesture.touch()) {
+        c.clearCrosshairPosition()
+        report.current?.(null)
+        releaseTime(id)
+      }
+    }
+    c.subscribeClick(onClick)
     const onWindow = () => {
       const r = c.timeScale().getVisibleRange()
       if (gesture.active() && r) shareRange(id, { from: r.from as number, to: r.to as number, key: latest.current.rangeKey })
@@ -248,11 +273,15 @@ export default function PingChart({ lines, selected, loading, stale, offline, ra
         const r = sharedRangeFor(id, latest.current.rangeKey)
         if (r) showRange(c, r)
       }
+      if (st.pin !== prev.pin) showPin.current(st.pin, true)
     })
     return () => {
       unfollow()
       c.timeScale().unsubscribeVisibleTimeRangeChange(onWindow)
+      c.unsubscribeClick(onClick)
       c.unsubscribeCrosshairMove(onMove)
+      pinMarks.current = []
+      showPin.current = () => {}
       c.remove()
       chart.current = null
       band.current = null
@@ -280,7 +309,13 @@ export default function PingChart({ lines, selected, loading, stale, offline, ra
   useEffect(() => {
     chart.current?.applyOptions(chartPalette())
     loss.current?.applyOptions({ color: cssVar('--ping-loss') })
+    for (const m of pinMarks.current) m.palette()
   }, [palette])
+
+  // The pin on new data (a refresh, or a chart that mounts after the pin was set): its bucket here.
+  useEffect(() => {
+    showPin.current(useChartSync.getState().pin)
+  }, [times])
 
   // Axis dates and labels follow the page language; re-applying the formatters redraws them.
   useEffect(() => {
@@ -309,7 +344,8 @@ export default function PingChart({ lines, selected, loading, stale, offline, ra
     })
     loss.current.setData(lossData)
     const anyLoss = lossData.some((d) => 'value' in d)
-    c.priceScale('right').applyOptions({ scaleMargins: { top: 0.1, bottom: anyLoss ? 0.26 : 0.08 } })
+    // Labels the top edge would cut in half are left out.
+    c.priceScale('right').applyOptions({ scaleMargins: { top: 0.1, bottom: anyLoss ? 0.26 : 0.08 }, entireTextOnly: true })
   }, [lines, times, selected, palette])
 
   // Fit when the range or node changes, not on every refresh.
@@ -325,75 +361,45 @@ export default function PingChart({ lines, selected, loading, stale, offline, ra
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rangeKey, times.length > 0])
 
-  // Keyboard: ←/→ steps the crosshair across buckets and updates the readings directly (moving the
-  // crosshair from code does not fire the crosshair event).
+  // Keyboard: ←/→ steps the crosshair across buckets (from the pinned one, if any) and updates the
+  // readings directly (moving the crosshair from code does not fire the crosshair event); Enter
+  // pins the bucket under it, or unpins it.
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Enter' && cursor !== null && times[cursor] !== undefined) {
+      e.preventDefault()
+      togglePin(times, times[cursor])
+      return
+    }
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
     if (!times.length || !chart.current) return
     e.preventDefault()
-    const i = cursor === null ? times.length - 1 : Math.max(0, Math.min(times.length - 1, cursor + (e.key === 'ArrowLeft' ? -1 : 1)))
+    const d = e.key === 'ArrowLeft' ? -1 : 1
+    const pin = useChartSync.getState().pin
+    let i = times.length - 1
+    if (cursor !== null) i = Math.max(0, Math.min(times.length - 1, cursor + d))
+    else if (pin !== null) {
+      // The first step leaves the pin for the bucket beside it.
+      const at = bucketAt(times, pin)
+      i = at >= 0 ? Math.max(0, Math.min(times.length - 1, at + d)) : times.indexOf(stepTime(times, pin, d) ?? (d < 0 ? times[0] : times[times.length - 1]))
+    }
     setCursor(i)
-    setHover(times[i])
     report.current?.(times[i])
     shareTime(id, times[i])
     crosshairAt(chart.current, series.current, loss.current, lines, selected, i)
   }
   const onBlur = () => {
     setCursor(null)
-    setHover(null)
     report.current?.(null)
     chart.current?.clearCrosshairPosition()
     releaseTime(id)
   }
 
   const one = selected !== null ? lines.find((l) => l.id === selected) : undefined
-  const at = hover !== null ? times.indexOf(hover) : -1
-  const p = one && at >= 0 ? one.points[at] : undefined
 
   return (
     <div className={clsx('kline ping-chart', offline && 'is-offline', stale && 'is-stale')}>
-      <div className="kline-legend num" aria-hidden="true">
-        {!hasData ? (
-          <span className="dim">{loading ? t('common.loading') : t('ping.noSamples')}</span>
-        ) : hover !== null ? (
-          <>
-            <span className="lg-time">{crosshairLabel(hover as Time)}</span>
-            {one &&
-              (p?.avg !== null && p?.avg !== undefined ? (
-                <>
-                  <span>
-                    {t('chart.avg')} <b>{ms(p.avg)}</b>ms
-                  </span>
-                  {p.min !== null && p.max !== null && (
-                    <span>
-                      {t('ping.range')} <b>{ms(p.min)}–{ms(p.max)}</b>
-                    </span>
-                  )}
-                  {!!p.loss && (
-                    <span className="warn">
-                      {t('ping.loss')} <b>{lossText(p.loss * 100)}</b>
-                    </span>
-                  )}
-                </>
-              ) : (
-                <span className="warn">{p?.loss ? t('ping.allLost') : t('chart.noSamples')}</span>
-              ))}
-            {/* Every line: the chips carry the latency; the loss of this bucket is read here. */}
-            {!one &&
-              at >= 0 &&
-              lines.map((l) => {
-                const q = l.points[at]
-                if (!q?.loss) return null
-                return (
-                  <span key={l.id} className="warn">
-                    {t('ping.lineLoss', { name: l.name })} <b>{q.avg === null ? t('common.all') : lossText(q.loss * 100)}</b>
-                  </span>
-                )
-              })}
-          </>
-        ) : (
-          summary
-        )}
+      <div className={clsx('kline-legend ping-legend num', legendPinned && 'is-pinned')} aria-hidden="true">
+        {hasData ? legend : <span className="dim">{loading ? t('common.loading') : t('ping.noSamples')}</span>}
       </div>
       <div
         ref={host}
@@ -410,6 +416,10 @@ export default function PingChart({ lines, selected, loading, stale, offline, ra
         onPointerLeave={() => {
           gesture.onPointerLeave()
           releaseTime(id)
+          // The chart reports leaving with a crosshair move, but a lifted finger leaves the crosshair
+          // behind: drop it. Either way the panel drops the reading unless another chart points.
+          if (gesture.touch()) chart.current?.clearCrosshairPosition()
+          if (useChartSync.getState().time === null) report.current?.(null)
         }}
       />
       {loading && !hasData && <div className="kline-skeleton skeleton" aria-hidden="true" />}

@@ -9,7 +9,7 @@
 ## 核心亮点
 
 - **查看节点运行状态。** 首页汇总在线和离线节点数、资源使用率及网络流量。节点列表支持按大洲或后台分组，也可搜索和排序；CPU、内存和磁盘列默认同时显示当前使用率和近 1 小时趋势。
-- **回溯资源与网络变化。** 节点详情以 K 线展示 CPU 使用率、内存用量和磁盘用量。CPU 使用率与上下行速率共用时间轴，便于对照同一时段的变化；缺测区间留空。
+- **回溯资源与网络变化。** 节点详情以蜡烛图或折线图展示 CPU 使用率、内存用量和磁盘用量。CPU 使用率与上下行速率共用时间轴，便于对照同一时段的变化；缺测区间留空。
 - **自定义显示。** 支持深色、浅色或跟随系统，也可单独切换指标上升与下降的颜色。
 - **多语言界面。** 界面语言跟随浏览器自动选择，支持简体中文、繁體中文、English、日本語、한국어、Русский、Deutsch、Français、Español、Português (Brasil) 和 Bahasa Indonesia；其他语言显示英文，也可在「设置」中手动切换。
 - **使用键盘导航。** `/` 聚焦搜索；聚焦节点列表后，用 `↑` / `↓` 选择节点、`Enter` 打开详情；在详情中用 `[` / `]` 切换节点、`Esc` 返回。
@@ -37,15 +37,15 @@
 
 **VPS 监控概览**
 
-![监控首页的浅色与深色主题叠放展示：节点在线状态、地区分组及 CPU、内存和磁盘使用率趋势，右侧手机为同一页面的移动端布局](./preview.png)
+![浅色和深色桌面监控首页，均显示本月与累计流量；右侧手机展示双行节点列表，第一行显示节点、CPU 趋势和变化量，第二行显示内存、磁盘和网络指标](./docs/images/preview.png)
 
 **节点详情**
 
-![HK-01 节点详情：24 小时 CPU K 线与网络流量、网络延迟，下方为内存和磁盘用量趋势](./docs/images/stock-detail.png)
+![深色桌面 JP-01 节点详情：24 小时 CPU 蜡烛图、下方的网速图、网络延迟、内存及磁盘用量；右侧是节点位置、含本月与累计流量的网络面板、系统信息和节点事件](./docs/images/detail.png)
 
 **移动端**
 
-![手机上的节点行情、JP-01 节点详情和显示设置](./docs/images/stock-mobile.png)
+![三部手机依次展示深色节点列表、带顶部导航和底部定位栏的 HK-01 详情（CPU 蜡烛图及网络延迟卡片），以及浅色显示设置](./docs/images/mobile.png)
 
 ## 设置与数据口径
 
@@ -79,7 +79,7 @@ VITE_API_TARGET=http://127.0.0.1:25774 npm run dev
 npm run package
 ```
 
-可上传的主题 ZIP 位于 `release/komari-theme-stock-<版本>.zip`，包含根目录的 `komari-theme.json`、`preview.png` 和 `dist/`。向 `main` 推送或提交 PR 时，[CI](./.github/workflows/ci.yml) 会检查并打包；`main` 上尚未发布的 `komari-theme.json` 版本会生成对应的 GitHub Release。
+可上传的主题 ZIP 位于 `release/komari-theme-stock-<版本>.zip`，包含根目录的 `komari-theme.json`，以及 `docs/images/preview.png` 和 `dist/`。向 `main` 推送或提交 PR 时，[CI](./.github/workflows/ci.yml) 会检查并打包；`main` 上尚未发布的 `komari-theme.json` 版本会生成对应的 GitHub Release。
 
 界面文案位于 `src/i18n/locales/`，以 `zh-CN.json` 为源。`npm run i18n:check` 检查各语言的键、复数形式、占位符和标签是否与源一致，构建时也会执行；新增语言时，在 `src/i18n/index.ts` 的 `LANGUAGES` 中登记。
 

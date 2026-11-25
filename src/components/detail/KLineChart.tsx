@@ -7,11 +7,14 @@ import type { ConnPoint } from '../../lib/api'
 import { cssVar, usePaletteVersion } from '../../lib/appearance'
 import { isCandle, movingAverage, volumeBars, type Candle, type Slot, type Volume } from '../../lib/candles'
 import { size } from '../../lib/format'
+import { isPhone } from '../../lib/media'
 import type { ChartStyle } from '../../lib/settings'
-import { asTs, baseChartOptions, breakAtGaps, chartPalette, crosshairLabel, HIDE_AREA, HIDE_LINE, localLabel, onGrid } from './chartBase'
-import { bucketAt, releaseTime, shareRange, sharedRangeFor, shareTime, useChartSync, userGesture, type SharedRange } from './chartSync'
+import { asTs, baseChartOptions, breakAtGaps, chartPalette, crosshairLabel, HIDE_AREA, HIDE_LINE, localLabel, onGrid, revealTime } from './chartBase'
+import { bucketAt, releaseTime, shareRange, sharedRangeFor, shareTime, stepTime, togglePin, useChartSync, userGesture, type SharedRange } from './chartSync'
+import { PinMark } from './pinLine'
 
-const VOL_FORMAT = { type: 'custom' as const, formatter: (v: number) => (v > 0 ? size(v, true) : '0'), minMove: 1 }
+// On phones the axis drops the "/s" (the legend above it keeps it), so it is as narrow as the others.
+const VOL_FORMAT = { type: 'custom' as const, formatter: (v: number) => (v > 0 ? size(v, !isPhone()) : '0'), minMove: 1 }
 const COUNT_FORMAT = { type: 'custom' as const, formatter: (v: number) => (v >= 10_000 ? `${(v / 1000).toFixed(0)}k` : String(Math.round(v))), minMove: 1 }
 
 /** Applies a shared window; one outside this chart's data (before its first sample) is skipped. */
@@ -79,10 +82,14 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
   } | null>(null)
   const lastLine = useRef<IPriceLine | null>(null)
   const markers = useRef<{ candle: ISeriesMarkersPluginApi<Time>; area: ISeriesMarkersPluginApi<Time> } | null>(null)
+  // The pinned time: drawn on every pane and the time axis, read by the legend when nothing is hovered.
+  const pinMarks = useRef<PinMark[]>([])
+  const showPin = useRef<(t: number | null, reveal?: boolean) => void>(() => {})
   const id = useId()
   const gesture = useMemo(() => userGesture(), [])
   const palette = usePaletteVersion()
   const [hover, setHover] = useState<Hover | null>(null)
+  const [pinned, setPinned] = useState<Hover | null>(null)
   const [cursor, setCursor] = useState<number | null>(null)
   // New data (another range or node): ←/→ starts again from the latest bucket.
   const [cursorData, setCursorData] = useState(rangeKey)
@@ -141,8 +148,8 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
     const s: NonNullable<typeof series.current> = { candle, area }
     if (ma) {
       const line = { lineWidth: 1 as const, priceFormat: valueFormat, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false }
-      // MA5 turns into noise on phone-width charts; keep MA20 there.
-      s.ma5 = c.addSeries(LineSeries, { ...line, visible: !window.matchMedia('(max-width: 640px)').matches })
+      // MA5 turns into noise on phone charts (their legend leaves it out too); keep MA20 there.
+      s.ma5 = c.addSeries(LineSeries, { ...line, visible: !isPhone() })
       s.ma20 = c.addSeries(LineSeries, line)
     }
     if (volume) {
@@ -152,7 +159,7 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
       const volFormat = VOL_FORMAT
       s.vol = c.addSeries(CandlestickSeries, { priceFormat: volFormat, wickVisible: false, priceLineVisible: false, lastValueVisible: false }, 1)
       const avgLine = { lineWidth: 1 as const, priceFormat: volFormat, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false }
-      s.volMa5 = c.addSeries(LineSeries, { ...avgLine, visible: !window.matchMedia('(max-width: 640px)').matches }, 1)
+      s.volMa5 = c.addSeries(LineSeries, { ...avgLine, visible: !isPhone() }, 1)
       s.volMa10 = c.addSeries(LineSeries, avgLine, 1)
       // 连接 view: TCP and UDP counts as two indicator lines on a scale from zero.
       const connLine = { lineWidth: 1 as const, priceFormat: COUNT_FORMAT, priceLineVisible: false, lastValueVisible: false, visible: false, autoscaleInfoProvider: (base: () => { priceRange: { minValue: number; maxValue: number } } | null) => {
@@ -171,6 +178,25 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
     series.current = s
 
     markers.current = { candle: createSeriesMarkers(candle, []), area: createSeriesMarkers(area, []) }
+
+    // The pin: a line down each pane (whichever series it shows) and the time on the axis.
+    const pins = [new PinMark('line', true), new PinMark('label')]
+    c.panes()[0].attachPrimitive(pins[0])
+    candle.attachPrimitive(pins[1])
+    if (volume) {
+      pins.push(new PinMark('line'))
+      c.panes()[1].attachPrimitive(pins[2])
+    }
+    pinMarks.current = pins
+    // On this chart's own bucket; a time outside its data marks nothing and reads as a gap.
+    showPin.current = (t, reveal = false) => {
+      const ss = latest.current.slots
+      const k = t === null ? undefined : ss[bucketAt(ss.map((x) => x.time), t)]
+      for (const m of pins) m.set(k ? k.time : null)
+      setPinned(t === null ? null : { time: k?.time ?? t, candle: k && isCandle(k) ? k : null })
+      // A pin moved out of the window (stepped past a phone's shorter one) brings the window along.
+      if (reveal && k) revealTime(c, k.time)
+    }
 
     // Show a time another chart points at: the crosshair on its bucket and the legend reading it.
     const followTime = (t: number | null) => {
@@ -207,6 +233,18 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
       shareTime(id, t)
     }
     c.subscribeCrosshairMove(onMove)
+    // A click (not a drag: the library drops the click once the pointer moves) pins its bucket.
+    const onClick = (p: MouseEventParams) => {
+      if (p.time === undefined) return
+      togglePin(latest.current.slots.map((x) => x.time), p.time as number)
+      // A tap leaves the crosshair on the bucket it pinned; the pin marks it now.
+      if (gesture.touch()) {
+        c.clearCrosshairPosition()
+        setHover(null)
+        releaseTime(id)
+      }
+    }
+    c.subscribeClick(onClick)
     const onWindow = () => {
       const r = c.timeScale().getVisibleRange()
       if (gesture.active() && r) shareRange(id, { from: r.from as number, to: r.to as number, key: latest.current.rangeKey })
@@ -221,12 +259,16 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
         const r = sharedRangeFor(id, latest.current.rangeKey)
         if (r) showRange(c, r)
       }
+      if (st.pin !== prev.pin) showPin.current(st.pin, true)
     })
     return () => {
       unfollow()
       c.timeScale().unsubscribeVisibleTimeRangeChange(onWindow)
+      c.unsubscribeClick(onClick)
       c.unsubscribeCrosshairMove(onMove)
       markers.current = null
+      pinMarks.current = []
+      showPin.current = () => {}
       c.remove()
       chart.current = null
       series.current = null
@@ -259,7 +301,13 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
     s.volMa10?.applyOptions({ color: cssVar('--ma20') })
     s.tcp?.applyOptions({ color: cssVar('--conn-tcp') })
     s.udp?.applyOptions({ color: cssVar('--conn-udp') })
+    for (const m of pinMarks.current) m.palette()
   }, [palette])
+
+  // The pin on new data (a refresh, or a chart that mounts after the pin was set): its bucket here.
+  useEffect(() => {
+    showPin.current(useChartSync.getState().pin)
+  }, [slots])
 
   // K 线 or 分时.
   useEffect(() => {
@@ -267,8 +315,8 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
     if (!s) return
     s.candle.applyOptions({ visible: !line })
     s.area.applyOptions({ visible: line })
-    // In 分时 the gold MA20 plays the stock chart's average line; MA5 would only crowd it.
-    s.ma5?.applyOptions({ visible: !line && !window.matchMedia('(max-width: 640px)').matches })
+    // In the line look the gold MA20 is the average line; MA5 would only crowd it.
+    s.ma5?.applyOptions({ visible: !line && !isPhone() })
   }, [line])
 
   // Event marks on the visible series: ▲ over a rise, ▼ under a fall, a dot over a memory high.
@@ -296,7 +344,7 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
     if (!s?.vol) return
     const vol = sub === 'vol'
     // The pane's axis labels take the first series' format, which is the (hidden) volume bars.
-    for (const x of [s.vol, s.volMa5, s.volMa10]) x?.applyOptions({ visible: vol && (x !== s.volMa5 || !window.matchMedia('(max-width: 640px)').matches), priceFormat: vol ? VOL_FORMAT : COUNT_FORMAT })
+    for (const x of [s.vol, s.volMa5, s.volMa10]) x?.applyOptions({ visible: vol && (x !== s.volMa5 || !isPhone()), priceFormat: vol ? VOL_FORMAT : COUNT_FORMAT })
     s.tcp?.applyOptions({ visible: !vol })
     s.udp?.applyOptions({ visible: !vol })
   }, [sub])
@@ -385,12 +433,25 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rangeKey, slots.length > 0])
 
-  // Keyboard: ←/→ steps the crosshair across buckets.
+  // Keyboard: ←/→ steps the crosshair across buckets (from the pinned one, if any); Enter pins the
+  // bucket under it, or unpins it.
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Enter' && cursor !== null && candles[cursor]) {
+      e.preventDefault()
+      togglePin(slots.map((x) => x.time), candles[cursor].time)
+      return
+    }
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
     if (!candles.length || !chart.current || !series.current) return
     e.preventDefault()
-    const i = cursor === null ? candles.length - 1 : Math.max(0, Math.min(candles.length - 1, cursor + (e.key === 'ArrowLeft' ? -1 : 1)))
+    const d = e.key === 'ArrowLeft' ? -1 : 1
+    let i = candles.length - 1
+    if (cursor !== null) i = Math.max(0, Math.min(candles.length - 1, cursor + d))
+    else if (pinned) {
+      // The first step leaves the pin for the sample beside it (either side of a pin on a gap).
+      const ts = candles.map((c) => c.time)
+      i = ts.indexOf(stepTime(ts, pinned.time, d) ?? (d < 0 ? ts[0] : ts[ts.length - 1]))
+    }
     setCursor(i)
     const c = candles[i]
     if (line) chart.current.setCrosshairPosition(c.avg, asTs(c.time), series.current.area)
@@ -406,21 +467,25 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
     releaseTime(id)
   }
 
-  // Hovering a bucket without samples says so, instead of showing the latest candle.
-  const gap = hover !== null && hover.candle === null
-  const shown = gap ? null : (hover?.candle ?? candles[candles.length - 1] ?? null)
-  const shownTime = hover?.time ?? shown?.time
+  // The legend reads the hovered bucket, else the pinned one, else the latest. A bucket without
+  // samples says so, instead of showing the latest candle.
+  const read = hover ?? pinned
+  // Marked as the pin's reading also when the crosshair rests on it (a tap on a phone puts both there).
+  const onPin = pinned !== null && (hover === null || hover.time === pinned.time)
+  const gap = read !== null && read.candle === null
+  const shown = gap ? null : (read?.candle ?? candles[candles.length - 1] ?? null)
+  const shownTime = read?.time ?? shown?.time
   const bar = shownTime !== undefined ? barByTime.get(shownTime) : undefined
-  const cn = hover ? connByTime.get(hover.time) : lastConn
+  const cn = read ? connByTime.get(read.time) : lastConn
   const chg = shown ? shown.close - shown.open : 0
   const dir = chg > 0 ? 'up' : chg < 0 ? 'down' : 'flat'
 
   return (
     <div className={clsx('kline', offline && 'is-offline', loading && !candles.length && 'is-loading', stale && 'is-stale')}>
-      <div className="kline-legend num" aria-hidden="true" ref={legend}>
+      <div className={clsx('kline-legend num', onPin && 'is-pinned')} aria-hidden="true" ref={legend}>
         {gap ? (
           <>
-            <span className="lg-time">{crosshairLabel(hover.time as Time)}</span>
+            <span className="lg-time">{crosshairLabel(read.time as Time)}</span>
             <span className="dim">{t('chart.noSamples')}</span>
           </>
         ) : shown && line ? (
@@ -458,7 +523,7 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
               {t('chart.close')} <b className={dir}>{format(shown.close)}</b>
             </span>
             {shown.open > 0 && (
-              <span>
+              <span className="lg-chg">
                 {t('chart.change')} <b className={dir}>{((chg / shown.open) * 100).toFixed(2)}%</b>
               </span>
             )}
@@ -489,6 +554,12 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
         onPointerLeave={() => {
           gesture.onPointerLeave()
           releaseTime(id)
+          // A lifted finger leaves the crosshair behind (a mouse takes it along): drop it, so the
+          // legend goes back to the pin or the latest bucket.
+          if (gesture.touch()) {
+            chart.current?.clearCrosshairPosition()
+            setHover(null)
+          }
         }}
       />
       {volume && subTop !== null && candles.length > 0 && (
@@ -503,7 +574,7 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
             <span className="sub-read" aria-hidden="true">
               {cn && (cn.tcp !== null || cn.udp !== null) ? (
                 <>
-                  <span className="lg-tag">CONN</span>
+                  <span className="lg-tag">{t('panel.total')}</span>
                   <b>{Math.round((cn.tcp ?? 0) + (cn.udp ?? 0))}</b>
                   <span className="lg-tcp">
                     TCP <b>{cn.tcp === null ? '—' : Math.round(cn.tcp)}</b>
@@ -518,7 +589,7 @@ export default function KLineChart({ slots, volume, sub = 'vol', onSub, conn, lo
             </span>
           ) : (
           <span className="sub-read" aria-hidden="true">
-          <span className="lg-tag">VOL</span>
+          <span className="lg-tag">{t('panel.total')}</span>
           {bar ? (
             <>
               <b className={bar.dir}>{size(bar.total, true)}</b>

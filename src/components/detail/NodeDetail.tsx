@@ -1,22 +1,33 @@
 import * as Dialog from '@radix-ui/react-dialog'
 import clsx from 'clsx'
-import { ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, LocateFixed, X } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useMatch, useNavigate } from 'react-router'
-import { fitRange, useAvailableRanges, useClientOps, useConnHistory, useExpiryLeadDays, useHistory, useIsAdmin } from '../../lib/api'
-import { buildCandles, buildVolume, inferEvents, rangeStats } from '../../lib/candles'
+import { fitRange, useAvailableRanges, useClientOps, useConnHistory, useExpiryLeadDays, useHistory, useIsAdmin, type NodeTraffic, type TrafficSum } from '../../lib/api'
+import { buildCandles, buildVolume, inferEvents, isCandle, rangeStats } from '../../lib/candles'
 import { ago, clock, finite, pct, ratio, signed, utcOffset } from '../../lib/format'
+import { useIsPhone } from '../../lib/media'
 import type { Row } from '../../lib/model'
 import { usePrefs, type ChartStyle, type Range, type ThemeSettings } from '../../lib/settings'
 import { Flag, Segmented, Tick } from '../primitives'
 import { AdminPanel, EventsPanel, LocationPanel, NetworkPanel, StatBook, SystemPanel } from './Panels'
-import { resetSync } from './chartSync'
+import type { Time } from 'lightweight-charts'
+import { crosshairLabel } from './chartBase'
+import { bucketAt, resetSync, setPin, stepTime, useChartSync } from './chartSync'
 import { PingPanel, type PingPick } from './PingPanel'
 
 // lightweight-charts is only needed once a detail drawer opens.
 const KLineChart = lazy(() => import('./KLineChart'))
+
+/** Clears the pin. Focus on the chip or bar that goes with it moves to the CPU chart, not the page. */
+function clearPin() {
+  const from = document.activeElement
+  const held = from instanceof HTMLElement && from.closest('.pin-chip, .pin-bar') !== null
+  setPin(null)
+  if (held) document.querySelector<HTMLElement>('.chart-main .kline-canvas')?.focus({ preventScroll: true })
+}
 type SubPane = import('./KLineChart').SubPane
 type ChartMark = import('./KLineChart').ChartMark
 
@@ -37,8 +48,9 @@ function RangeNote({ stats }: { stats: ReturnType<typeof rangeStats> }) {
   )
 }
 
-function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange, ping, onPing, sub, onSub, onStep }: { r: Row; rows: Row[]; settings: ThemeSettings; traffic: { up: number; down: number } | null; monthly: boolean; now: number; picked: Range; onRange: (r: Range) => void; ping: PingPick | null; onPing: (p: PingPick | null) => void; sub: SubPane; onSub: (s: SubPane) => void; onStep: (d: number) => void }) {
+function DetailBody({ r, rows, settings, traffic, now, picked, onRange, ping, onPing, sub, onSub, onStep }: { r: Row; rows: Row[]; settings: ThemeSettings; traffic: { month?: TrafficSum; total?: TrafficSum }; now: number; picked: Range; onRange: (r: Range) => void; ping: PingPick | null; onPing: (p: PingPick | null) => void; sub: SubPane; onSub: (s: SubPane) => void; onStep: (d: number) => void }) {
   const { t } = useTranslation()
+  const phone = useIsPhone()
   const admin = useIsAdmin()
   const ops = useClientOps(admin).data?.[r.node.uuid]
   const leadDays = useExpiryLeadDays(admin)
@@ -84,8 +96,35 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange,
   const loading = history.isFetching && !h
   // Charts refit when data for a new range (or node) arrives, not when the range is clicked.
   const dataKey = `${uuid}-${h?.range}`
-  // A shared crosshair or zoom belongs to the data it was made on.
+  // A shared crosshair, zoom or pin belongs to the data it was made on.
   useEffect(() => resetSync(), [dataKey])
+
+  // The pinned time, shown once for all charts: a chip in the CPU chart's head, and on phones a bar
+  // held at the foot of the screen while the page scrolls (last in the page, so it pushes nothing
+  // down under the finger that pinned). The chip fades while another time is hovered.
+  const pin = useChartSync((st) => st.pin)
+  const pinText = pin === null ? '' : crosshairLabel(pin as Time)
+  const cpuTimes = useMemo(() => cpu.map((x) => x.time), [cpu])
+  // Compared by CPU bucket: a chart of another span may name the same bucket by another time.
+  const away = useChartSync((st) => {
+    if (st.time === null || st.pin === null || st.time === st.pin) return false
+    const at = bucketAt(cpuTimes, st.time)
+    return at < 0 || at !== bucketAt(cpuTimes, st.pin)
+  })
+  // Phones: thin candles are hard to tap exactly, so the bar steps the pin to the next bucket with
+  // samples each way (as ←/→ on a chart do), and stops at the ends.
+  const samples = useMemo(() => cpu.filter(isCandle).map((x) => x.time), [cpu])
+  const prevPin = pin === null ? null : stepTime(samples, pin, -1)
+  const nextPin = pin === null ? null : stepTime(samples, pin, 1)
+  // A pin the window has moved past (a refresh slides it forward) goes too, instead of every chart
+  // reading a time it no longer has.
+  const passed = pin !== null && !stale && cpuTimes.length > 0 && pin < cpuTimes[0]
+  useEffect(() => {
+    if (passed) clearPin()
+  }, [passed])
+  // Said to screen readers: the pin as it moves, and its clearing.
+  const [hadPin, setHadPin] = useState(false)
+  if (pin !== null && !hadPin) setHadPin(true)
 
   // Paging to another node keeps the banner, the panels and the chart instances; only the content
   // under the banner gives a short fade so the change of node registers.
@@ -100,70 +139,105 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange,
     if (!reduce) grid.current?.animate([{ opacity: 0.4 }, { opacity: 1 }], { duration: 120, easing: 'ease-out' })
   }, [uuid, reduce])
 
+  const name = (
+    <div className="qb-name">
+      <Dialog.Title asChild>
+        <h2 className="num" title={r.node.name}>
+          {r.node.name}
+        </h2>
+      </Dialog.Title>
+      <span className="node-code num">
+        {r.code.area}·<em>{r.code.hash}</em>
+      </span>
+    </div>
+  )
+  const badges = (
+    <>
+      <span className={clsx('badge', r.online ? 'badge-on' : 'badge-off')}>
+        <i aria-hidden="true" />
+        {r.online ? t('common.online') : t('common.offline')}
+      </span>
+      {r.node.hidden && (
+        <span className="badge badge-hidden" title={t('common.hiddenHint')}>
+          {t('common.hidden')}
+        </span>
+      )}
+    </>
+  )
+  const quote = (
+    <div className={clsx('qb-price', dir)}>
+      <span className="qb-label">{r.online ? 'CPU' : t('detail.cpuLast')}</span>
+      <b className="num">
+        <Tick value={price} threshold={0.5}>{pct(price)}</Tick>
+      </b>
+      <span className="qb-change num">
+        <span>{dir === 'up' ? '▲' : dir === 'down' ? '▼' : '■'} {finite(change) ? signed(change, 1) : '—'}
+          {finite(change) && <small>pp</small>}
+        </span>
+        <span>{finite(changePct) ? `${signed(changePct, 2)}%` : ''}</span>
+      </span>
+    </div>
+  )
+  const book = <StatBook stats={cpuStats} format={fmtPct} items={['high', 'low', 'avg', 'p95']} />
+  const nav = (
+    <div className="qb-nav">
+      <button type="button" className="icon-btn" onClick={() => onStep(-1)} disabled={rows.length < 2} aria-label={t('detail.prev')} title={t('detail.prevHint')}>
+        <ChevronLeft size={phone ? 18 : 15} />
+      </button>
+      <span className="num dim">
+        {idx + 1}/{rows.length}
+      </span>
+      <button type="button" className="icon-btn" onClick={() => onStep(1)} disabled={rows.length < 2} aria-label={t('detail.next')} title={t('detail.nextHint')}>
+        <ChevronRight size={phone ? 18 : 15} />
+      </button>
+    </div>
+  )
+
   return (
     <div className="detail">
-      <header className="quote-banner">
-        <div className="qb-id">
-          <Flag code={r.region.code} title={r.region.name} />
-          <div className="qb-name">
-            <Dialog.Title asChild>
-              <h2 className="num" title={r.node.name}>
-                {r.node.name}
-              </h2>
-            </Dialog.Title>
-            <span className="node-code num">
-              {r.code.area}·<em>{r.code.hash}</em>
-            </span>
+      {phone ? (
+        // Phones: a bar held at the top while the page scrolls, so closing and paging are always at
+        // hand; the reading and its range stats scroll with the page under it.
+        <>
+          <div className="qb-bar">
+            <Dialog.Close asChild>
+              <button type="button" className="icon-btn qb-close" aria-label={t('detail.closeLabel')}>
+                <X size={20} />
+              </button>
+            </Dialog.Close>
+            <Flag code={r.region.code} title={r.region.name} />
+            {name}
+            {nav}
           </div>
-          <span className={clsx('badge', r.online ? 'badge-on' : 'badge-off')}>
-            <i aria-hidden="true" />
-            {r.online ? t('common.online') : t('common.offline')}
-          </span>
-          {r.node.hidden && (
-            <span className="badge badge-hidden" title={t('common.hiddenHint')}>
-              {t('common.hidden')}
-            </span>
-          )}
-        </div>
-
-        <div className={clsx('qb-price', dir)}>
-          <span className="qb-label">{r.online ? 'CPU' : t('detail.cpuLast')}</span>
-          <b className="num">
-            <Tick value={price} threshold={0.5}>{pct(price)}</Tick>
-          </b>
-          <span className="qb-change num">
-            <span>{dir === 'up' ? '▲' : dir === 'down' ? '▼' : '■'} {finite(change) ? signed(change, 1) : '—'}
-              {finite(change) && <small>pp</small>}
-            </span>
-            <span>{finite(changePct) ? `${signed(changePct, 2)}%` : ''}</span>
-          </span>
-        </div>
-
-        <StatBook stats={cpuStats} format={fmtPct} items={['high', 'low', 'avg', 'p95']} />
-
-        <div className="qb-tools">
-          <span className="qb-seen">
-            <span>{t('common.lastSeen')} <b className="num">{ago(r.lastSeen, now)}</b></span>
-            <small className="num">{r.lastSeen ? `${clock(r.lastSeen)} ${utcOffset(r.lastSeen)}` : '—'}</small>
-          </span>
-          <div className="qb-nav">
-            <button type="button" className="icon-btn" onClick={() => onStep(-1)} disabled={rows.length < 2} aria-label={t('detail.prev')} title={t('detail.prevHint')}>
-              <ChevronLeft size={15} />
-            </button>
-            <span className="num dim">
-              {idx + 1}/{rows.length}
-            </span>
-            <button type="button" className="icon-btn" onClick={() => onStep(1)} disabled={rows.length < 2} aria-label={t('detail.next')} title={t('detail.nextHint')}>
-              <ChevronRight size={15} />
-            </button>
+          <header className="quote-banner">
+            {quote}
+            <div className="qb-badges">{badges}</div>
+            {book}
+          </header>
+        </>
+      ) : (
+        <header className="quote-banner">
+          <div className="qb-id">
+            <Flag code={r.region.code} title={r.region.name} />
+            {name}
+            {badges}
           </div>
-          <Dialog.Close asChild>
-            <button type="button" className="close-btn" aria-label={t('detail.closeLabel')}>
-              {t('common.close')} <X size={14} />
-            </button>
-          </Dialog.Close>
-        </div>
-      </header>
+          {quote}
+          {book}
+          <div className="qb-tools">
+            <span className="qb-seen">
+              <span>{t('common.lastSeen')} <b className="num">{ago(r.lastSeen, now)}</b></span>
+              <small className="num">{r.lastSeen ? `${clock(r.lastSeen)} ${utcOffset(r.lastSeen)}` : '—'}</small>
+            </span>
+            {nav}
+            <Dialog.Close asChild>
+              <button type="button" className="close-btn" aria-label={t('detail.closeLabel')}>
+                {t('common.close')} <X size={14} />
+              </button>
+            </Dialog.Close>
+          </div>
+        </header>
+      )}
 
       <Suspense fallback={<div className="detail-grid" aria-busy="true" />}>
       <div className="detail-grid" ref={grid}>
@@ -174,6 +248,13 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange,
                 {t('detail.cpuTitle')} <small>{settings.chartStyle === 'line' ? t('common.line') : t('common.candle')} · {t('detail.subPane', { name: sub === 'vol' ? t('detail.subVol') : t('detail.subConn') })}</small>
               </h3>
               <div className="chart-tools">
+                {pin !== null && (
+                  <button type="button" className={clsx('chip pin-chip', away && 'is-away')} onClick={clearPin} title={t('chart.pinClear', { time: pinText })} aria-label={t('chart.pinClear', { time: pinText })}>
+                    <LocateFixed size={12} aria-hidden="true" />
+                    <span className="num">{pinText}</span>
+                    <X size={12} aria-hidden="true" />
+                  </button>
+                )}
                 <span className="chart-now num">
                   {t('detail.coverage')} <b>{cpuStats ? `${Math.round(cpuStats.coverage * 100)}%` : '—'}</b>
                 </span>
@@ -220,7 +301,7 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange,
 
         <aside className="detail-side" aria-label={t('detail.facts')}>
           <LocationPanel r={r} />
-          <NetworkPanel r={r} volume={volume} traffic={traffic} monthly={monthly} />
+          <NetworkPanel r={r} volume={volume} month={traffic.month} total={traffic.total} />
           <SystemPanel r={r} />
           {admin && <AdminPanel r={r} now={now} leadDays={leadDays ?? 7} ops={ops} />}
           {/* Last, so on a desktop it takes whatever height the column has left. */}
@@ -228,11 +309,31 @@ function DetailBody({ r, rows, settings, traffic, monthly, now, picked, onRange,
         </aside>
       </div>
       </Suspense>
+
+      {pin !== null && (
+        <div className="pin-bar" role="group" aria-label={t('chart.pinned', { time: pinText })}>
+          <LocateFixed size={14} aria-hidden="true" />
+          <b className="num">{pinText}</b>
+          {/* aria-disabled, not disabled: an end reached keeps the focus on its button. */}
+          <button type="button" className="icon-btn" onClick={() => prevPin !== null && setPin(prevPin)} aria-disabled={prevPin === null} aria-label={t('chart.pinPrev')}>
+            <ChevronLeft size={15} aria-hidden="true" />
+          </button>
+          <button type="button" className="icon-btn" onClick={() => nextPin !== null && setPin(nextPin)} aria-disabled={nextPin === null} aria-label={t('chart.pinNext')}>
+            <ChevronRight size={15} aria-hidden="true" />
+          </button>
+          <button type="button" className="icon-btn" onClick={clearPin} aria-label={t('chart.pinClear', { time: pinText })}>
+            <X size={15} aria-hidden="true" />
+          </button>
+        </div>
+      )}
+      <span className="sr-only" role="status">
+        {pin !== null ? t('chart.pinned', { time: pinText }) : hadPin ? t('chart.unpinned') : ''}
+      </span>
     </div>
   )
 }
 
-export function NodeDetail({ rows, order, settings, traffic, monthly, now, ready }: { rows: Row[]; order: Row[]; settings: ThemeSettings; traffic: (r: Row) => { up: number; down: number } | null; monthly: boolean; now: number; ready: boolean }) {
+export function NodeDetail({ rows, order, settings, traffic, now, ready }: { rows: Row[]; order: Row[]; settings: ThemeSettings; traffic: NodeTraffic | undefined; now: number; ready: boolean }) {
   const { t } = useTranslation()
   const match = useMatch('/instance/:uuid')
   const navigate = useNavigate()
@@ -240,6 +341,11 @@ export function NodeDetail({ rows, order, settings, traffic, monthly, now, ready
   const reduce = useReducedMotion()
   const uuid = match?.params.uuid
   const open = !!uuid
+  // A pin, zoom or crosshair goes with the drawer, also while it is still closing (reopened then,
+  // the same node's charts would keep them).
+  useEffect(() => {
+    if (!open) resetSync()
+  }, [open])
   // Keep the last node during the exit animation.
   const [lastUuid, setLastUuid] = useState(uuid)
   if (uuid && uuid !== lastUuid) setLastUuid(uuid)
@@ -310,6 +416,12 @@ export function NodeDetail({ rows, order, settings, traffic, monthly, now, ready
               asChild
               forceMount
               aria-describedby={undefined}
+              // Esc clears a pinned time first; the next one closes the drawer.
+              onEscapeKeyDown={(e) => {
+                if (useChartSync.getState().pin === null) return
+                e.preventDefault()
+                clearPin()
+              }}
               // Focus the drawer itself (announced by its title), not its first button.
               onOpenAutoFocus={(e) => {
                 e.preventDefault()
@@ -319,7 +431,7 @@ export function NodeDetail({ rows, order, settings, traffic, monthly, now, ready
               // row that opened the drawer far behind. A node not on the board (filtered out, or
               // opened from a link) hands focus to the board's first row, not to the page body.
               onCloseAutoFocus={(e) => {
-                const row = (lastUuid ? document.querySelector<HTMLElement>(`a.qrow[data-uuid="${CSS.escape(lastUuid)}"]`) : null) ?? document.querySelector<HTMLElement>('a.qrow')
+                const row = (lastUuid ? document.querySelector<HTMLElement>(`.qrow[data-uuid="${CSS.escape(lastUuid)}"]`) : null) ?? document.querySelector<HTMLElement>('.qrow')
                 if (!row) return
                 e.preventDefault()
                 row.focus({ preventScroll: true })
@@ -334,7 +446,7 @@ export function NodeDetail({ rows, order, settings, traffic, monthly, now, ready
               >
                 {r ? (
                   <div className="drawer-page">
-                    <DetailBody r={r} rows={nav} settings={settings} traffic={traffic(r)} monthly={monthly} now={now} picked={picked ?? settings.defaultRange} onRange={setPicked} ping={ping} onPing={setPing} sub={sub} onSub={setSub} onStep={step} />
+                    <DetailBody r={r} rows={nav} settings={settings} traffic={{ month: traffic?.month.get(r.node.uuid), total: traffic?.total.get(r.node.uuid) }} now={now} picked={picked ?? settings.defaultRange} onRange={setPicked} ping={ping} onPing={setPing} sub={sub} onSub={setSub} onStep={step} />
                   </div>
                 ) : (
                   <div className="detail-missing">

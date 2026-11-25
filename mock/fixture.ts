@@ -122,6 +122,9 @@ export function nodesInformation(admin = false) {
   return specs.flatMap((s, i) => (visible(i, admin) ? [node(s, i)] : []))
 }
 
+/** When node i was added to Komari: its metrics start there. */
+const addedAt = (i: number) => START - (40 + 9 * i) * 86400_000
+
 function node(s: Spec, i: number) {
   return {
     uuid: uuidOf(i),
@@ -150,6 +153,8 @@ function node(s: Spec, i: number) {
     hidden: !!s.hidden,
     traffic_limit: i === 4 ? 10 * 1024 * GIB : 0,
     traffic_limit_type: 'sum',
+    // Komari 1.6 includes when the node was added; the all-time traffic counts from there.
+    created_at: new Date(addedAt(i)).toISOString(),
   }
 }
 
@@ -165,7 +170,6 @@ export function listClients() {
     ipv6: i % 3 === 2 ? '' : `2001:db8:${(i + 1).toString(16)}::1`,
     version: i % 5 === 3 ? '1.6.18' : '1.6.20',
     token: 'mock-agent-token-never-render',
-    created_at: stamp,
     updated_at: stamp,
   }))
 }
@@ -372,7 +376,7 @@ export function queryMetrics(p: QueryParams, admin = false) {
         const step = Math.max(SAMPLE_SECONDS, interval / 240)
         for (let t = b; t < b + interval; t += step) {
           const ms = t * 1000
-          if (ms < start || ms > end || ms > last) continue
+          if (ms < start || ms > end || ms > last || ms < addedAt(i)) continue
           values.push(value(i, key, ms))
         }
         if (!values.length) continue

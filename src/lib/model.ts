@@ -1,4 +1,4 @@
-import { useCallback, useSyncExternalStore } from 'react'
+import { useCallback, useState, useSyncExternalStore } from 'react'
 import type { SparkSet, Trail } from './api'
 import { finite, parseTime, ratio } from './format'
 import { regionInfo, type RegionInfo } from './region'
@@ -128,9 +128,23 @@ function subscribeClock(ms: number, cb: () => void) {
   }
 }
 
-/** Current time, refreshed every `ms` milliseconds by a timer shared with every other reader. */
-export function useNow(ms = 1000) {
-  const subscribe = useCallback((cb: () => void) => subscribeClock(ms, cb), [ms])
+const still = () => () => {}
+
+/**
+ * Current time, refreshed every `ms` milliseconds by a timer shared with every other reader.
+ * `paused` stops the updates (the reader keeps the time it last showed) until it turns off again.
+ */
+export function useNow(ms = 1000, paused = false) {
+  const subscribe = useCallback((cb: () => void) => (paused ? still() : subscribeClock(ms, cb)), [ms, paused])
   const read = useCallback(() => clockFor(ms).now, [ms])
-  return useSyncExternalStore(subscribe, read)
+  // The clock keeps running for other readers: a render while paused must not pick up its time.
+  return useHeld(useSyncExternalStore(subscribe, read), paused)
+}
+
+/** `value` as it was when `hold` turned on, for as long as it stays on; the live value otherwise. */
+export function useHeld<T>(value: T, hold: boolean): T {
+  const [held, setHeld] = useState<{ value: T } | null>(null)
+  if (hold && !held) setHeld({ value })
+  if (!hold && held) setHeld(null)
+  return hold && held ? held.value : value
 }
