@@ -12,7 +12,7 @@ import { useIsPhone } from '../../lib/media'
 import type { Row } from '../../lib/model'
 import { usePrefs, type ChartStyle, type Range, type ThemeSettings } from '../../lib/settings'
 import { Flag, Segmented, Tick } from '../primitives'
-import { AdminPanel, EventsPanel, LocationPanel, NetworkPanel, StatBook, SystemPanel } from './Panels'
+import { EventsPanel, InfoPanel, LocationPanel, NetworkPanel, StatBook } from './Panels'
 import type { Time } from 'lightweight-charts'
 import { crosshairLabel } from './chartBase'
 import { bucketAt, resetSync, setPin, stepTime, useChartSync } from './chartSync'
@@ -302,8 +302,7 @@ function DetailBody({ r, rows, settings, traffic, now, picked, onRange, ping, on
         <aside className="detail-side" aria-label={t('detail.facts')}>
           <LocationPanel r={r} />
           <NetworkPanel r={r} volume={volume} month={traffic.month} total={traffic.total} />
-          <SystemPanel r={r} />
-          {admin && <AdminPanel r={r} now={now} leadDays={leadDays ?? 7} ops={ops} />}
+          <InfoPanel r={r} admin={admin} now={now} leadDays={leadDays ?? 7} ops={ops} />
           {/* Last, so on a desktop it takes whatever height the column has left. */}
           {settings.showEvents && <EventsPanel events={events} now={now} />}
         </aside>

@@ -11,7 +11,8 @@ const { width, height } = map.image
 export default function WorldMap({ lat, lng, online }: { lat: number | null; lng: number | null; online: boolean }) {
   const pin = lat !== null && lng !== null ? map.getPin({ lat, lng }) : undefined
   return (
-    <div className="world-map">
+    // The map's height-to-width ratio, for the CSS that sizes the box to fit it whole.
+    <div className="world-map" style={{ '--map-ratio': height / width } as React.CSSProperties}>
       <div className="world-dots" dangerouslySetInnerHTML={{ __html: svg }} />
       {pin && (
         <svg className="world-pins" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="xMidYMid meet" aria-hidden="true">
