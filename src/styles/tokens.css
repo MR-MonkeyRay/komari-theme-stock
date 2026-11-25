@@ -219,6 +219,10 @@
 :root:lang(zh-TW) {
   --font-cjk: 'PingFang TC', 'Microsoft JhengHei', 'Noto Sans CJK TC', 'Noto Sans TC';
 }
+/* Japanese: its own glyph forms. */
+:root:lang(ja) {
+  --font-cjk: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic UI', 'Meiryo', 'Noto Sans CJK JP', 'Noto Sans JP';
+}
 
 :root[data-convention='green-up'] {
   --up: var(--green);
