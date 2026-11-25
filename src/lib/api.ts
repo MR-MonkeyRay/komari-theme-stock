@@ -361,6 +361,9 @@ export function useSparklines(uuids: string[], enabled: boolean) {
     queryKey: ['sparklines', uuids.join(',')],
     enabled: enabled && uuids.length > 0,
     refetchInterval: 60_000,
+    // Turned off while a drawer covers the board (the cache stays): back on, it fetches only if its
+    // last data is a full interval old, so opening and closing a few nodes sends nothing.
+    staleTime: 60_000,
     placeholderData: (prev) => prev,
     queryFn: async ({ signal }) => {
       const res = await rpc<MetricQueryResult>(

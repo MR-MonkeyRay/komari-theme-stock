@@ -319,7 +319,7 @@ export function NodeDetail({ rows, order, settings, traffic, monthly, now, ready
               // row that opened the drawer far behind. A node not on the board (filtered out, or
               // opened from a link) hands focus to the board's first row, not to the page body.
               onCloseAutoFocus={(e) => {
-                const row = (lastUuid ? document.querySelector<HTMLElement>(`a.qrow[data-uuid="${CSS.escape(lastUuid)}"]`) : null) ?? document.querySelector<HTMLElement>('a.qrow')
+                const row = (lastUuid ? document.querySelector<HTMLElement>(`.qrow[data-uuid="${CSS.escape(lastUuid)}"]`) : null) ?? document.querySelector<HTMLElement>('.qrow')
                 if (!row) return
                 e.preventDefault()
                 row.focus({ preventScroll: true })

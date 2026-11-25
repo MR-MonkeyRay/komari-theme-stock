@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { memo, useEffect, useMemo, useState, type ComponentProps } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation } from 'react-router'
+import { openProps, useOpenNode } from '../lib/nav'
 import { SettingsButton } from './Settings'
 import type { Me } from '../lib/api'
 import type { Quick } from '../lib/board'
@@ -290,7 +291,7 @@ export const IndexStrip = memo(function IndexStrip({ m, loading, quick, onQuick 
   )
 })
 
-export function StatusBar({ conn, retrying, onRetry, items, now, version }: { conn: Conn; retrying: boolean; onRetry: () => void; items: Bulletin[]; now: number; version?: string }) {
+export function StatusBar({ conn, retrying, onRetry, items, now, version, covered }: { conn: Conn; retrying: boolean; onRetry: () => void; items: Bulletin[]; now: number; version?: string; covered?: boolean }) {
   const { t } = useTranslation()
   const [index, setIndex] = useState(0)
   // The ticker pauses while the mouse is on it or its link has focus. Focus is kept as the item's
@@ -300,13 +301,14 @@ export function StatusBar({ conn, retrying, onRetry, items, now, version }: { co
   const calm = t('status.calm')
   const list = useMemo(() => (items.length ? items : [{ id: 'calm', level: 'info' as const, text: calm }]), [items, calm])
   const current = list[index % list.length]
-  const paused = hovered || focusedId === current.id
+  // It also holds still under a node's drawer.
+  const paused = hovered || focusedId === current.id || !!covered
   useEffect(() => {
     if (paused || list.length < 2) return
     const id = window.setInterval(() => setIndex((i) => (i + 1) % list.length), 5000)
     return () => window.clearInterval(id)
   }, [paused, list.length])
-  const location = useLocation()
+  const openNode = useOpenNode()
   return (
     <footer className="statusbar">
       <span className="sb-status">
@@ -337,9 +339,9 @@ export function StatusBar({ conn, retrying, onRetry, items, now, version }: { co
               transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
             >
               {current.uuid ? (
-                <Link to={{ pathname: `/instance/${current.uuid}`, search: location.search }} state={{ fromBoard: true }} title={t('status.viewNode')}>
+                <button type="button" aria-haspopup="dialog" className="sb-news-open" title={t('status.viewNode')} {...openProps(current.uuid, openNode)}>
                   {current.text}
-                </Link>
+                </button>
               ) : (
                 current.text
               )}

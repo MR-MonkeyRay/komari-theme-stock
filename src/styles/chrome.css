@@ -967,8 +967,17 @@ button.ix.is-on,
 .sb-news-item.is-bad {
   color: var(--alert);
 }
-.sb-news-item a:hover,
-.sb-news-item a:focus-visible {
+.sb-news-open {
+  /* A block, so its baseline stays the text's when the item cuts it short with an ellipsis. */
+  display: block;
+  max-width: 100%;
+  text-align: left;
+  overflow: inherit;
+  text-overflow: inherit;
+  white-space: nowrap;
+}
+.sb-news-open:hover,
+.sb-news-open:focus-visible {
   text-decoration: underline;
   text-underline-offset: 2px;
 }

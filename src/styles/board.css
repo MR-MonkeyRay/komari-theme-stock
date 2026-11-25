@@ -325,9 +325,12 @@ button.th:hover .sort-mark {
   contain-intrinsic-size: auto 52px;
 }
 
+/* A button: as wide as the list, its text laid out like the header's. */
 .qrow {
   position: relative;
+  width: 100%;
   min-height: 52px;
+  text-align: left;
   border-bottom: 1px solid var(--line-faint);
   transition: background-color 120ms ease-in;
 }

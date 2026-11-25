@@ -3,13 +3,13 @@ import * as RadioGroup from '@radix-ui/react-radio-group'
 import clsx from 'clsx'
 import { ArrowDownUp, Check, ChevronRight, Eye, EyeOff, Search, X } from 'lucide-react'
 import { motion } from 'motion/react'
-import { memo, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
+import { createContext, memo, useContext, useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent, type UIEvent } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import { Link, useLocation } from 'react-router'
 import type { Sparks } from '../lib/api'
 import { firstDir, useBoardQuery, type BoardView, type Sort, type SortKey } from '../lib/board'
 import { ago, duration, finite, levelOf, parseTags, pct, signed, size } from '../lib/format'
 import { metricTrail, useNow, type BoardMetric, type Row } from '../lib/model'
+import { newTabKey, useOpenNode } from '../lib/nav'
 import type { ThemeSettings } from '../lib/settings'
 import { Flag, Meter, Pair, Segmented, Sparkline, Tick } from './primitives'
 
@@ -89,9 +89,12 @@ function MetricCell({ r, k, x, showSpark, title }: { r: Row; k: BoardMetric; x: 
   )
 }
 
+/** True while a node's drawer covers the board: its "x s ago" labels stop counting. */
+const Covered = createContext(false)
+
 /** "x s ago" on the shared 1 s clock, so only this label re-renders every second, not its row. */
 function Ago({ t }: { t: number | null }) {
-  const now = useNow(1000)
+  const now = useNow(1000, useContext(Covered))
   return (
     <time className="num" dateTime={t ? new Date(t).toISOString() : undefined}>
       {ago(t, now, true)}
@@ -100,7 +103,7 @@ function Ago({ t }: { t: number | null }) {
 }
 
 /** `rank` is the row's place in a sorted board (null when grouped); a change of place slides it. */
-const QuoteRow = memo(function QuoteRow({ r, x, showSpark, search, rank }: { r: Row; x: BoardExtras; showSpark: boolean; search: string; rank: number | null }) {
+const QuoteRow = memo(function QuoteRow({ r, x, showSpark, rank }: { r: Row; x: BoardExtras; showSpark: boolean; rank: number | null }) {
   const { t } = useTranslation()
   const st = r.online ? r.status : undefined
   const tr = x.traffic(r)
@@ -111,7 +114,8 @@ const QuoteRow = memo(function QuoteRow({ r, x, showSpark, search, rank }: { r: 
     // with the rank as its dependency it measures a row only when its place changes (rows are of
     // equal height, so a row that keeps its rank keeps its position).
     <motion.div layout={rank !== null ? 'position' : false} layoutDependency={rank} transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="row-wrap">
-      <Link to={{ pathname: `/instance/${r.node.uuid}`, search }} state={{ fromBoard: true }} className={clsx('qrow', !r.online && 'is-off')} data-uuid={r.node.uuid} aria-label={t(r.node.hidden ? 'board.rowHidden' : 'board.row', { name: r.node.name, region: r.region.name, state: r.online ? t('common.online') : t('common.offline') })}>
+      {/* A button that opens the node's drawer (the board's list handles the click, see onRowClick). */}
+      <button type="button" aria-haspopup="dialog" className={clsx('qrow', !r.online && 'is-off')} data-uuid={r.node.uuid} aria-label={t(r.node.hidden ? 'board.rowHidden' : 'board.row', { name: r.node.name, region: r.region.name, state: r.online ? t('common.online') : t('common.offline') })}>
         <span className="c-name">
           <Flag code={r.region.code} title={r.region.name} />
           <span className="name-stack">
@@ -160,7 +164,7 @@ const QuoteRow = memo(function QuoteRow({ r, x, showSpark, search, rank }: { r: 
           <Ago t={r.lastSeen} />
           <ChevronRight className="row-arrow" size={14} aria-hidden="true" />
         </span>
-      </Link>
+      </button>
     </motion.div>
   )
 })
@@ -220,10 +224,10 @@ function SortMenu({ sort, grouped, onChange }: { sort: Sort; grouped: boolean; o
 }
 
 // Memoized: the app re-renders every second for its clocks, the board only when its data does.
-export const QuoteBoard = memo(function QuoteBoard({ rows, view, onHold, hiddenCount, showHidden, onToggleHidden, settings, x, loading, searchRef }: { rows: Row[]; view: BoardView; onHold: (hold: boolean) => void; hiddenCount: number; showHidden: boolean; onToggleHidden: () => void; settings: ThemeSettings; x: BoardExtras; loading: boolean; searchRef: React.RefObject<HTMLInputElement | null> }) {
+export const QuoteBoard = memo(function QuoteBoard({ rows, view, paused, onHold, hiddenCount, showHidden, onToggleHidden, settings, x, loading, searchRef }: { rows: Row[]; view: BoardView; paused: boolean; onHold: (hold: boolean) => void; hiddenCount: number; showHidden: boolean; onToggleHidden: () => void; settings: ThemeSettings; x: BoardExtras; loading: boolean; searchRef: React.RefObject<HTMLInputElement | null> }) {
   const { t } = useTranslation()
   const [{ q: query, quick, sort }, setBoard, flushQuery] = useBoardQuery()
-  const { search } = useLocation()
+  const openNode = useOpenNode()
   const listRef = useRef<HTMLDivElement>(null)
   const showSpark = settings.showSparkline
 
@@ -234,12 +238,33 @@ export const QuoteBoard = memo(function QuoteBoard({ rows, view, onHold, hiddenC
   const cycleSort = (key: SortKey) =>
     setBoard({ sort: sort?.key !== key ? { key, dir: firstDir(key) } : sort.dir === firstDir(key) ? { key, dir: firstDir(key) === 'asc' ? 'desc' : 'asc' } : null })
 
-  // ↑/↓ moves between rows like a quote list; Enter follows the link.
+  // One set of handlers for every row: a click opens its node, a middle click opens it in a new tab
+  // (without the middle button's autoscroll).
+  const rowOf = (e: UIEvent) => (e.target instanceof Element ? e.target.closest<HTMLElement>('.qrow')?.dataset.uuid : undefined)
+  const onRowClick = (e: MouseEvent) => {
+    const id = rowOf(e)
+    if (id) openNode(id, e)
+  }
+  const onRowAux = (e: MouseEvent) => {
+    const id = e.button === 1 ? rowOf(e) : undefined
+    if (id) openNode(id, e)
+  }
+  const onRowDown = (e: MouseEvent) => {
+    if (e.button !== 1 || !rowOf(e)) return
+    // Keeping focus where it is also keeps a search typed a moment ago from being written to the
+    // address on blur: write it now, so the new tab gets it.
+    e.preventDefault()
+    flushQuery()
+  }
+
+  // ↑/↓ moves between rows like a quote list; Enter opens the row.
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const id = rowOf(e)
+    if (id && newTabKey(e)) return openNode(id, e)
     if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
-    const items = [...(listRef.current?.querySelectorAll<HTMLAnchorElement>('a.qrow') ?? [])]
+    const items = [...(listRef.current?.querySelectorAll<HTMLElement>('.qrow') ?? [])]
     if (!items.length) return
-    const i = items.indexOf(document.activeElement as HTMLAnchorElement)
+    const i = items.indexOf(document.activeElement as HTMLElement)
     const next = e.key === 'ArrowDown' ? Math.min(items.length - 1, i + 1) : Math.max(0, i < 0 ? 0 : i - 1)
     items[next].focus()
     items[next].scrollIntoView({ block: 'nearest' })
@@ -255,7 +280,7 @@ export const QuoteBoard = memo(function QuoteBoard({ rows, view, onHold, hiddenC
       e.currentTarget.blur()
       e.preventDefault()
     } else if (e.key === 'ArrowDown') {
-      const first = listRef.current?.querySelector<HTMLAnchorElement>('a.qrow')
+      const first = listRef.current?.querySelector<HTMLElement>('.qrow')
       if (!first) return
       first.focus()
       first.scrollIntoView({ block: 'nearest' })
@@ -267,7 +292,7 @@ export const QuoteBoard = memo(function QuoteBoard({ rows, view, onHold, hiddenC
   // so release the hold whenever the rows change and neither the mouse nor a row holds it.
   useEffect(() => {
     const el = listRef.current
-    if (!el || (!el.matches(':hover') && !el.querySelector('a.qrow:focus-visible'))) onHold(false)
+    if (!el || (!el.matches(':hover') && !el.querySelector('.qrow:focus-visible'))) onHold(false)
   }, [view.order, onHold])
   useEffect(() => () => onHold(false), [onHold])
 
@@ -275,6 +300,7 @@ export const QuoteBoard = memo(function QuoteBoard({ rows, view, onHold, hiddenC
   const headLabel = (col: (typeof HEAD)[number]['col']) => (col === 'traffic' ? (x.trafficMonthly ? t('board.col.trafficMonth') : t('board.col.trafficTotal')) : t(`board.col.${col}`))
 
   return (
+    <Covered.Provider value={paused}>
     <section className="panel board-panel" aria-labelledby="board-title">
       <div className="panel-head">
         <div className="panel-title">
@@ -354,10 +380,13 @@ export const QuoteBoard = memo(function QuoteBoard({ rows, view, onHold, hiddenC
         className={cols}
         ref={listRef}
         onKeyDown={onKeyDown}
+        onClick={onRowClick}
+        onAuxClick={onRowAux}
+        onMouseDown={onRowDown}
         onPointerEnter={(e) => e.pointerType === 'mouse' && onHold(true)}
-        onPointerLeave={(e) => e.pointerType === 'mouse' && !listRef.current?.querySelector('a.qrow:focus-visible') && onHold(false)}
-        onFocus={(e) => e.target.matches('a.qrow:focus-visible') && onHold(true)}
-        onBlur={(e) => !(e.relatedTarget instanceof Element && e.relatedTarget.matches('a.qrow')) && !listRef.current?.matches(':hover') && onHold(false)}
+        onPointerLeave={(e) => e.pointerType === 'mouse' && !listRef.current?.querySelector('.qrow:focus-visible') && onHold(false)}
+        onFocus={(e) => e.target.matches('.qrow:focus-visible') && onHold(true)}
+        onBlur={(e) => !(e.relatedTarget instanceof Element && e.relatedTarget.matches('.qrow')) && !listRef.current?.matches(':hover') && onHold(false)}
       >
         <div className="qhead" role="row">
           {HEAD.map((h) =>
@@ -397,7 +426,7 @@ export const QuoteBoard = memo(function QuoteBoard({ rows, view, onHold, hiddenC
         ) : flat ? (
           <div className="group-body">
             {flat.map((r, i) => (
-              <QuoteRow key={r.node.uuid} r={r} x={x} showSpark={showSpark} search={search} rank={i} />
+              <QuoteRow key={r.node.uuid} r={r} x={x} showSpark={showSpark} rank={i} />
             ))}
           </div>
         ) : (
@@ -426,7 +455,7 @@ export const QuoteBoard = memo(function QuoteBoard({ rows, view, onHold, hiddenC
                 )}
                 <div className="group-body">
                   {g.rows.map((r) => (
-                    <QuoteRow key={r.node.uuid} r={r} x={x} showSpark={showSpark} search={search} rank={null} />
+                    <QuoteRow key={r.node.uuid} r={r} x={x} showSpark={showSpark} rank={null} />
                   ))}
                 </div>
               </section>
@@ -435,5 +464,6 @@ export const QuoteBoard = memo(function QuoteBoard({ rows, view, onHold, hiddenC
         )}
       </div>
     </section>
+    </Covered.Provider>
   )
 })
