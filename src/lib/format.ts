@@ -106,6 +106,24 @@ export function parseTime(s: string | undefined | null) {
   return Number.isFinite(v) && v > Date.UTC(2000, 0, 1) ? v : null
 }
 
+/**
+ * A CPU's model without the padding vendors put in its name: trademark marks, "CPU", "Processor",
+ * the core count and the clock. `Intel(R) Xeon(R) CPU E5-2690 v3 @ 2.60GHz` -> `Intel Xeon E5-2690 v3`,
+ * `AMD EPYC 7K62 48-Core Processor` -> `AMD EPYC 7K62`. Generic names (`QEMU Virtual CPU version 2.5+`,
+ * `Common KVM processor`) stay as they are.
+ */
+export function cpuModel(name: string) {
+  const short = name
+    .replace(/\((?:R|TM)\)|[®™]/gi, '')
+    .replace(/\s*@.*$/, '')
+    .replace(/\b\d+-Core\b/gi, '')
+    .replace(/(?<!Virtual\s)\bCPU\b/g, '')
+    .replace(/\bProcessor\b/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return short || name
+}
+
 /** Komari tags: `a;b<red>;c` -> [{ text, color }] (color suffix is optional). */
 export function parseTags(tags: string | undefined) {
   if (!tags) return []

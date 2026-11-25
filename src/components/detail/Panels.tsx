@@ -9,7 +9,7 @@ import { create } from 'zustand'
 import type { ClientOps, OfflineNotice, TrafficSum } from '../../lib/api'
 import type { NodeEvent, RangeStats, Volume } from '../../lib/candles'
 import { daysLeft, expiryNote } from '../../lib/market'
-import { clock, dateText, duration, finite, monthDay, monthDayTime, parseTags, parseTime, sameDay, size } from '../../lib/format'
+import { clock, cpuModel, dateText, duration, finite, monthDay, monthDayTime, parseTags, parseTime, sameDay, size } from '../../lib/format'
 import type { Row } from '../../lib/model'
 import { continentName } from '../../lib/region'
 import { CPU_EVENT, QUOTA } from '../../lib/thresholds'
@@ -252,7 +252,7 @@ export function InfoPanel({ r, admin, now, leadDays, ops, notice }: { r: Row; ad
     /* Cells pair up; a long value without a partner (GPU, an OS without a kernel version) takes the row. */
     <dl className="facts facts-2">
       <Fact k={t('panel.cpu')}>
-        <span className="clip" title={n.cpu_name}>{n.cpu_name || '—'}</span>
+        <span className="clip" title={n.cpu_name}>{n.cpu_name ? cpuModel(n.cpu_name) : '—'}</span>
       </Fact>
       <Fact k={t('panel.cores')}>
         <span className="num">{n.cpu_cores ? (n.cpu_physical_cores ? t('panel.coresBoth', { logical: n.cpu_cores, physical: n.cpu_physical_cores }) : t('panel.coresLogical', { logical: n.cpu_cores })) : '—'}</span>
