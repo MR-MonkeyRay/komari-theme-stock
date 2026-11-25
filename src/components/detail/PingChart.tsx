@@ -112,7 +112,9 @@ const slotColor = (slot: number) => cssVar(`--ping-${slot + 1}`)
 function crosshairAt(c: IChartApi, lineMap: Map<string, ISeriesApi<'Line'>>, lossBars: ISeriesApi<'Histogram'> | null, lines: PingLineData[], selected: string | null, i: number) {
   const t = lines[0]?.points[i]?.time
   if (t === undefined) return c.clearCrosshairPosition()
-  const shown = selected !== null ? lines.filter((l) => l.id === selected) : lines
+  // The same lines the loss bars are drawn from: the chosen one, or all of them.
+  const one = selected !== null ? lines.find((l) => l.id === selected) : undefined
+  const shown = one ? [one] : lines
   const withValue = shown.find((l) => l.points[i]?.avg != null)
   const s = withValue && lineMap.get(withValue.id)
   if (withValue && s) return c.setCrosshairPosition(withValue.points[i].avg!, asTs(t), s)
