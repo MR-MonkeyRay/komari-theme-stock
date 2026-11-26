@@ -14,7 +14,7 @@ import type { Row } from '../../lib/model'
 import { continentName } from '../../lib/region'
 import { CPU_EVENT, QUOTA } from '../../lib/thresholds'
 import { Tags } from '../QuoteBoard'
-import { Pair, Tick } from '../primitives'
+import { Pair, Tick, Tip, TipRoot, TipTrigger } from '../primitives'
 import { shareTime } from './chartSync'
 
 const WorldMap = lazy(() => import('./WorldMap'))
@@ -57,18 +57,22 @@ export function LocationPanel({ r }: { r: Row }) {
           {(n.group || tagged) && (
             <span className="geo-tags">
               {n.group && (
-                <span className="tag tag-group" title={t('panel.group')}>
-                  {n.group}
-                </span>
+                <Tip content={t('panel.group')}>
+                  <span className="tag tag-group">
+                    {n.group}
+                  </span>
+                </Tip>
               )}
               {tagged && <Tags tags={n.tags} max={3} />}
             </span>
           )}
         </div>
         {n.public_remark && (
-          <p className="geo-remark" title={n.public_remark}>
-            {n.public_remark}
-          </p>
+          <Tip content={n.public_remark}>
+            <p className="geo-remark">
+              {n.public_remark}
+            </p>
+          </Tip>
         )}
       </div>
       <Suspense fallback={<div className="world-map skeleton" />}>
@@ -99,9 +103,11 @@ function TrafficFact({ k, v }: { k: string; v: TrafficSum | undefined }) {
   const partial = v?.since != null
   return (
     <Fact k={k} wide className={clsx(partial && 'is-partial')}>
-      <span className={clsx('traffic-fact', partial && 'has-hint')} title={partial ? t('board.partialSince', { date: monthDay(v.since!) }) : undefined}>
-        <Pair up={v?.up} down={v?.down} />
-      </span>
+      <Tip content={partial ? t('board.partialSince', { date: monthDay(v.since!) }) : undefined}>
+        <span className={clsx('traffic-fact', partial && 'has-hint')}>
+          <Pair up={v?.up} down={v?.down} />
+        </span>
+      </Tip>
     </Fact>
   )
 }
@@ -127,9 +133,11 @@ export function NetworkPanel({ r, volume, month, total: allTime }: { r: Row; vol
           <span>
             {t('panel.total')} <b>{size(total, true)}</b>
           </span>
-          <span className="has-hint" title={t('panel.connHint')}>
-            {t('panel.conn')} <b>{st ? `${st.connections} / ${st.connections_udp}` : '—'}</b>
-          </span>
+          <Tip content={t('panel.connHint')}>
+            <span className="has-hint">
+              {t('panel.conn')} <b>{st ? `${st.connections} / ${st.connections_udp}` : '—'}</b>
+            </span>
+          </Tip>
         </span>
       }
     >
@@ -149,9 +157,11 @@ export function NetworkPanel({ r, volume, month, total: allTime }: { r: Row; vol
           </b>
         </div>
         {upShare !== null && (
-          <span className="net-ratio" role="img" aria-label={t('panel.ratioLabel', { up: Math.round(upShare), down: Math.round(100 - upShare) })} title={t('panel.ratioHint', { up: Math.round(upShare), down: Math.round(100 - upShare) })}>
-            <i style={{ width: `${upShare}%` }} />
-          </span>
+          <Tip content={t('panel.ratioHint', { up: Math.round(upShare), down: Math.round(100 - upShare) })}>
+            <span className="net-ratio" role="img" aria-label={t('panel.ratioLabel', { up: Math.round(upShare), down: Math.round(100 - upShare) })}>
+              <i style={{ width: `${upShare}%` }} />
+            </span>
+          </Tip>
         )}
       </div>
       <dl className="facts facts-2">
@@ -203,12 +213,16 @@ function Address({ ip, label, shown }: { ip: string; label: string; shown: boole
   }, [copied])
   return (
     <span className="addr">
-      <span className="num clip" title={shown ? ip : undefined}>
-        {shown ? ip : maskAddress(ip)}
-      </span>
-      <button type="button" className="copy-btn" onClick={() => copy(ip).then(setCopied)} aria-label={t('panel.copyFull', { label })} title={copied === false ? t('panel.copyFailed') : t('panel.copyHint')}>
-        {copied ? <Check size={12} aria-hidden="true" /> : <Copy size={12} aria-hidden="true" />}
-      </button>
+      <Tip content={shown ? ip : undefined}>
+        <span className="num clip">
+          {shown ? ip : maskAddress(ip)}
+        </span>
+      </Tip>
+      <Tip content={copied === false ? t('panel.copyFailed') : t('panel.copyHint')}>
+        <button type="button" className="copy-btn" onClick={() => copy(ip).then(setCopied)} aria-label={t('panel.copyFull', { label })}>
+          {copied ? <Check size={12} aria-hidden="true" /> : <Copy size={12} aria-hidden="true" />}
+        </button>
+      </Tip>
       <span className="sr-only" role="status">
         {copied === true ? t('panel.copied') : copied === false ? t('panel.copyFailed') : ''}
       </span>
@@ -252,22 +266,30 @@ export function InfoPanel({ r, admin, now, leadDays, ops, notice }: { r: Row; ad
     /* Cells pair up; a long value without a partner (GPU, an OS without a kernel version) takes the row. */
     <dl className="facts facts-2">
       <Fact k={t('panel.cpu')}>
-        <span className="clip" title={n.cpu_name}>{n.cpu_name ? cpuModel(n.cpu_name) : '—'}</span>
+        <Tip content={n.cpu_name}>
+          <span className="clip">{n.cpu_name ? cpuModel(n.cpu_name) : '—'}</span>
+        </Tip>
       </Fact>
       <Fact k={t('panel.cores')}>
         <span className="num">{n.cpu_cores ? (n.cpu_physical_cores ? t('panel.coresBoth', { logical: n.cpu_cores, physical: n.cpu_physical_cores }) : t('panel.coresLogical', { logical: n.cpu_cores })) : '—'}</span>
       </Fact>
       {n.gpu_name && (
         <Fact k="GPU" wide>
-          <span className="clip" title={n.gpu_name}>{n.gpu_name}</span>
+          <Tip content={n.gpu_name}>
+            <span className="clip">{n.gpu_name}</span>
+          </Tip>
         </Fact>
       )}
       <Fact k={t('panel.os')} wide={!n.kernel_version}>
-        <span className="clip" title={n.os}>{n.os || '—'}</span>
+        <Tip content={n.os}>
+          <span className="clip">{n.os || '—'}</span>
+        </Tip>
       </Fact>
       {n.kernel_version && (
         <Fact k={t('panel.kernel')}>
-          <span className="num clip" title={n.kernel_version}>{n.kernel_version}</span>
+          <Tip content={n.kernel_version}>
+            <span className="num clip">{n.kernel_version}</span>
+          </Tip>
         </Fact>
       )}
       <Fact k={t('panel.arch')}>
@@ -325,22 +347,32 @@ export function InfoPanel({ r, admin, now, leadDays, ops, notice }: { r: Row; ad
               {t('panel.system')}
             </Tabs.Trigger>
             {billing && (
-              <Tabs.Trigger value="billing" className="info-tab" title={t('panel.lockHint')} {...click('billing')}>
-                {lock}
-                {t('panel.billing')}
-              </Tabs.Trigger>
+              <TipRoot content={t('panel.lockHint')}>
+                <Tabs.Trigger value="billing" asChild {...click('billing')}>
+                  <TipTrigger type="button" className="info-tab">
+                    {lock}
+                    {t('panel.billing')}
+                  </TipTrigger>
+                </Tabs.Trigger>
+              </TipRoot>
             )}
             {machine && (
-              <Tabs.Trigger value="machine" className="info-tab" title={t('panel.loginOnly')} {...click('machine')}>
-                {lock}
-                {t('panel.ops')}
-              </Tabs.Trigger>
+              <TipRoot content={t('panel.loginOnly')}>
+                <Tabs.Trigger value="machine" asChild {...click('machine')}>
+                  <TipTrigger type="button" className="info-tab">
+                    {lock}
+                    {t('panel.ops')}
+                  </TipTrigger>
+                </Tabs.Trigger>
+              </TipRoot>
             )}
           </Tabs.List>
           {tab === 'machine' && (ops?.ipv4 || ops?.ipv6) && (
-            <button type="button" className="copy-btn" aria-pressed={shown} onClick={() => useReveal.setState({ shown: !shown })} aria-label={t('panel.reveal')} title={shown ? t('panel.mask') : t('panel.reveal')}>
-              {shown ? <EyeOff size={12} aria-hidden="true" /> : <Eye size={12} aria-hidden="true" />}
-            </button>
+            <Tip content={shown ? t('panel.mask') : t('panel.reveal')}>
+              <button type="button" className="copy-btn" aria-pressed={shown} onClick={() => useReveal.setState({ shown: !shown })} aria-label={t('panel.reveal')}>
+                {shown ? <EyeOff size={12} aria-hidden="true" /> : <Eye size={12} aria-hidden="true" />}
+              </button>
+            </Tip>
           )}
         </div>
         <div className="info-stack">
@@ -453,9 +485,11 @@ export function EventsPanel({ events, now, top }: { events: NodeEvent[] | null; 
                     </span>
                   ))}
                 </b>
-                <span className="ev-text" title={text}>
-                  {text}
-                </span>
+                <Tip content={text}>
+                  <span className="ev-text">
+                    {text}
+                  </span>
+                </Tip>
               </li>
               )
             })}

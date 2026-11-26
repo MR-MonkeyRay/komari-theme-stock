@@ -11,7 +11,7 @@ import { ago, clock, finite, pct, ratio, signed, utcOffset } from '../../lib/for
 import { useIsPhone } from '../../lib/media'
 import type { Row } from '../../lib/model'
 import { usePrefs, type ChartStyle, type Range, type ThemeSettings } from '../../lib/settings'
-import { Flag, Segmented, Tick } from '../primitives'
+import { Flag, Segmented, Tick, Tip } from '../primitives'
 import { EventsPanel, InfoPanel, LocationPanel, NetworkPanel, StatBook } from './Panels'
 import { UptimeStrip } from './Uptime'
 import { closeUptimeDay } from './uptimeDay'
@@ -178,11 +178,13 @@ function DetailBody({ r, rows, settings, traffic, now, picked, onRange, ping, on
 
   const name = (
     <div className="qb-name">
-      <Dialog.Title asChild>
-        <h2 className="num" title={r.node.name}>
-          {r.node.name}
-        </h2>
-      </Dialog.Title>
+      <Tip content={r.node.name}>
+        <Dialog.Title asChild>
+          <h2 className="num">
+            {r.node.name}
+          </h2>
+        </Dialog.Title>
+      </Tip>
       <span className="node-code num">
         {r.code.area}·<em>{r.code.hash}</em>
       </span>
@@ -195,9 +197,11 @@ function DetailBody({ r, rows, settings, traffic, now, picked, onRange, ping, on
         {r.online ? t('common.online') : t('common.offline')}
       </span>
       {r.node.hidden && (
-        <span className="badge badge-hidden" title={t('common.hiddenHint')}>
-          {t('common.hidden')}
-        </span>
+        <Tip content={t('common.hiddenHint')}>
+          <span className="badge badge-hidden">
+            {t('common.hidden')}
+          </span>
+        </Tip>
       )}
     </>
   )
@@ -218,15 +222,19 @@ function DetailBody({ r, rows, settings, traffic, now, picked, onRange, ping, on
   const book = <StatBook stats={cpuStats} format={fmtPct} items={['high', 'low', 'avg', 'p95']} />
   const nav = (
     <div className="qb-nav">
-      <button type="button" className="icon-btn" onClick={() => onStep(-1)} disabled={rows.length < 2} aria-label={t('detail.prev')} title={t('detail.prevHint')}>
-        <ChevronLeft size={phone ? 18 : 15} />
-      </button>
+      <Tip content={t('detail.prevHint')}>
+        <button type="button" className="icon-btn" onClick={() => rows.length > 1 && onStep(-1)} aria-disabled={rows.length < 2} aria-label={t('detail.prev')}>
+          <ChevronLeft size={phone ? 18 : 15} />
+        </button>
+      </Tip>
       <span className="num dim">
         {idx + 1}/{rows.length}
       </span>
-      <button type="button" className="icon-btn" onClick={() => onStep(1)} disabled={rows.length < 2} aria-label={t('detail.next')} title={t('detail.nextHint')}>
-        <ChevronRight size={phone ? 18 : 15} />
-      </button>
+      <Tip content={t('detail.nextHint')}>
+        <button type="button" className="icon-btn" onClick={() => rows.length > 1 && onStep(1)} aria-disabled={rows.length < 2} aria-label={t('detail.next')}>
+          <ChevronRight size={phone ? 18 : 15} />
+        </button>
+      </Tip>
     </div>
   )
 
@@ -286,11 +294,13 @@ function DetailBody({ r, rows, settings, traffic, now, picked, onRange, ping, on
               </h3>
               <div className="chart-tools">
                 {pin !== null && (
-                  <button type="button" className={clsx('chip pin-chip', away && 'is-away')} onClick={clearPin} title={t('chart.pinClear', { time: pinText })} aria-label={t('chart.pinClear', { time: pinText })}>
-                    <LocateFixed size={12} aria-hidden="true" />
-                    <span className="num">{pinText}</span>
-                    <X size={12} aria-hidden="true" />
-                  </button>
+                  <Tip content={t('chart.pinClear', { time: pinText })}>
+                    <button type="button" className={clsx('chip pin-chip', away && 'is-away')} onClick={clearPin} aria-label={t('chart.pinClear', { time: pinText })}>
+                      <LocateFixed size={12} aria-hidden="true" />
+                      <span className="num">{pinText}</span>
+                      <X size={12} aria-hidden="true" />
+                    </button>
+                  </Tip>
                 )}
                 <span className="chart-now num">
                   {t('detail.coverage')} <b>{cpuStats ? `${Math.round(cpuStats.coverage * 100)}%` : '—'}</b>
@@ -337,11 +347,15 @@ function DetailBody({ r, rows, settings, traffic, now, picked, onRange, ping, on
         </div>
 
         <aside className="detail-side" aria-label={t('detail.facts')}>
-          <LocationPanel r={r} />
-          <NetworkPanel r={r} volume={volume} month={traffic.month} total={traffic.total} />
-          <InfoPanel r={r} admin={admin} now={now} leadDays={leadDays ?? 7} ops={ops} notice={notice} />
-          <EventsPanel events={settings.showEvents ? events : null} now={now} top={<UptimeStrip key={r.node.uuid} r={r} now={now} reach={reach} onShow={showDay} />} />
-          {/* Last, so on a desktop it takes whatever height the column has left. */}
+          {/* On a desktop the facts share the CPU and ping rows, the events taking what is left;
+              elsewhere this wrapper is no box and the panels lay out as the column's own. */}
+          <div className="side-stack">
+            <LocationPanel r={r} />
+            <NetworkPanel r={r} volume={volume} month={traffic.month} total={traffic.total} />
+            <InfoPanel r={r} admin={admin} now={now} leadDays={leadDays ?? 7} ops={ops} notice={notice} />
+            <EventsPanel events={settings.showEvents ? events : null} now={now} top={<UptimeStrip key={r.node.uuid} r={r} now={now} reach={reach} onShow={showDay} />} />
+          </div>
+          {/* Last; on a desktop it sits level with the memory and disk charts. */}
           <LoadPanel r={r} h={h} look={settings.chartStyle} loading={loading} stale={stale} rangeKey={dataKey} />
         </aside>
       </div>

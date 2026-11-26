@@ -15,7 +15,7 @@ import type { Conn } from '../lib/model'
 import type { Bulletin, MarketSummary } from '../lib/market'
 import { lastLatency } from '../lib/rpc'
 import { HOT } from '../lib/thresholds'
-import { Tick } from './primitives'
+import { Tick, Tip } from './primitives'
 
 // Quote-board digits roll quickly so 2 s ticks never overlap.
 const FLOW_TIMING = { duration: 360, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' }
@@ -60,22 +60,24 @@ export function ThemeToggle({ value, onChange }: { value: Appearance; onChange: 
   const label = t(`theme.${value}`)
   const hint = t('theme.hint', { mode: value === 'system' ? t('theme.systemLong') : label, next: t(`theme.${nextAppearance(value)}`) })
   return (
-    <button type="button" className="tool-btn theme-toggle" onClick={() => onChange(nextAppearance(value))} title={hint} aria-label={hint}>
-      <span className="theme-toggle-icon" aria-hidden="true">
-        <AnimatePresence initial={false}>
-          <motion.span
-            key={value}
-            initial={{ opacity: 0, rotate: -45, scale: 0.8 }}
-            animate={{ opacity: 1, rotate: 0, scale: 1 }}
-            exit={{ opacity: 0, rotate: 45, scale: 0.8 }}
-            transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-          >
-            <Icon size={14} strokeWidth={2} />
-          </motion.span>
-        </AnimatePresence>
-      </span>
-      <span className="tool-btn-label">{label}</span>
-    </button>
+    <Tip content={hint}>
+      <button type="button" className="tool-btn theme-toggle" onClick={() => onChange(nextAppearance(value))} aria-label={hint}>
+        <span className="theme-toggle-icon" aria-hidden="true">
+          <AnimatePresence initial={false}>
+            <motion.span
+              key={value}
+              initial={{ opacity: 0, rotate: -45, scale: 0.8 }}
+              animate={{ opacity: 1, rotate: 0, scale: 1 }}
+              exit={{ opacity: 0, rotate: 45, scale: 0.8 }}
+              transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <Icon size={14} strokeWidth={2} />
+            </motion.span>
+          </AnimatePresence>
+        </span>
+        <span className="tool-btn-label">{label}</span>
+      </button>
+    </Tip>
   )
 }
 
@@ -93,10 +95,12 @@ function AdminLink({ me, pending }: { me: Me | undefined; pending: boolean }) {
   const hint = loggedIn ? t('top.loggedInHint', { name: me.username }) : t('top.loginHint')
   const Icon = loggedIn ? ShieldCheck : LogIn
   return (
-    <a className={clsx('tool-btn admin-link', loggedIn && 'is-in', pending && 'is-pending')} href={href} title={hint} aria-label={hint}>
-      <Icon size={14} strokeWidth={2} aria-hidden="true" />
-      <span className="tool-btn-label">{loggedIn ? me.username : t('top.login')}</span>
-    </a>
+    <Tip content={hint}>
+      <a className={clsx('tool-btn admin-link', loggedIn && 'is-in', pending && 'is-pending')} href={href} aria-label={hint}>
+        <Icon size={14} strokeWidth={2} aria-hidden="true" />
+        <span className="tool-btn-label">{loggedIn ? me.username : t('top.login')}</span>
+      </a>
+    </Tip>
   )
 }
 
@@ -119,18 +123,22 @@ function LiveBadge({ conn, updatedAt, refreshSeconds, onRetry, retrying }: { con
   if (conn === 'down')
     return (
       <>
-        <button type="button" className="market is-down" onClick={onRetry} disabled={retrying} title={retrying ? t('common.retrying') : t('conn.liveFailed')} aria-label={retrying ? t('conn.liveDownRetrying') : t('conn.liveDownRetry')}>
-          {body}
-        </button>
+        <Tip content={retrying ? t('common.retrying') : t('conn.liveFailed')}>
+          <button type="button" className="market is-down" onClick={() => !retrying && onRetry()} aria-disabled={retrying} aria-label={retrying ? t('conn.liveDownRetrying') : t('conn.liveDownRetry')}>
+            {body}
+          </button>
+        </Tip>
         {announce}
       </>
     )
   const title = conn === 'live' ? t('conn.every', { count: refreshSeconds }) : conn === 'stale' ? t('conn.staleSince', { time: clock(updatedAt) }) : t('conn.fetching')
   return (
     <>
-      <span className={clsx('market', `is-${conn}`)} title={title}>
-        {body}
-      </span>
+      <Tip content={title}>
+        <span className={clsx('market', `is-${conn}`)}>
+          {body}
+        </span>
+      </Tip>
       {announce}
     </>
   )
@@ -165,10 +173,12 @@ function Clock({ now }: { now: number }) {
   const zone = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, [])
   const offset = utcOffset(now)
   return (
-    <span className="clock num" title={zone ? t('clock.zone', { zone, offset }) : t('clock.zoneUnknown', { offset })}>
-      <span className="clock-date">{dateText(now)} </span>
-      <b>{clock(now)}</b> <small>{offset}</small>
-    </span>
+    <Tip content={zone ? t('clock.zone', { zone, offset }) : t('clock.zoneUnknown', { offset })}>
+      <span className="clock num">
+        <span className="clock-date">{dateText(now)} </span>
+        <b>{clock(now)}</b> <small>{offset}</small>
+      </span>
+    </Tip>
   )
 }
 
@@ -227,17 +237,18 @@ export const IndexStrip = memo(function IndexStrip({ m, loading, quick, onQuick 
               </span>
               <span className="ix-sep">/</span>
               {/* The offline count and the high-load cell filter the board to those nodes. */}
-              <button
-                type="button"
-                className={clsx('ix-pick', m.offline ? 'bad' : 'dim', quick === 'offline' && 'is-on')}
-                aria-pressed={quick === 'offline'}
-                aria-label={t('index.offlineOnly', { count: m.offline })}
-                disabled={!m.offline && quick !== 'offline'}
-                onClick={() => toggle('offline')}
-                title={quick === 'offline' ? t('index.showAll') : m.offline ? t('index.offlineClick') : undefined}
-              >
-                <NumberFlow value={m.offline} />
-              </button>
+              <Tip content={quick === 'offline' ? t('index.showAll') : m.offline ? t('index.offlineClick') : undefined}>
+                <button
+                  type="button"
+                  className={clsx('ix-pick', m.offline ? 'bad' : 'dim', quick === 'offline' && 'is-on')}
+                  aria-pressed={quick === 'offline'}
+                  aria-label={t('index.offlineOnly', { count: m.offline })}
+                  disabled={!m.offline && quick !== 'offline'}
+                  onClick={() => toggle('offline')}
+                >
+                  <NumberFlow value={m.offline} />
+                </button>
+              </Tip>
             </>
           )}
         </span>
@@ -247,24 +258,26 @@ export const IndexStrip = memo(function IndexStrip({ m, loading, quick, onQuick 
           <i className="b-off" style={{ flexGrow: m.offline }} />
         </span>
       </div>
-      <button
-        type="button"
-        className={clsx('ix ix-button', quick === 'hot' && 'is-on')}
-        aria-pressed={quick === 'hot'}
-        disabled={!hot && quick !== 'hot'}
-        onClick={() => toggle('hot')}
-        title={hot || quick === 'hot' ? t('index.withAction', { text: hotRule, action: quick === 'hot' ? t('index.showAll') : t('index.hotClick') }) : hotRule}
-      >
-        <IxLabel text={t('index.hot')} short={t('index.hotShort')} />
-        <span className="ix-value num">
-          {m.hot === null ? <span className="dash">—</span> : (
-            <>
-              <span className={clsx(hot > 0 && 'warn')}><NumberFlow value={hot} /></span>
-              {t('index.hotUnit') && <small className="unit">{t('index.hotUnit')}</small>}
-            </>
-          )}
-        </span>
-      </button>
+      <Tip content={hot || quick === 'hot' ? t('index.withAction', { text: hotRule, action: quick === 'hot' ? t('index.showAll') : t('index.hotClick') }) : hotRule}>
+        <button
+          type="button"
+          className={clsx('ix ix-button', quick === 'hot' && 'is-on')}
+          aria-pressed={quick === 'hot'}
+          // Not `disabled`: with nothing to filter, its hint still tells what counts as high load.
+          aria-disabled={!hot && quick !== 'hot'}
+          onClick={() => (hot || quick === 'hot') && toggle('hot')}
+        >
+          <IxLabel text={t('index.hot')} short={t('index.hotShort')} />
+          <span className="ix-value num">
+            {m.hot === null ? <span className="dash">—</span> : (
+              <>
+                <span className={clsx(hot > 0 && 'warn')}><NumberFlow value={hot} /></span>
+                {t('index.hotUnit') && <small className="unit">{t('index.hotUnit')}</small>}
+              </>
+            )}
+          </span>
+        </button>
+      </Tip>
       <div className="ix">
         <IxLabel text={t('index.memory')} short={t('index.memoryShort')} />
         <span className="ix-value num">
@@ -285,27 +298,29 @@ export const IndexStrip = memo(function IndexStrip({ m, loading, quick, onQuick 
           <LiveSize bytes={m.down} rate />
         </span>
       </div>
-      <div className={clsx('ix ix-traffic', m.traffic?.since != null && 'is-partial')} title={m.traffic?.since != null ? t('board.partialSince', { date: monthDay(m.traffic.since) }) : undefined}>
-        <IxLabel text={t('index.trafficMonth')} short={t('index.trafficMonthShort')} />
-        <span className="ix-value num ix-small">
-          {m.traffic ? (
-            <>
-              {/* The short label leaves out ↑ / ↓: phones mark the values instead. */}
-              <span className="ix-arrow net-up" aria-hidden="true">
-                ↑
-              </span>
-              <LiveSize bytes={m.traffic.up} />
-              <span className="ix-sep">/</span>
-              <span className="ix-arrow net-down" aria-hidden="true">
-                ↓
-              </span>
-              <LiveSize bytes={m.traffic.down} />
-            </>
-          ) : (
-            <span className="dash">—</span>
-          )}
-        </span>
-      </div>
+      <Tip content={m.traffic?.since != null ? t('board.partialSince', { date: monthDay(m.traffic.since) }) : undefined}>
+        <div className={clsx('ix ix-traffic', m.traffic?.since != null && 'is-partial')}>
+          <IxLabel text={t('index.trafficMonth')} short={t('index.trafficMonthShort')} />
+          <span className="ix-value num ix-small">
+            {m.traffic ? (
+              <>
+                {/* The short label leaves out ↑ / ↓: phones mark the values instead. */}
+                <span className="ix-arrow net-up" aria-hidden="true">
+                  ↑
+                </span>
+                <LiveSize bytes={m.traffic.up} />
+                <span className="ix-sep">/</span>
+                <span className="ix-arrow net-down" aria-hidden="true">
+                  ↓
+                </span>
+                <LiveSize bytes={m.traffic.down} />
+              </>
+            ) : (
+              <span className="dash">—</span>
+            )}
+          </span>
+        </div>
+      </Tip>
     </section>
   )
 })
@@ -332,16 +347,20 @@ export function StatusBar({ conn, retrying, onRetry, items, now, version, covere
     <footer className="statusbar">
       <span className="sb-status">
         {conn === 'down' ? (
-          <button type="button" className="sb-conn is-down" onClick={onRetry} disabled={retrying} title={retrying ? t('common.retrying') : t('conn.retryNow')} aria-label={retrying ? t('conn.downRetrying') : t('conn.downRetry')}>
-            <i aria-hidden="true" />
-            <span className="sb-conn-text">{t('conn.bar.down')} · {retrying ? t('conn.retryingBar') : t('common.retry')}</span>
-          </button>
+          <Tip content={retrying ? t('common.retrying') : t('conn.retryNow')}>
+            <button type="button" className="sb-conn is-down" onClick={() => !retrying && onRetry()} aria-disabled={retrying} aria-label={retrying ? t('conn.downRetrying') : t('conn.downRetry')}>
+              <i aria-hidden="true" />
+              <span className="sb-conn-text">{t('conn.bar.down')} · {retrying ? t('conn.retryingBar') : t('common.retry')}</span>
+            </button>
+          </Tip>
         ) : (
-          <span className={clsx('sb-conn', `is-${conn}`)} title={t(`conn.bar.${conn}`)}>
-            <i aria-hidden="true" />
-            <span className="sb-conn-text">{t(`conn.bar.${conn}`)}</span>
-            {conn === 'live' && finite(lastLatency) && <span className="num dim"> · {Math.round(lastLatency)}ms</span>}
-          </span>
+          <Tip content={t(`conn.bar.${conn}`)}>
+            <span className={clsx('sb-conn', `is-${conn}`)}>
+              <i aria-hidden="true" />
+              <span className="sb-conn-text">{t(`conn.bar.${conn}`)}</span>
+              {conn === 'live' && finite(lastLatency) && <span className="num dim"> · {Math.round(lastLatency)}ms</span>}
+            </span>
+          </Tip>
         )}
         <Clock now={now} />
       </span>
@@ -358,9 +377,11 @@ export function StatusBar({ conn, retrying, onRetry, items, now, version, covere
               transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
             >
               {current.uuid ? (
-                <button type="button" aria-haspopup="dialog" className="sb-news-open" title={t('status.viewNode')} {...openProps(current.uuid, openNode)}>
-                  {current.text}
-                </button>
+                <Tip content={t('status.viewNode')}>
+                  <button type="button" aria-haspopup="dialog" className="sb-news-open" {...openProps(current.uuid, openNode)}>
+                    {current.text}
+                  </button>
+                </Tip>
               ) : (
                 current.text
               )}

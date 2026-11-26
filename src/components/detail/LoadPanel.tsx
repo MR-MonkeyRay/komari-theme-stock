@@ -7,6 +7,7 @@ import { finite, pct, size } from '../../lib/format'
 import type { Row } from '../../lib/model'
 import type { ChartStyle } from '../../lib/settings'
 import { KLineChart } from './lazyChart'
+import { Tip } from '../primitives'
 
 const fmtLoad = (v: number) => v.toFixed(2)
 
@@ -16,8 +17,8 @@ const fmtLoad = (v: number) => v.toFixed(2)
  * that line. A node with swap that used some in the range also gets swap in use drawn over it, on a
  * scale from none to all of its swap.
  *
- * Last in the side column: on a desktop it takes whatever height the column has left, down to a
- * least height below which the column scrolls instead (see .chart-load).
+ * Last in the side column: on a desktop it takes the row of the memory and disk charts, level with
+ * them (see .chart-load).
  */
 export function LoadPanel({ r, h, look, loading, stale, rangeKey }: { r: Row; h: HistoryResult | undefined; look: ChartStyle; loading: boolean; stale: boolean; rangeKey: string }) {
   const { t } = useTranslation()
@@ -49,10 +50,12 @@ export function LoadPanel({ r, h, look, loading, stale, rangeKey }: { r: Row; h:
           {t('detail.current')} <b>{finite(now) ? fmtLoad(now) : '—'}</b>
           {cores && ` / ${t('detail.cores', { count: cores })}`}
           {perCore !== null && (
-            <em className={clsx('has-hint', perCore >= 100 ? 'warn' : 'dim')} title={t('detail.perCoreHint')}>
-              {' '}
-              {pct(perCore, 0)}
-            </em>
+            <Tip content={t('detail.perCoreHint')}>
+              <em className={clsx('has-hint', perCore >= 100 ? 'warn' : 'dim')}>
+                {' '}
+                {pct(perCore, 0)}
+              </em>
+            </Tip>
           )}
         </span>
       </div>

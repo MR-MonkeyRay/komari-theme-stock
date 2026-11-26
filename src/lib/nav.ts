@@ -1,5 +1,6 @@
 import { useCallback, type KeyboardEvent, type MouseEvent } from 'react'
-import { useLocation, useNavigate } from 'react-router'
+import { useNavigate } from 'react-router'
+import { useBoardSearch } from './board'
 
 /**
  * Opening a node from the board or the ticker. These are buttons, not links: a link shows its URL
@@ -9,16 +10,21 @@ import { useLocation, useNavigate } from 'react-router'
  */
 export function useOpenNode() {
   const navigate = useNavigate()
-  const { search } = useLocation()
+  const boardSearch = useBoardSearch()
   const open = useCallback(
     (uuid: string, e: MouseEvent | KeyboardEvent) => {
+      const search = boardSearch()
       if (newTab(e)) {
         window.open(`${import.meta.env.BASE_URL}instance/${encodeURIComponent(uuid)}${search}`, '_blank', 'noopener')
         return
       }
+      // The board's own entry takes a search typed a moment ago first (its write may still be
+      // pending), so Back from the drawer returns to the board as it was left.
+      // Compared as parsed: the serializer leaves characters unescaped that the address escapes.
+      if (new URLSearchParams(search).toString() !== new URLSearchParams(window.location.search).toString()) navigate({ search }, { replace: true, state: window.history.state?.usr })
       navigate({ pathname: `/instance/${uuid}`, search }, { state: { fromBoard: true } })
     },
-    [navigate, search],
+    [navigate, boardSearch],
   )
   return open
 }

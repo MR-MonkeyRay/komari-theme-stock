@@ -12,6 +12,7 @@ import { useIsPhone } from '../../lib/media'
 import { buildPingLines, lossText, ms, PING_SLOTS, type PingLineData, type PingPoint } from '../../lib/ping'
 import type { Range } from '../../lib/settings'
 import type { PingTask, PingTaskStats } from '../../lib/types'
+import { Tip, TipRoot, TipTrigger } from '../primitives'
 import { crosshairLabel } from './chartBase'
 import { bucketAt, useChartSync } from './chartSync'
 
@@ -106,9 +107,11 @@ function AllLegend({ lines, stats, at, reading }: { lines: PingLineData[]; stats
             {l.name} <Ms v={reading ? p?.avg : s?.valid ? s.avg : null} lost={reading ? !!p && p.avg === null && !!p.loss : rangeLost(s)} />
             <span className="lg-sub">{t('ping.lossShort')}</span>
             <Loss pct={reading ? (p && p.loss !== null ? p.loss * 100 : null) : rangeLoss(s)} />
-            <span className="lg-sub" title={t('ping.jitter')}>
-              {t('ping.jitterShort')}
-            </span>
+            <Tip content={t('ping.jitter')}>
+              <span className="lg-sub">
+                {t('ping.jitterShort')}
+              </span>
+            </Tip>
             <b className={clsx('lg-v lg-sd', (reading || !s?.valid) && 'quiet')}>{!reading && s?.valid ? ms(s.stddev) : '—'}</b>
           </span>
         )
@@ -271,11 +274,15 @@ export function PingPanel({ uuid, range, refreshSeconds, offline, pick, onPick }
                 const id = String(task.id)
                 const s = stats.data?.get(id)
                 return (
-                  <RadioGroup.Item key={id} value={id} className="ping-chip" aria-label={task.name} title={statsTitle(task, s, t)} onClick={() => id === selected && tasks.length > 1 && choose(id)}>
-                    <i style={{ background: `var(--ping-${(slots.get(id) ?? 0) + 1})` }} aria-hidden="true" />
-                    {task.name}
-                    <ChipValue v={chipValue(task)} />
-                  </RadioGroup.Item>
+                  <TipRoot key={id} content={statsTitle(task, s, t)}>
+                    <RadioGroup.Item value={id} asChild>
+                      <TipTrigger type="button" className="ping-chip" aria-label={task.name} onClick={() => id === selected && tasks.length > 1 && choose(id)}>
+                        <i style={{ background: `var(--ping-${(slots.get(id) ?? 0) + 1})` }} aria-hidden="true" />
+                        {task.name}
+                        <ChipValue v={chipValue(task)} />
+                      </TipTrigger>
+                    </RadioGroup.Item>
+                  </TipRoot>
                 )
               })}
             </RadioGroup.Root>

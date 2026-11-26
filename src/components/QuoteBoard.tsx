@@ -6,12 +6,12 @@ import { motion } from 'motion/react'
 import { createContext, memo, useContext, useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent, type UIEvent } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import type { NodeTraffic, Sparks, TrafficSum } from '../lib/api'
-import { firstDir, useBoardQuery, type BoardView, type Sort, type SortKey } from '../lib/board'
+import { ALL_GROUPS, firstDir, useBoardQuery, type BoardView, type Sort, type SortKey } from '../lib/board'
 import { ago, duration, finite, levelOf, monthDay, parseTags, pct, signed, size } from '../lib/format'
 import { metricTrail, useNow, type BoardMetric, type Row } from '../lib/model'
 import { newTabKey, useOpenNode } from '../lib/nav'
 import type { ThemeSettings } from '../lib/settings'
-import { Flag, Meter, Pair, Segmented, Sparkline, Tick } from './primitives'
+import { Flag, Meter, Pair, Segmented, Sparkline, Tick, Tip } from './primitives'
 
 // Rows re-render only when their own data or these shared extras change; nothing here ticks every
 // second (the "x s ago" label keeps its own clock), so a large board stays cheap between refreshes.
@@ -34,14 +34,16 @@ export function Tags({ tags, max }: { tags: string; max?: number }) {
   if (!list.length) return <span className="dash">—</span>
   const shown = max ? list.slice(0, max) : list
   return (
-    <span className="tags" title={list.map((t) => t.text).join(' · ')}>
-      {shown.map((t) => (
-        <span key={t.text} className={clsx('tag', t.color && 'tag-colored')} style={t.color && TAG_COLORS[t.color] ? ({ '--tag': TAG_COLORS[t.color] } as React.CSSProperties) : undefined}>
-          {t.text}
-        </span>
-      ))}
-      {max && list.length > max && <span className="tag tag-more">+{list.length - max}</span>}
-    </span>
+    <Tip content={list.map((t) => t.text).join(' · ')}>
+      <span className="tags">
+        {shown.map((t) => (
+          <span key={t.text} className={clsx('tag', t.color && 'tag-colored')} style={t.color && TAG_COLORS[t.color] ? ({ '--tag': TAG_COLORS[t.color] } as React.CSSProperties) : undefined}>
+            {t.text}
+          </span>
+        ))}
+        {max && list.length > max && <span className="tag tag-more">+{list.length - max}</span>}
+      </span>
+    </Tip>
   )
 }
 
@@ -67,10 +69,12 @@ function TrafficCell({ cls, label, v }: { cls: string; label: string; v: Traffic
   const { t } = useTranslation()
   const partial = v?.since != null
   return (
-    <span className={clsx(cls, partial && 'is-partial')} title={partial ? t('board.partialSince', { date: monthDay(v.since!) }) : undefined}>
-      <span className="m-label">{label}</span>
-      <Pair up={v?.up} down={v?.down} byUnit />
-    </span>
+    <Tip content={partial ? t('board.partialSince', { date: monthDay(v.since!) }) : undefined}>
+      <span className={clsx(cls, partial && 'is-partial')}>
+        <span className="m-label">{label}</span>
+        <Pair up={v?.up} down={v?.down} byUnit />
+      </span>
+    </Tip>
   )
 }
 /** Disk barely moves within an hour; a wider minimum range keeps its trail visibly flat. */
@@ -85,21 +89,25 @@ function MetricCell({ r, k, x, showSpark, title }: { r: Row; k: BoardMetric; x: 
   const end = r.online && r.lastSeen ? r.lastSeen : x.minute
   const trail = showSpark ? metricTrail(r, x.sparks?.get(r.node.uuid), k, end) : null
   return (
-    <span className={clsx(`c-${k}`, 'metric', trail ? 'has-spark' : 'has-meter', levelOf(value))} title={title}>
-      <span className="m-label">{t(`board.col.${k}`)}</span>
-      <span className="m-nums">
-        <b className="m-value num">
-          <Tick value={value} threshold={1}>{pct(value)}</Tick>
-        </b>
-        {trail?.dir && (
-          <span className={clsx('delta num', trail.dir)} title={t('board.deltaHint')}>
-            {signed(trail.delta!, 1)}
-            <small>pp</small>
-          </span>
-        )}
+    <Tip content={title}>
+      <span className={clsx(`c-${k}`, 'metric', trail ? 'has-spark' : 'has-meter', levelOf(value))}>
+        <span className="m-label">{t(`board.col.${k}`)}</span>
+        <span className="m-nums">
+          <b className="m-value num">
+            <Tick value={value} threshold={1}>{pct(value)}</Tick>
+          </b>
+          {trail?.dir && (
+            <Tip content={t('board.deltaHint')}>
+              <span className={clsx('delta num', trail.dir)}>
+                {signed(trail.delta!, 1)}
+                <small>pp</small>
+              </span>
+            </Tip>
+          )}
+        </span>
+        {trail ? <Sparkline trail={trail} minSpan={MIN_SPAN[k]} stopped={!r.online} /> : <Meter value={value} />}
       </span>
-      {trail ? <Sparkline trail={trail} minSpan={MIN_SPAN[k]} stopped={!r.online} /> : <Meter value={value} />}
-    </span>
+    </Tip>
   )
 }
 
@@ -136,9 +144,11 @@ const QuoteRow = memo(function QuoteRow({ r, x, showSpark, rank }: { r: Row; x: 
             <span className="node-code num">
               {r.code.area}·<em>{r.code.hash}</em>
               {r.node.hidden && (
-                <span className="hidden-tag" title={t('common.hiddenHint')}>
-                  {t('common.hidden')}
-                </span>
+                <Tip content={t('common.hiddenHint')}>
+                  <span className="hidden-tag">
+                    {t('common.hidden')}
+                  </span>
+                </Tip>
               )}
             </span>
           </span>
@@ -148,7 +158,9 @@ const QuoteRow = memo(function QuoteRow({ r, x, showSpark, rank }: { r: Row; x: 
             <i aria-hidden="true" />
             {r.online ? t('common.online') : t('common.offline')}
           </span>
-          <span className="uptime num" title={t('board.uptimeHint')}>{duration(st?.uptime)}</span>
+          <Tip content={t('board.uptimeHint')}>
+            <span className="uptime num">{duration(st?.uptime)}</span>
+          </Tip>
         </span>
         <MetricCell r={r} k="cpu" x={x} showSpark={showSpark} />
         <MetricCell r={r} k="ram" x={x} showSpark={showSpark} title={memText} />
@@ -323,10 +335,12 @@ export const QuoteBoard = memo(function QuoteBoard({ rows, view, paused, onHold,
           {/* Only a logged-in session gets hidden nodes, so only it sees this toggle. */}
           {hiddenCount > 0 &&
             (showHidden ? (
-              <button type="button" className="chip chip-quiet" onClick={onToggleHidden} aria-label={t('board.hideHidden', { count: hiddenCount })} title={t('board.hiddenHint')}>
-                <Eye size={12} aria-hidden="true" />
-                {t('board.hiddenCount', { count: hiddenCount })}
-              </button>
+              <Tip content={t('board.hiddenHint')}>
+                <button type="button" className="chip chip-quiet" onClick={onToggleHidden} aria-label={t('board.hideHidden', { count: hiddenCount })}>
+                  <Eye size={12} aria-hidden="true" />
+                  {t('board.hiddenCount', { count: hiddenCount })}
+                </button>
+              </Tip>
             ) : (
               <button type="button" className="chip" onClick={onToggleHidden} aria-label={t('board.showHidden', { count: hiddenCount })}>
                 <EyeOff size={12} aria-hidden="true" />
@@ -368,16 +382,18 @@ export const QuoteBoard = memo(function QuoteBoard({ rows, view, paused, onHold,
         </div>
       </div>
 
+      {/* One choice that filters the list below: a Radix radio group, so the tabs are one tab stop
+          and the arrow keys move and pick. */}
       {settings.groupBy !== 'none' && allGroups.length > 1 && (
-        <div className="tabs" role="tablist" aria-label={t('board.groupTabs')}>
-          {[{ key: 'all', label: t('common.all'), n: rows.length }, ...allGroups.map((g) => ({ key: g.key, label: g.label, n: g.rows.length }))].map((tab) => (
-            <button key={tab.key} type="button" role="tab" aria-selected={filter === tab.key} className="tab" onClick={() => setBoard({ group: tab.key })}>
+        <RadioGroup.Root className="tabs" value={filter} onValueChange={(group) => setBoard({ group })} orientation="horizontal" loop aria-label={t('board.groupTabs')}>
+          {[{ key: ALL_GROUPS, label: t('common.all'), n: rows.length }, ...allGroups.map((g) => ({ key: g.key, label: g.label, n: g.rows.length }))].map((tab) => (
+            <RadioGroup.Item key={tab.key} value={tab.key} className="tab">
               {filter === tab.key && <motion.span layoutId="tab-pill" className="tab-pill" transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }} />}
               <span className="tab-text">{tab.label}</span>
               <span className="tab-n num">{tab.n}</span>
-            </button>
+            </RadioGroup.Item>
           ))}
-        </div>
+        </RadioGroup.Root>
       )}
 
       {/* While the mouse is over the list or the keyboard is on a row, a sorted board keeps its order
@@ -397,30 +413,30 @@ export const QuoteBoard = memo(function QuoteBoard({ rows, view, paused, onHold,
         <div className="qhead" role="row">
           {HEAD.map((h) =>
             h.key ? (
-              <button
-                key={h.cls}
-                type="button"
-                className={clsx(h.cls, 'th', sort?.key === h.key && 'is-sorted')}
-                onClick={() => cycleSort(h.key!)}
-                aria-sort={sort?.key === h.key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                title={h.hint ? t(h.hint) : undefined}
-                aria-describedby={h.hint ? `${hintId}-${h.col}` : undefined}
-              >
-                <span className="th-text">{t(`board.col.${h.col}`)}</span>
-                {h.sub && <small className="th-sub">{h.sub}</small>}
-                {h.trail && showSpark && <small className="th-sub">1h</small>}
-                {h.hint && (
-                  <>
-                    <CircleQuestionMark className="th-help" size={11} strokeWidth={2} aria-hidden="true" />
-                    <span id={`${hintId}-${h.col}`} hidden>
-                      {t(h.hint)}
-                    </span>
-                  </>
-                )}
-                <span className="sort-mark" aria-hidden="true">
-                  {sort?.key === h.key ? (sort.dir === 'asc' ? '▲' : '▼') : '⇅'}
-                </span>
-              </button>
+              <Tip key={h.cls} content={h.hint ? t(h.hint) : undefined}>
+                <button
+                  type="button"
+                  className={clsx(h.cls, 'th', sort?.key === h.key && 'is-sorted')}
+                  onClick={() => cycleSort(h.key!)}
+                  aria-sort={sort?.key === h.key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  aria-describedby={h.hint ? `${hintId}-${h.col}` : undefined}
+                >
+                  <span className="th-text">{t(`board.col.${h.col}`)}</span>
+                  {h.sub && <small className="th-sub">{h.sub}</small>}
+                  {h.trail && showSpark && <small className="th-sub">1h</small>}
+                  {h.hint && (
+                    <>
+                      <CircleQuestionMark className="th-help" size={11} strokeWidth={2} aria-hidden="true" />
+                      <span id={`${hintId}-${h.col}`} hidden>
+                        {t(h.hint)}
+                      </span>
+                    </>
+                  )}
+                  <span className="sort-mark" aria-hidden="true">
+                    {sort?.key === h.key ? (sort.dir === 'asc' ? '▲' : '▼') : '⇅'}
+                  </span>
+                </button>
+              </Tip>
             ) : (
               <span key={h.cls} className={clsx(h.cls, 'th')}>
                 <span className="th-text">{t(`board.col.${h.col}`)}</span>
@@ -439,7 +455,7 @@ export const QuoteBoard = memo(function QuoteBoard({ rows, view, paused, onHold,
           rows.length ? (
             <div className="empty">
               <p>{t('board.noMatch')}</p>
-              <button type="button" className="tool-btn" onClick={() => setBoard({ q: '', group: 'all', quick: null })}>
+              <button type="button" className="tool-btn" onClick={() => setBoard({ q: '', group: ALL_GROUPS, quick: null })}>
                 {t('board.clearFilters')}
               </button>
             </div>

@@ -278,11 +278,17 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
+/* The side panels above the load chart: a box of its own only on a desktop (below). */
+.side-stack {
+  display: contents;
+}
 
 /* Desktop (at least 1181 × 620): the drawer is one screen with no page scroll. The banner is one
    line; the left column shares its height between the CPU, ping and memory/disk rows by fr (two
-   rows without ping); the right column stacks the node's facts and gives what is left to the
-   events, which scroll inside. Smaller or shorter screens scroll as one column (rules below). */
+   rows without ping). The right column takes the same rows: the system load sits level with the
+   memory and disk charts, and above it the node's facts stack over the events, which take what is
+   left of the height and scroll inside (the stack scrolls when even that does not fit). Smaller or
+   shorter screens scroll as one column (rules below). */
 @media (min-width: 1181px) and (min-height: 620px) {
   .drawer {
     width: min(1760px, calc(100vw - 48px));
@@ -326,19 +332,20 @@
   .detail-grid {
     flex: 1 1 auto;
     grid-template-columns: minmax(0, 1fr) clamp(316px, 24vw, 376px);
-    grid-template-rows: minmax(0, 1fr);
+    grid-template-rows: minmax(200px, 4.6fr) minmax(130px, 3fr) minmax(120px, 2.7fr);
     gap: 8px;
     align-items: stretch;
     min-height: 0;
   }
-  .detail-main {
-    display: grid;
-    grid-template-rows: minmax(200px, 4.6fr) minmax(130px, 3fr) minmax(120px, 2.7fr);
-    gap: 8px;
-    min-height: 0;
-  }
-  .detail-main:not(:has(> .chart-ping)) {
+  .detail-grid:not(:has(> .detail-main > .chart-ping)) {
     grid-template-rows: minmax(240px, 6fr) minmax(140px, 4fr);
+  }
+  .detail-main,
+  .detail-side {
+    display: grid;
+    grid-row: 1 / -1;
+    grid-template-rows: subgrid;
+    min-height: 0;
   }
   .detail-minis {
     gap: 8px;
@@ -354,24 +361,33 @@
     height: auto;
     min-height: 0;
   }
-  .detail-side {
+  .side-stack {
     /* Contains absolutely placed bits (screen-reader status text) so they scroll with it. */
     position: relative;
+    display: flex;
+    grid-row: 1 / -2;
+    flex-direction: column;
     gap: 8px;
     min-height: 0;
     overflow-y: auto;
     scrollbar-width: thin;
   }
-  .detail-side > * {
+  .side-stack > * {
     flex: none;
   }
-  /* The system load takes the rest of the column, down to a chart's least height; below that the
-     column scrolls instead. */
+  /* The events take the height the facts leave, keeping at least their usual box. */
+  .side-stack > .events-panel {
+    flex: 1 0 auto;
+  }
+  .side-stack .events-body {
+    flex: 1 0 124px;
+    height: auto;
+  }
   .detail-side > .chart-load {
     display: flex;
-    flex: 1 1 0;
+    grid-row: -2 / -1;
     flex-direction: column;
-    min-height: 140px;
+    min-height: 0;
   }
   .detail-side .chart-load .kline {
     flex: 1 1 auto;
@@ -411,8 +427,8 @@
     min-height: 23px;
     padding-block: 2px;
   }
-  .detail-side .events-body {
-    height: 96px;
+  .side-stack .events-body {
+    flex-basis: 96px;
   }
   .detail-side .net-now > div {
     padding-block: 6px;
@@ -1347,7 +1363,7 @@
   border-bottom: 1px solid var(--line);
 }
 .uptime-body {
-  padding: 6px 12px 4px;
+  padding: 6px 12px 8px;
 }
 .uptime-bars {
   display: grid;
@@ -1421,56 +1437,39 @@
 .ubar:focus-visible::before {
   outline-width: 2px;
 }
-/* The axis, or the day pointed at: one line of fixed height, so pointing moves nothing. */
-.uptime-axis {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: 16px;
-  /* The first day's date starts under its bar. */
-  padding-left: calc((100% + 3px) * var(--skip) / 30);
-  font-size: 10.5px;
-  color: var(--text-3);
-  white-space: nowrap;
-}
-.uptime-axis.is-peek {
-  padding-left: 0;
-  font-size: 11px;
-  color: var(--text-2);
-}
-.uptime-today {
-  margin-left: auto;
-}
-.uptime-peek {
-  display: flex;
-  gap: 6px;
-  min-width: 0;
-}
-.uptime-peek > * {
-  flex: none;
-}
-.uptime-peek > :last-child {
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.uptime-peek b,
+.uptime-tip b,
 .uptime-day-head b {
   font-weight: 650;
   color: var(--text-1);
 }
-.uptime-strip .ul-ok {
+:is(.uptime-strip, .uptime-tip) .ul-ok {
   color: var(--online);
 }
-.uptime-strip .ul-brief {
+:is(.uptime-strip, .uptime-tip) .ul-brief {
   color: var(--warn);
 }
-.uptime-strip .ul-partial {
+:is(.uptime-strip, .uptime-tip) .ul-partial {
   color: var(--uptime-partial);
 }
-.uptime-strip .ul-severe {
+:is(.uptime-strip, .uptime-tip) .ul-severe {
   color: var(--alert);
+}
+/* The day pointed at, in the tip of its bar. */
+.uptime-tip {
+  color: var(--text-2);
+  white-space: normal;
+}
+.uptime-tip-head {
+  display: flex;
+  gap: 8px;
+  white-space: nowrap;
+}
+.uptime-tip p {
+  margin: 2px 0 0;
+}
+.uptime-tip .sep {
+  margin: 0 6px;
+  color: var(--text-3);
 }
 /* The opened day, under the strip. */
 .uptime-day {
@@ -1625,7 +1624,7 @@
     border: 0;
     border-radius: var(--radius);
   }
-  .qb-bar .icon-btn:active:not(:disabled) {
+  .qb-bar .icon-btn:active:not(:disabled, [aria-disabled='true']) {
     background: var(--bg-hover);
   }
   .qb-bar .qb-name {

@@ -1,7 +1,9 @@
 import * as RadioGroup from '@radix-ui/react-radio-group'
+import { Slot } from '@radix-ui/react-slot'
+import * as Tooltip from '@radix-ui/react-tooltip'
 import clsx from 'clsx'
 import { motion } from 'motion/react'
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { createContext, isValidElement, useContext, useEffect, useId, useRef, useState, type ComponentProps, type ReactElement, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { finite, levelOf, sizeParts } from '../lib/format'
 import type { MetricTrail } from '../lib/model'
@@ -18,8 +20,8 @@ const flagByCode = new Map(
 
 export function Flag({ code, title }: { code: string | null; title?: string }) {
   const url = code ? flagByCode.get(code) : undefined
-  if (!url) return <span className="flag-none" title={title} aria-label={title}>{code ?? '—'}</span>
-  return <span className="flag" role="img" aria-label={title} title={title} style={{ backgroundImage: `url("${url}")` }} />
+  if (!url) return <Tip content={title}><span className="flag-none" aria-label={title}>{code ?? '—'}</span></Tip>
+  return <Tip content={title}><span className="flag" role="img" aria-label={title} style={{ backgroundImage: `url("${url}")` }} /></Tip>
 }
 
 /**
@@ -102,7 +104,7 @@ export function Sparkline({ trail, minSpan = 6, stopped = false }: { trail: Metr
   const { t } = useTranslation()
   const gid = 'spk' + useId().replace(/[^a-zA-Z0-9_-]/g, '')
   const { points, avg, dir } = trail
-  if (points.length < 2 || avg === null) return <span className="spark spark-empty" title={t('spark.empty')} />
+  if (points.length < 2 || avg === null) return <Tip content={t('spark.empty')}><span className="spark spark-empty" /></Tip>
   const vs = points.map((p) => p.v)
   const lo = Math.min(...vs, avg)
   const hi = Math.max(...vs, avg)
@@ -149,5 +151,90 @@ export function Segmented<T extends string>({ value, options, onChange, label, l
         </RadioGroup.Item>
       ))}
     </RadioGroup.Root>
+  )
+}
+
+type TipProps = { content: ReactNode; side?: 'top' | 'bottom' | 'left' | 'right'; delay?: number }
+
+/** What a trigger needs to know of its hint: whether it has anything to say, and its text if text. */
+const TipInfo = createContext<{ has: boolean; text: string | null }>({ has: false, text: null })
+
+/**
+ * A hint shown while the pointer rests on its trigger or the keyboard focuses it (Radix tooltip),
+ * in the theme's look; it stands in for the browser's `title`. With no `content` the trigger does
+ * not ask to open at all (an empty hint must not count as one shown, which would cut the next
+ * one's delay), but it keeps its place in the tree, so a hint that comes and goes never remounts it.
+ * Needs the `Tooltip.Provider` at the root (main.tsx), which sets the shared delays.
+ *
+ * The trigger is one of `children`, wrapped in a `TipTrigger`. A trigger that is already a Radix
+ * part with its own `data-state` (a radio item, a tab, a popover's trigger) goes outside it with
+ * `asChild`, so its state is the one on the element: `<RadioGroup.Item asChild><TipTrigger>`.
+ * Otherwise use `Tip`, which wraps its one child. Some browsers send a disabled button no pointer
+ * events, so its hint would not show there: where the hint matters, use `aria-disabled` instead.
+ */
+export function TipRoot({ content, side = 'top', delay, children }: TipProps & { children: ReactNode }) {
+  const [open, setOpen] = useState(false)
+  const has = !!content
+  // A hint emptied while open is closed for good, so it cannot come back unasked with new content.
+  if (!has && open) setOpen(false)
+  return (
+    <Tooltip.Root open={open && has} onOpenChange={setOpen} delayDuration={delay}>
+      <TipInfo.Provider value={{ has, text: typeof content === 'string' ? content : null }}>{children}</TipInfo.Provider>
+      <Tooltip.Portal>
+        <Tooltip.Content className="tip" side={side} sideOffset={6} collisionPadding={8}>
+          {content}
+        </Tooltip.Content>
+      </Tooltip.Portal>
+    </Tooltip.Root>
+  )
+}
+
+/**
+ * Passes everything on to its child, but the tooltip's description when `drop` (see TipTrigger).
+ * Always in the tree, so the label and the hint coming to differ or agree never remounts the child.
+ */
+function Undescribed({ drop, ...props }: ComponentProps<typeof Slot> & { drop: boolean }) {
+  if (drop) delete props['aria-describedby']
+  return <Slot {...props} />
+}
+
+/**
+ * The element a hint belongs to (Radix tooltip trigger). Focus opens the hint only when it came
+ * from the keyboard: focus handed back by a closing popover or dialog, after a click, does not. A
+ * hint inside another's trigger keeps the mouse to itself, so only the innermost one opens. A hint
+ * that only repeats the element's label is not linked to it as its description, so a screen
+ * reader does not read the same words twice.
+ */
+export function TipTrigger({ onFocus, onPointerMove, asChild, children, ...props }: ComponentProps<typeof Tooltip.Trigger>) {
+  const { has, text } = useContext(TipInfo)
+  // The trigger as an element of its own, so the description can be taken off on its way to it.
+  const target = asChild && isValidElement<{ 'aria-label'?: string }>(children) ? children : <button type="button">{children}</button>
+  const repeats = text !== null && (props['aria-label'] ?? target.props['aria-label']) === text
+  return (
+    <Tooltip.Trigger
+      {...props}
+      asChild
+      // A prevented event skips the tooltip's own handler.
+      onPointerMove={(e) => {
+        onPointerMove?.(e)
+        if (!has) e.preventDefault()
+        else if (e.pointerType === 'mouse') e.stopPropagation()
+      }}
+      onFocus={(e) => {
+        onFocus?.(e)
+        if (!has || !e.currentTarget.matches(':focus-visible')) e.preventDefault()
+      }}
+    >
+      <Undescribed drop={repeats}>{target}</Undescribed>
+    </Tooltip.Trigger>
+  )
+}
+
+/** `TipRoot` around one element that is its own trigger: `<Tip content={hint}><span>…</span></Tip>`. */
+export function Tip({ children, ...props }: TipProps & { children: ReactElement }) {
+  return (
+    <TipRoot {...props}>
+      <TipTrigger asChild>{children}</TipTrigger>
+    </TipRoot>
   )
 }

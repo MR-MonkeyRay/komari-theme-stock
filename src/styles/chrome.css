@@ -226,8 +226,9 @@ button.sb-conn {
   font: inherit;
   cursor: pointer;
 }
-button.market:disabled,
-button.sb-conn:disabled {
+/* Retrying: aria-disabled rather than disabled, so the hint still says so (see Tip). */
+button.market[aria-disabled='true'],
+button.sb-conn[aria-disabled='true'] {
   cursor: progress;
 }
 button.market:hover {
@@ -403,11 +404,12 @@ button.ix {
   border-radius: var(--radius-sm);
   transition: background-color 150ms ease;
 }
-button.ix:hover:not(:disabled),
+button.ix:hover:not(:disabled, [aria-disabled='true']),
 .ix-pick:hover:not(:disabled) {
   background: var(--bg-hover);
 }
 button.ix:disabled,
+button.ix[aria-disabled='true'],
 .ix-pick:disabled {
   cursor: default;
 }
@@ -1206,4 +1208,29 @@ button.ix.is-on,
   font-size: 0.78em;
   font-weight: 500;
   opacity: 0.75;
+}
+
+/* ---------- hints ---------- */
+
+/* A hint (see Tip): over everything, the drawer and popovers included. */
+.tip {
+  z-index: 70;
+  max-width: min(300px, calc(100vw - 16px));
+  padding: 5px 8px;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--text-1);
+  overflow-wrap: break-word;
+  white-space: pre-line;
+  background: var(--bg-panel);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-popover);
+  pointer-events: none;
+  animation: fade-in 120ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tip {
+    animation: none;
+  }
 }
