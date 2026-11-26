@@ -150,8 +150,8 @@
       "net": "Netz ↑/↓",
       "trafficMonth": "Monat",
       "trafficTotal": "Gesamt",
-      "trafficMonthHint": "Upload- / Download-Traffic seit 00:00 Uhr am 1. des laufenden Monats. Ein orangefarbener Wert bedeutet, dass die von Komari gespeicherten Daten nicht bis zum Monatsbeginn zurückreichen; gezählt wird daher nur der erhaltene Teil.",
-      "trafficTotalHint": "Upload- / Download-Traffic seit dem Hinzufügen des Knotens zu Komari. Ein orangefarbener Wert bedeutet, dass ältere Daten die Aufbewahrungsfrist von Komari überschritten haben; gezählt wird daher nur der erhaltene Teil. Im Komari-Adminbereich die Aufbewahrungsdauer der Metrikdaten erhöhen, um alles zu erfassen.",
+      "trafficMonthHint": "Upload- und Download-Traffic seit Monatsbeginn. Orange: Es zählen nur die noch gespeicherten Daten.",
+      "trafficTotalHint": "Upload- und Download-Traffic seit dem Hinzufügen des Knotens zu Komari. Orange: Es zählen nur die noch gespeicherten Daten.",
       "tags": "Tags",
       "seen": "Zuletzt"
     },
@@ -399,7 +399,7 @@
   "uptime": {
     "title": "Verfügbarkeit",
     "help": "Über die Verfügbarkeit",
-    "hint": "Abgeleitet aus der Zahl der Messwerte, die der Knoten je Stunde meldet: Zeit ohne Meldungen zählt als offline, wie Komari selbst es wertet. Gezählt wird nur die Zeit, für die Komari noch Daten aufbewahrt, höchstens 30 Tage; Tage vor dem Hinzufügen des Knotens werden nicht gezeigt.",
+    "hint": "Geschätzt anhand der Meldungen pro Stunde. Zeiten ohne Meldung zählen als offline. Die letzten 30 Tage werden angezeigt, soweit seit dem Hinzufügen des Knotens Daten vorliegen.",
     "range_one": "Letzter Tag",
     "range_other": "Letzte {{count}} Tage",
     "bars": "Tägliche Verfügbarkeit",

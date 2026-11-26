@@ -150,8 +150,8 @@
       "net": "Network ↑/↓",
       "trafficMonth": "This month",
       "trafficTotal": "Total",
-      "trafficMonthHint": "Upload / download traffic since 00:00 on the 1st of this month. An orange value means the data Komari keeps does not reach back to the start of the month, so only the retained part is counted.",
-      "trafficTotalHint": "Upload / download traffic since the node was added to Komari. An orange value means older data has passed Komari's retention period, so only the retained part is counted; raise the metric retention in the Komari admin panel to count it all.",
+      "trafficMonthHint": "Upload and download traffic since the start of the month. Orange marks a partial total based on retained data.",
+      "trafficTotalHint": "Upload and download traffic since the node was added to Komari. Orange marks a partial total based on retained data.",
       "tags": "Tags",
       "seen": "Seen"
     },
@@ -399,7 +399,7 @@
   "uptime": {
     "title": "Availability",
     "help": "About availability",
-    "hint": "Inferred from how many samples the node reports each hour: time without reports counts as offline, as Komari itself judges it. Only time Komari still keeps data for is counted, 30 days at most; days before the node was added are not shown.",
+    "hint": "Estimated from hourly report counts. Gaps count as offline. Shows up to the last 30 days, limited by when the node was added and how long data is kept.",
     "range_one": "Last day",
     "range_other": "Last {{count}} days",
     "bars": "Daily availability",

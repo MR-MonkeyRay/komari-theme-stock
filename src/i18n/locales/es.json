@@ -150,8 +150,8 @@
       "net": "Red ↑/↓",
       "trafficMonth": "Mes",
       "trafficTotal": "Total",
-      "trafficMonthHint": "Tráfico de subida / bajada desde las 00:00 del día 1 de este mes. Un valor en naranja indica que los datos que conserva Komari no llegan al inicio del mes, por lo que solo se cuenta la parte conservada.",
-      "trafficTotalHint": "Tráfico de subida / bajada desde que el nodo se añadió a Komari. Un valor en naranja indica que los datos más antiguos han superado el periodo de retención de Komari, por lo que solo se cuenta la parte conservada; amplíe el tiempo de retención de las métricas en el panel de administración de Komari para contarlo todo.",
+      "trafficMonthHint": "Tráfico de subida y bajada desde el inicio del mes. En naranja: solo se cuentan los datos conservados.",
+      "trafficTotalHint": "Tráfico de subida y bajada desde que se añadió el nodo a Komari. En naranja: solo se cuentan los datos conservados.",
       "tags": "Etiquetas",
       "seen": "Reporte"
     },
@@ -399,7 +399,7 @@
   "uptime": {
     "title": "Disponibilidad",
     "help": "Acerca de la disponibilidad",
-    "hint": "Se deduce de cuántas muestras envía el nodo cada hora: el tiempo sin envíos cuenta como sin conexión, igual que lo considera Komari. Solo se cuenta el tiempo del que Komari aún conserva datos, 30 días como máximo; los días anteriores a la incorporación del nodo no se muestran.",
+    "hint": "Se estima según el número de informes por hora. Sin informes, el nodo cuenta como desconectado. Muestra hasta los últimos 30 días, según la fecha de alta y los datos conservados.",
     "range_one": "Último día",
     "range_other": "Últimos {{count}} días",
     "bars": "Disponibilidad diaria",

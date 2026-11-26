@@ -150,8 +150,8 @@
       "net": "Rede ↑/↓",
       "trafficMonth": "Mês",
       "trafficTotal": "Total",
-      "trafficMonthHint": "Tráfego de upload / download desde 00:00 do dia 1º deste mês. Um valor em laranja indica que os dados retidos pelo Komari não chegam ao início do mês, então só a parte retida é contabilizada.",
-      "trafficTotalHint": "Tráfego de upload / download desde que o nó foi adicionado ao Komari. Um valor em laranja indica que dados mais antigos ultrapassaram o período de retenção do Komari, então só a parte retida é contabilizada; aumente o tempo de retenção das métricas no painel administrativo do Komari para contabilizar tudo.",
+      "trafficMonthHint": "Tráfego de upload e download desde o início do mês. Em laranja: só os dados retidos entram na conta.",
+      "trafficTotalHint": "Tráfego de upload e download desde a adição do nó ao Komari. Em laranja: só os dados retidos entram na conta.",
       "tags": "Tags",
       "seen": "Sinal"
     },
@@ -399,7 +399,7 @@
   "uptime": {
     "title": "Disponibilidade",
     "help": "Sobre a disponibilidade",
-    "hint": "Inferida de quantas amostras o nó envia por hora: o tempo sem envios conta como offline, como o próprio Komari considera. Só conta o tempo do qual o Komari ainda guarda dados, no máximo 30 dias; os dias antes de o nó ser adicionado não aparecem.",
+    "hint": "Estimada pelo número de relatórios por hora. Sem relatórios, o nó conta como offline. Mostra até os últimos 30 dias, conforme a data de adição do nó e os dados retidos.",
     "range_one": "Último dia",
     "range_other": "Últimos {{count}} dias",
     "bars": "Disponibilidade diária",

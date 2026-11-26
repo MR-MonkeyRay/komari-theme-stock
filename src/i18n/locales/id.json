@@ -140,8 +140,8 @@
       "net": "Jaringan ↑/↓",
       "trafficMonth": "Bulan",
       "trafficTotal": "Total",
-      "trafficMonthHint": "Trafik unggah / unduh sejak pukul 00.00 tanggal 1 bulan ini. Nilai berwarna oranye berarti data yang disimpan Komari belum mencakup awal bulan, sehingga hanya bagian yang masih tersimpan yang dihitung.",
-      "trafficTotalHint": "Trafik unggah / unduh sejak node ditambahkan ke Komari. Nilai berwarna oranye berarti data lama sudah melewati masa retensi Komari, sehingga hanya bagian dalam masa retensi yang dihitung; perbesar retensi metrik di panel admin Komari agar seluruhnya dapat dihitung.",
+      "trafficMonthHint": "Trafik unggah dan unduh sejak awal bulan. Warna oranye berarti hanya data yang masih tersimpan yang dihitung.",
+      "trafficTotalHint": "Trafik unggah dan unduh sejak node ditambahkan ke Komari. Warna oranye berarti hanya data yang masih tersimpan yang dihitung.",
       "tags": "Tag",
       "seen": "Terakhir"
     },
@@ -382,7 +382,7 @@
   "uptime": {
     "title": "Ketersediaan",
     "help": "Tentang ketersediaan",
-    "hint": "Disimpulkan dari jumlah sampel yang dilaporkan node tiap jam: waktu tanpa laporan dihitung offline, sama seperti penilaian Komari sendiri. Hanya waktu yang datanya masih disimpan Komari yang dihitung, paling lama 30 hari; hari sebelum node ditambahkan tidak ditampilkan.",
+    "hint": "Diperkirakan dari jumlah laporan per jam. Tanpa laporan, node dianggap offline. Menampilkan hingga 30 hari terakhir, dibatasi tanggal penambahan node dan masa retensi data.",
     "range_other": "{{count}} hari terakhir",
     "bars": "Ketersediaan harian",
     "bar": "{{date}}: {{level}}, online {{value}}",

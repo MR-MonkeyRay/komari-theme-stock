@@ -150,8 +150,8 @@
       "net": "Réseau ↑/↓",
       "trafficMonth": "Mois",
       "trafficTotal": "Total",
-      "trafficMonthHint": "Trafic d'envoi / de réception depuis 00 h le 1er du mois en cours. Une valeur en orange signifie que les données conservées par Komari ne remontent pas jusqu'au début du mois : seule la partie conservée est comptabilisée.",
-      "trafficTotalHint": "Trafic d'envoi / de réception depuis l'ajout du nœud à Komari. Une valeur en orange signifie que les données plus anciennes ont dépassé la durée de conservation de Komari : seule la partie conservée est comptabilisée. Pour tout comptabiliser, augmentez la durée de conservation des métriques dans le panneau d'administration de Komari.",
+      "trafficMonthHint": "Trafic envoyé et reçu depuis le début du mois. En orange : seules les données conservées sont comptées.",
+      "trafficTotalHint": "Trafic envoyé et reçu depuis l’ajout du nœud à Komari. En orange : seules les données conservées sont comptées.",
       "tags": "Étiquettes",
       "seen": "Signal"
     },
@@ -399,7 +399,7 @@
   "uptime": {
     "title": "Disponibilité",
     "help": "À propos de la disponibilité",
-    "hint": "Déduite du nombre d'échantillons que le nœud envoie chaque heure : le temps sans envoi compte comme hors ligne, comme Komari lui-même en juge. Seul le temps dont Komari conserve encore les données est compté, 30 jours au plus ; les jours avant l'ajout du nœud ne sont pas affichés.",
+    "hint": "Estimation d’après le nombre de relevés par heure. Sans relevé, le nœud est hors ligne. Affiche les 30 derniers jours au plus, selon la date d’ajout du nœud et les données conservées.",
     "range_one": "Dernier jour",
     "range_other": "{{count}} derniers jours",
     "bars": "Disponibilité par jour",
