@@ -6,7 +6,7 @@ import { motion } from 'motion/react'
 import { createContext, memo, useContext, useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent, type UIEvent } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import type { NodeTraffic, Sparks, TrafficSum } from '../lib/api'
-import { firstDir, useBoardQuery, type BoardView, type Sort, type SortKey } from '../lib/board'
+import { ALL_GROUPS, firstDir, useBoardQuery, type BoardView, type Sort, type SortKey } from '../lib/board'
 import { ago, duration, finite, levelOf, monthDay, parseTags, pct, signed, size } from '../lib/format'
 import { metricTrail, useNow, type BoardMetric, type Row } from '../lib/model'
 import { newTabKey, useOpenNode } from '../lib/nav'
@@ -386,7 +386,7 @@ export const QuoteBoard = memo(function QuoteBoard({ rows, view, paused, onHold,
           and the arrow keys move and pick. */}
       {settings.groupBy !== 'none' && allGroups.length > 1 && (
         <RadioGroup.Root className="tabs" value={filter} onValueChange={(group) => setBoard({ group })} orientation="horizontal" loop aria-label={t('board.groupTabs')}>
-          {[{ key: 'all', label: t('common.all'), n: rows.length }, ...allGroups.map((g) => ({ key: g.key, label: g.label, n: g.rows.length }))].map((tab) => (
+          {[{ key: ALL_GROUPS, label: t('common.all'), n: rows.length }, ...allGroups.map((g) => ({ key: g.key, label: g.label, n: g.rows.length }))].map((tab) => (
             <RadioGroup.Item key={tab.key} value={tab.key} className="tab">
               {filter === tab.key && <motion.span layoutId="tab-pill" className="tab-pill" transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }} />}
               <span className="tab-text">{tab.label}</span>
@@ -455,7 +455,7 @@ export const QuoteBoard = memo(function QuoteBoard({ rows, view, paused, onHold,
           rows.length ? (
             <div className="empty">
               <p>{t('board.noMatch')}</p>
-              <button type="button" className="tool-btn" onClick={() => setBoard({ q: '', group: 'all', quick: null })}>
+              <button type="button" className="tool-btn" onClick={() => setBoard({ q: '', group: ALL_GROUPS, quick: null })}>
                 {t('board.clearFilters')}
               </button>
             </div>

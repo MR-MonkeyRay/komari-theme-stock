@@ -20,11 +20,18 @@ export type Quick = 'offline' | 'hot' | null
 export interface BoardQuery {
   /** Search text. */
   q: string
-  /** Group tab key; 'all' shows every group. */
+  /** Group tab key; ALL_GROUPS shows every group. */
   group: string
   quick: Quick
   sort: Sort
 }
+
+/**
+ * The All tab's key: empty, which no group's key can be (an admin group with no name is
+ * UNGROUPED), so a group named "all" is a tab of its own. Left out of the URL; an old link's g=all
+ * opens such a group if there is one, else, being no group, everything.
+ */
+export const ALL_GROUPS = ''
 
 const SORT_KEYS: SortKey[] = ['name', 'uptime', 'cpu', 'ram', 'disk', 'load', 'net', 'month', 'total', 'seen']
 
@@ -46,7 +53,7 @@ const parseAsSort = createParser<NonNullable<Sort>>({
 /** In the URL as ?q=…&g=…&f=…&sort=key-dir; a value at its default is left out. */
 const boardParams = {
   q: parseAsString.withDefault(''),
-  group: parseAsString.withDefault('all'),
+  group: parseAsString.withDefault(ALL_GROUPS),
   quick: parseAsStringLiteral(['offline', 'hot'] as const),
   sort: parseAsSort,
 }
@@ -151,7 +158,7 @@ function sortValue(r: Row, key: SortKey, traffic: NodeTraffic | undefined): numb
 export interface BoardView {
   /** Every group, for the tabs and their counts. */
   allGroups: Group[]
-  /** The tab in effect: the URL's when it still exists, else 'all'. */
+  /** The tab in effect: the URL's when it still exists, else ALL_GROUPS. */
   filter: string
   /** Groups after the tab, quick and search filters (empty groups dropped). */
   groups: Group[]
@@ -165,13 +172,13 @@ export interface BoardView {
 export function boardView(rows: Row[], by: SiteSettings['groupBy'], query: BoardQuery, traffic: NodeTraffic | undefined, t: TFunction): BoardView {
   const allGroups = groupRows(rows, by, t)
   // A tab from an old link that no longer exists (or grouping switched off) shows everything.
-  const filter = by !== 'none' && allGroups.some((g) => g.key === query.group) ? query.group : 'all'
+  const filter = by !== 'none' && allGroups.some((g) => g.key === query.group) ? query.group : ALL_GROUPS
   const q = query.q.trim().toLowerCase()
   const quick = (r: Row) => (query.quick === 'offline' ? !r.online : query.quick === 'hot' ? isHot(r) : true)
   const match = (r: Row) =>
     quick(r) && (!q || [r.node.name, r.region.name, r.region.code ?? '', r.code.area, r.code.hash, r.node.group, ...parseTags(r.node.tags).map((t) => t.text)].some((s) => s?.toLowerCase().includes(q)))
   const groups = allGroups
-    .filter((g) => filter === 'all' || g.key === filter)
+    .filter((g) => filter === ALL_GROUPS || g.key === filter)
     .map((g) => ({ ...g, rows: g.rows.filter(match) }))
     .filter((g) => g.rows.length)
 

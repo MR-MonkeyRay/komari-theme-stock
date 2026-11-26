@@ -944,6 +944,10 @@ div.empty p {
   .tab:hover {
     background: none;
   }
+  /* The strip scrolls (and so clips): the focus ring is drawn inside the tab. */
+  .tab:focus-visible {
+    outline-offset: -2px;
+  }
   .tab-pill {
     inset: auto 0 0;
     height: 2px;
