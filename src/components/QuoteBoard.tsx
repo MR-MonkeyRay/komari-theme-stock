@@ -368,16 +368,18 @@ export const QuoteBoard = memo(function QuoteBoard({ rows, view, paused, onHold,
         </div>
       </div>
 
+      {/* One choice that filters the list below: a Radix radio group, so the tabs are one tab stop
+          and the arrow keys move and pick. */}
       {settings.groupBy !== 'none' && allGroups.length > 1 && (
-        <div className="tabs" role="tablist" aria-label={t('board.groupTabs')}>
+        <RadioGroup.Root className="tabs" value={filter} onValueChange={(group) => setBoard({ group })} orientation="horizontal" loop aria-label={t('board.groupTabs')}>
           {[{ key: 'all', label: t('common.all'), n: rows.length }, ...allGroups.map((g) => ({ key: g.key, label: g.label, n: g.rows.length }))].map((tab) => (
-            <button key={tab.key} type="button" role="tab" aria-selected={filter === tab.key} className="tab" onClick={() => setBoard({ group: tab.key })}>
+            <RadioGroup.Item key={tab.key} value={tab.key} className="tab">
               {filter === tab.key && <motion.span layoutId="tab-pill" className="tab-pill" transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }} />}
               <span className="tab-text">{tab.label}</span>
               <span className="tab-n num">{tab.n}</span>
-            </button>
+            </RadioGroup.Item>
           ))}
-        </div>
+        </RadioGroup.Root>
       )}
 
       {/* While the mouse is over the list or the keyboard is on a row, a sorted board keeps its order
