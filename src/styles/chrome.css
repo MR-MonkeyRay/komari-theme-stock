@@ -226,8 +226,9 @@ button.sb-conn {
   font: inherit;
   cursor: pointer;
 }
-button.market:disabled,
-button.sb-conn:disabled {
+/* Retrying: aria-disabled rather than disabled, so the hint still says so (see Tip). */
+button.market[aria-disabled='true'],
+button.sb-conn[aria-disabled='true'] {
   cursor: progress;
 }
 button.market:hover {

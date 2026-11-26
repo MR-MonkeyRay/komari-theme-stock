@@ -124,7 +124,7 @@ function LiveBadge({ conn, updatedAt, refreshSeconds, onRetry, retrying }: { con
     return (
       <>
         <Tip content={retrying ? t('common.retrying') : t('conn.liveFailed')}>
-          <button type="button" className="market is-down" onClick={onRetry} disabled={retrying} aria-label={retrying ? t('conn.liveDownRetrying') : t('conn.liveDownRetry')}>
+          <button type="button" className="market is-down" onClick={() => !retrying && onRetry()} aria-disabled={retrying} aria-label={retrying ? t('conn.liveDownRetrying') : t('conn.liveDownRetry')}>
             {body}
           </button>
         </Tip>
@@ -348,7 +348,7 @@ export function StatusBar({ conn, retrying, onRetry, items, now, version, covere
       <span className="sb-status">
         {conn === 'down' ? (
           <Tip content={retrying ? t('common.retrying') : t('conn.retryNow')}>
-            <button type="button" className="sb-conn is-down" onClick={onRetry} disabled={retrying} aria-label={retrying ? t('conn.downRetrying') : t('conn.downRetry')}>
+            <button type="button" className="sb-conn is-down" onClick={() => !retrying && onRetry()} aria-disabled={retrying} aria-label={retrying ? t('conn.downRetrying') : t('conn.downRetry')}>
               <i aria-hidden="true" />
               <span className="sb-conn-text">{t('conn.bar.down')} · {retrying ? t('conn.retryingBar') : t('common.retry')}</span>
             </button>

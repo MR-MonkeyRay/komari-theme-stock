@@ -1624,7 +1624,7 @@
     border: 0;
     border-radius: var(--radius);
   }
-  .qb-bar .icon-btn:active:not(:disabled) {
+  .qb-bar .icon-btn:active:not(:disabled, [aria-disabled='true']) {
     background: var(--bg-hover);
   }
   .qb-bar .qb-name {

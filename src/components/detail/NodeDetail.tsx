@@ -223,7 +223,7 @@ function DetailBody({ r, rows, settings, traffic, now, picked, onRange, ping, on
   const nav = (
     <div className="qb-nav">
       <Tip content={t('detail.prevHint')}>
-        <button type="button" className="icon-btn" onClick={() => onStep(-1)} disabled={rows.length < 2} aria-label={t('detail.prev')}>
+        <button type="button" className="icon-btn" onClick={() => rows.length > 1 && onStep(-1)} aria-disabled={rows.length < 2} aria-label={t('detail.prev')}>
           <ChevronLeft size={phone ? 18 : 15} />
         </button>
       </Tip>
@@ -231,7 +231,7 @@ function DetailBody({ r, rows, settings, traffic, now, picked, onRange, ping, on
         {idx + 1}/{rows.length}
       </span>
       <Tip content={t('detail.nextHint')}>
-        <button type="button" className="icon-btn" onClick={() => onStep(1)} disabled={rows.length < 2} aria-label={t('detail.next')}>
+        <button type="button" className="icon-btn" onClick={() => rows.length > 1 && onStep(1)} aria-disabled={rows.length < 2} aria-label={t('detail.next')}>
           <ChevronRight size={phone ? 18 : 15} />
         </button>
       </Tip>

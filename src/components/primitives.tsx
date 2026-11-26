@@ -1,8 +1,9 @@
 import * as RadioGroup from '@radix-ui/react-radio-group'
+import { Slot } from '@radix-ui/react-slot'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import clsx from 'clsx'
 import { motion } from 'motion/react'
-import { createContext, useContext, useEffect, useId, useRef, useState, type ComponentProps, type ReactElement, type ReactNode } from 'react'
+import { createContext, isValidElement, useContext, useEffect, useId, useRef, useState, type ComponentProps, type ReactElement, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { finite, levelOf, sizeParts } from '../lib/format'
 import type { MetricTrail } from '../lib/model'
@@ -155,8 +156,8 @@ export function Segmented<T extends string>({ value, options, onChange, label, l
 
 type TipProps = { content: ReactNode; side?: 'top' | 'bottom' | 'left' | 'right'; delay?: number }
 
-/** Whether a trigger's hint has anything to say. */
-const TipHas = createContext(false)
+/** What a trigger needs to know of its hint: whether it has anything to say, and its text if text. */
+const TipInfo = createContext<{ has: boolean; text: string | null }>({ has: false, text: null })
 
 /**
  * A hint shown while the pointer rests on its trigger or the keyboard focuses it (Radix tooltip),
@@ -178,7 +179,7 @@ export function TipRoot({ content, side = 'top', delay, children }: TipProps & {
   if (!has && open) setOpen(false)
   return (
     <Tooltip.Root open={open && has} onOpenChange={setOpen} delayDuration={delay}>
-      <TipHas.Provider value={has}>{children}</TipHas.Provider>
+      <TipInfo.Provider value={{ has, text: typeof content === 'string' ? content : null }}>{children}</TipInfo.Provider>
       <Tooltip.Portal>
         <Tooltip.Content className="tip" side={side} sideOffset={6} collisionPadding={8}>
           {content}
@@ -189,15 +190,30 @@ export function TipRoot({ content, side = 'top', delay, children }: TipProps & {
 }
 
 /**
+ * Passes everything on to its child, but the tooltip's description when `drop` (see TipTrigger).
+ * Always in the tree, so the label and the hint coming to differ or agree never remounts the child.
+ */
+function Undescribed({ drop, ...props }: ComponentProps<typeof Slot> & { drop: boolean }) {
+  if (drop) delete props['aria-describedby']
+  return <Slot {...props} />
+}
+
+/**
  * The element a hint belongs to (Radix tooltip trigger). Focus opens the hint only when it came
  * from the keyboard: focus handed back by a closing popover or dialog, after a click, does not. A
- * hint inside another's trigger keeps the mouse to itself, so only the innermost one opens.
+ * hint inside another's trigger keeps the mouse to itself, so only the innermost one opens. A hint
+ * that only repeats the element's label is not linked to it as its description, so a screen
+ * reader does not read the same words twice.
  */
-export function TipTrigger({ onFocus, onPointerMove, ...props }: ComponentProps<typeof Tooltip.Trigger>) {
-  const has = useContext(TipHas)
+export function TipTrigger({ onFocus, onPointerMove, asChild, children, ...props }: ComponentProps<typeof Tooltip.Trigger>) {
+  const { has, text } = useContext(TipInfo)
+  // The trigger as an element of its own, so the description can be taken off on its way to it.
+  const target = asChild && isValidElement<{ 'aria-label'?: string }>(children) ? children : <button type="button">{children}</button>
+  const repeats = text !== null && (props['aria-label'] ?? target.props['aria-label']) === text
   return (
     <Tooltip.Trigger
       {...props}
+      asChild
       // A prevented event skips the tooltip's own handler.
       onPointerMove={(e) => {
         onPointerMove?.(e)
@@ -208,7 +224,9 @@ export function TipTrigger({ onFocus, onPointerMove, ...props }: ComponentProps<
         onFocus?.(e)
         if (!has || !e.currentTarget.matches(':focus-visible')) e.preventDefault()
       }}
-    />
+    >
+      <Undescribed drop={repeats}>{target}</Undescribed>
+    </Tooltip.Trigger>
   )
 }
 
