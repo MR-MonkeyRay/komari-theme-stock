@@ -1,6 +1,8 @@
+import { autoUpdate, flip, offset, shift, useFloating } from '@floating-ui/react-dom'
 import clsx from 'clsx'
 import { ChartCandlestick, ChevronLeft, ChevronRight, CircleQuestionMark, X } from 'lucide-react'
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { useUptime } from '../../lib/api'
 import { clock, duration, monthDay, parseTime, sameDay, weekday } from '../../lib/format'
@@ -39,7 +41,7 @@ function useDayText() {
 /**
  * Up to 30 days of availability, one bar a day, today at the right end. A bar's color and height
  * both give its level, so a dip shows without telling the colors apart. Pointing at a bar (or
- * focusing it) puts its day on the line under the strip; clicking or tapping opens the day there,
+ * focusing it) shows its day in a floating tip; clicking or tapping opens the day under the strip,
  * and a finger dragged along the strip opens each day it passes. An opened day the charts reach
  * back to (`reach`, ms) can be shown in them (`onShow`: the day's window and where its first
  * offline stretch begins, ms).
@@ -59,6 +61,12 @@ export function UptimeStrip({ r, now, reach, onShow }: { r: Row; now: number; re
   const dayBox = useRef<HTMLDivElement>(null)
   const noteId = useId()
   const asOf = q.data?.asOf ?? now
+  // The tip floats over the page (portalled, fixed), so the scrolling side column does not cut it.
+  const tip = useFloating({ strategy: 'fixed', placement: 'bottom', middleware: [offset(6), flip({ padding: 8 }), shift({ padding: 8 })], whileElementsMounted: autoUpdate })
+  const point = (i: number | null, el?: HTMLElement) => {
+    if (el) tip.refs.setReference(el)
+    setPeek(i)
+  }
 
   const openDay = (i: number | null) => useOpenDay.setState({ uuid, day: i === null ? null : days[i].day })
   // One tab stop for the strip: the opened day, else today; arrows move between the days.
@@ -100,7 +108,7 @@ export function UptimeStrip({ r, now, reach, onShow }: { r: Row; now: number; re
     if (open >= 0) openDay(j)
   }
 
-  // The opened day is shown below in full; pointing at it adds nothing on the axis line.
+  // The opened day is shown below in full; pointing at it adds no tip.
   const shown = peek !== null && peek !== open ? days[peek] : null
   const day = open >= 0 ? days[open] : null
   // At the foot of a column that scrolls, an opened day would land out of sight.
@@ -132,13 +140,13 @@ export function UptimeStrip({ r, now, reach, onShow }: { r: Row; now: number; re
           {t('uptime.hint')}
         </p>
       )}
-      <div className="uptime-body" style={{ '--skip': UPTIME_DAYS - days.length } as React.CSSProperties}>
+      <div className="uptime-body">
         <div
           ref={bars}
           className="uptime-bars"
           role="group"
           aria-label={t('uptime.bars')}
-          onPointerLeave={() => setPeek(null)}
+          onPointerLeave={() => point(null)}
           onPointerDown={onDown}
           onPointerMove={onMove}
           onPointerCancel={() => (drag.current = null)}
@@ -152,31 +160,13 @@ export function UptimeStrip({ r, now, reach, onShow }: { r: Row; now: number; re
               tabIndex={i === stop ? 0 : -1}
               aria-label={label(d)}
               aria-pressed={i === open}
-              onPointerEnter={(e) => e.pointerType === 'mouse' && setPeek(i)}
-              onFocus={() => setPeek(i)}
-              onBlur={() => setPeek(null)}
+              onPointerEnter={(e) => e.pointerType === 'mouse' && point(i, e.currentTarget)}
+              onFocus={(e) => point(i, e.currentTarget)}
+              onBlur={() => point(null)}
               onKeyDown={(e) => onKey(e, i)}
               onClick={() => onBarClick(i)}
             />
           ))}
-        </div>
-        {/* The axis, or the day pointed at, on one line of fixed height. */}
-        <div className={clsx('uptime-axis', shown && 'is-peek')} aria-hidden="true">
-          {shown ? (
-            <span className="uptime-peek">
-              <b>{text.date(shown, now)}</b>
-              <b className={`ul-${shown.level}`}>{text.level(shown)}</b>
-              <span className="num">{share(shown.ratio, 1)}</span>
-              <span>{text.offline(shown)}</span>
-            </span>
-          ) : (
-            days.length > 0 && (
-              <>
-                {days.length > 6 && <span className="num">{monthDay(days[0].day, false)}</span>}
-                <span className="uptime-today">{t('uptime.today')}</span>
-              </>
-            )
-          )}
         </div>
         {day && (
           <div ref={dayBox} className="uptime-day" role="group" aria-label={label(day)}>
@@ -212,6 +202,23 @@ export function UptimeStrip({ r, now, reach, onShow }: { r: Row; now: number; re
           </div>
         )}
       </div>
+      {/* The bars carry the same in their labels; the tip is for the eye only. */}
+      {shown &&
+        createPortal(
+          <div ref={tip.refs.setFloating} className="uptime-tip" style={tip.floatingStyles} aria-hidden="true">
+            <div className="uptime-tip-head">
+              <b>{text.date(shown, now)}</b>
+              <b className={`ul-${shown.level}`}>{text.level(shown)}</b>
+            </div>
+            <p>
+              {t('uptime.online', { value: share(shown.ratio, 2) })}
+              <span className="sep">·</span>
+              {text.offline(shown)}
+            </p>
+            {shown.gaps.length > 0 && shown.online >= 1 && <p className="dim">{text.gaps(shown)}</p>}
+          </div>,
+          document.body,
+        )}
     </div>
   )
 }

@@ -16,8 +16,8 @@ const fmtLoad = (v: number) => v.toFixed(2)
  * that line. A node with swap that used some in the range also gets swap in use drawn over it, on a
  * scale from none to all of its swap.
  *
- * Last in the side column: on a desktop it takes whatever height the column has left, down to a
- * least height below which the column scrolls instead (see .chart-load).
+ * Last in the side column: on a desktop it takes the row of the memory and disk charts, level with
+ * them (see .chart-load).
  */
 export function LoadPanel({ r, h, look, loading, stale, rangeKey }: { r: Row; h: HistoryResult | undefined; look: ChartStyle; loading: boolean; stale: boolean; rangeKey: string }) {
   const { t } = useTranslation()

@@ -337,11 +337,15 @@ function DetailBody({ r, rows, settings, traffic, now, picked, onRange, ping, on
         </div>
 
         <aside className="detail-side" aria-label={t('detail.facts')}>
-          <LocationPanel r={r} />
-          <NetworkPanel r={r} volume={volume} month={traffic.month} total={traffic.total} />
-          <InfoPanel r={r} admin={admin} now={now} leadDays={leadDays ?? 7} ops={ops} notice={notice} />
-          <EventsPanel events={settings.showEvents ? events : null} now={now} top={<UptimeStrip key={r.node.uuid} r={r} now={now} reach={reach} onShow={showDay} />} />
-          {/* Last, so on a desktop it takes whatever height the column has left. */}
+          {/* On a desktop the facts share the CPU and ping rows, the events taking what is left;
+              elsewhere this wrapper is no box and the panels lay out as the column's own. */}
+          <div className="side-stack">
+            <LocationPanel r={r} />
+            <NetworkPanel r={r} volume={volume} month={traffic.month} total={traffic.total} />
+            <InfoPanel r={r} admin={admin} now={now} leadDays={leadDays ?? 7} ops={ops} notice={notice} />
+            <EventsPanel events={settings.showEvents ? events : null} now={now} top={<UptimeStrip key={r.node.uuid} r={r} now={now} reach={reach} onShow={showDay} />} />
+          </div>
+          {/* Last; on a desktop it sits level with the memory and disk charts. */}
           <LoadPanel r={r} h={h} look={settings.chartStyle} loading={loading} stale={stale} rangeKey={dataKey} />
         </aside>
       </div>
