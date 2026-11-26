@@ -9,7 +9,7 @@ import { LANGUAGES, setLanguageChoice, useLanguageChoice, type Lang } from '../i
 import { fitRange, useAvailableRanges } from '../lib/api'
 import { useIsPhone } from '../lib/media'
 import { isDefaultPrefs, REFRESH_OPTIONS, usePrefs, type ChartStyle, type Range } from '../lib/settings'
-import { Segmented } from './primitives'
+import { Segmented, TipRoot, TipTrigger } from './primitives'
 
 // Visitor display preferences: a popover under the top-bar button on desktop, a bottom sheet on
 // phones. Every change applies at once and is kept in this browser only.
@@ -163,18 +163,20 @@ export function SettingsButton() {
   const title = t('settings.title')
   const hint = custom ? t('settings.titleCustom') : title
   const trigger = (
-    <button type="button" className="tool-btn settings-btn" title={hint} aria-label={hint}>
+    <TipTrigger type="button" className="tool-btn settings-btn" aria-label={hint}>
       <SlidersHorizontal size={14} strokeWidth={2} aria-hidden="true" />
       <span className="tool-btn-label">{t('settings.button')}</span>
       {custom && <i className="settings-dot" aria-hidden="true" />}
-    </button>
+    </TipTrigger>
   )
   const closeIcon = <X size={14} strokeWidth={2} aria-hidden="true" />
 
   if (phone) {
     return (
       <Dialog.Root open={open} onOpenChange={setOpen}>
-        <Dialog.Trigger asChild>{trigger}</Dialog.Trigger>
+        <TipRoot content={hint}>
+          <Dialog.Trigger asChild>{trigger}</Dialog.Trigger>
+        </TipRoot>
         <Dialog.Portal>
           <Dialog.Overlay className="sheet-overlay" />
           <Dialog.Content className="settings-panel is-sheet" aria-describedby={undefined}>
@@ -193,7 +195,9 @@ export function SettingsButton() {
   }
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
-      <Popover.Trigger asChild>{trigger}</Popover.Trigger>
+      <TipRoot content={hint}>
+        <Popover.Trigger asChild>{trigger}</Popover.Trigger>
+      </TipRoot>
       <Popover.Portal>
         <Popover.Content className="settings-panel is-popover" side="bottom" align="end" sideOffset={8} collisionPadding={12} aria-label={title}>
           <Panel

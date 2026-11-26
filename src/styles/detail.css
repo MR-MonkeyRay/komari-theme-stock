@@ -1454,20 +1454,10 @@
 :is(.uptime-strip, .uptime-tip) .ul-severe {
   color: var(--alert);
 }
-/* The day pointed at, floating by its bar (placed by script, over the drawer). */
+/* The day pointed at, in the tip of its bar. */
 .uptime-tip {
-  z-index: 60;
-  width: max-content;
-  max-width: 280px;
-  padding: 6px 9px 7px;
-  font-size: 11.5px;
-  line-height: 1.45;
   color: var(--text-2);
-  background: var(--bg-panel);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-popover);
-  pointer-events: none;
+  white-space: normal;
 }
 .uptime-tip-head {
   display: flex;

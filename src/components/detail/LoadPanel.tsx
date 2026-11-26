@@ -7,6 +7,7 @@ import { finite, pct, size } from '../../lib/format'
 import type { Row } from '../../lib/model'
 import type { ChartStyle } from '../../lib/settings'
 import { KLineChart } from './lazyChart'
+import { Tip } from '../primitives'
 
 const fmtLoad = (v: number) => v.toFixed(2)
 
@@ -49,10 +50,12 @@ export function LoadPanel({ r, h, look, loading, stale, rangeKey }: { r: Row; h:
           {t('detail.current')} <b>{finite(now) ? fmtLoad(now) : '—'}</b>
           {cores && ` / ${t('detail.cores', { count: cores })}`}
           {perCore !== null && (
-            <em className={clsx('has-hint', perCore >= 100 ? 'warn' : 'dim')} title={t('detail.perCoreHint')}>
-              {' '}
-              {pct(perCore, 0)}
-            </em>
+            <Tip content={t('detail.perCoreHint')}>
+              <em className={clsx('has-hint', perCore >= 100 ? 'warn' : 'dim')}>
+                {' '}
+                {pct(perCore, 0)}
+              </em>
+            </Tip>
           )}
         </span>
       </div>

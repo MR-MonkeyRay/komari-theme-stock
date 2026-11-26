@@ -6,6 +6,7 @@ import './styles/chrome.css'
 import './styles/board.css'
 import './styles/detail.css'
 
+import * as Tooltip from '@radix-ui/react-tooltip'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MotionConfig } from 'motion/react'
 import { StrictMode } from 'react'
@@ -27,7 +28,11 @@ void i18nReady.then(() =>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter basename={import.meta.env.BASE_URL}>
           <MotionConfig reducedMotion="user">
-            <App />
+            {/* Hints open after a short rest, then at once while moving between triggers; they
+                close when the pointer leaves the trigger, so none sits over what it points at. */}
+            <Tooltip.Provider delayDuration={400} skipDelayDuration={300} disableHoverableContent>
+              <App />
+            </Tooltip.Provider>
           </MotionConfig>
         </BrowserRouter>
       </QueryClientProvider>
