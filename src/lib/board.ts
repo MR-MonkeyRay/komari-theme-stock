@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useLocation, useSearchParams } from 'react-router'
-import { create } from 'zustand'
 import type { TFunction } from 'i18next'
+import { createParser, createSerializer, debounce, parseAsString, parseAsStringLiteral, useQueryStates } from 'nuqs'
+import { useCallback, useMemo, useState } from 'react'
 import type { NodeTraffic } from './api'
 import { parseTags } from './format'
 import { isHot } from './market'
@@ -38,95 +37,64 @@ function parseSort(raw: string | null): Sort {
 /** Default direction when a column is first sorted: names A→Z, numbers high→low. */
 export const firstDir = (key: SortKey) => (key === 'name' ? 'asc' : 'desc')
 
+const parseAsSort = createParser<NonNullable<Sort>>({
+  parse: (raw) => parseSort(raw),
+  serialize: (s) => `${s.key}-${s.dir}`,
+  eq: (a, b) => a.key === b.key && a.dir === b.dir,
+})
+
+/** In the URL as ?q=…&g=…&f=…&sort=key-dir; a value at its default is left out. */
+const boardParams = {
+  q: parseAsString.withDefault(''),
+  group: parseAsString.withDefault('all'),
+  quick: parseAsStringLiteral(['offline', 'hot'] as const),
+  sort: parseAsSort,
+}
+const urlKeys = { group: 'g', quick: 'f' }
+
 // Typed search text runs ahead of the URL: the board filters on every keystroke, but the URL is
 // written once typing pauses. A write per keystroke (IME composition included) would hit Safari's
-// cap on history updates (100 per 30 s, then it throws) and re-route the app each time. The text
-// is shared by every caller of useBoardQuery, and module state tracks the pending write.
-const useTyped = create<{ text: string | null }>(() => ({ text: null }))
+// cap on history updates (100 per 30 s, then it throws) and re-route the app each time. nuqs keeps
+// the pending text for every reader until it lands, and drops it when another navigation (a link,
+// back/forward) comes first. Writes go through the router (`shallow: false`), so its location has
+// the board's query for the drawer, which pages and closes with it.
 const DEBOUNCE_MS = 250
-let timer = 0
-/** The q our last write put in the URL, until that navigation is seen. */
-let awaiting: string | null = null
-/** The last location key handled, so several callers handle each navigation once. */
-let seenKey: string | null = null
 
 export function useBoardQuery() {
-  const [params, setParams] = useSearchParams()
-  const { key } = useLocation()
-  const urlQ = params.get('q') ?? ''
-  const typed = useTyped((s) => s.text)
-  const q = typed ?? urlQ
-  const group = params.get('g') ?? 'all'
-  const f = params.get('f')
-  const quick: Quick = f === 'offline' || f === 'hot' ? f : null
-  const sortRaw = params.get('sort')
-  const query = useMemo<BoardQuery>(() => ({ q, group, quick, sort: parseSort(sortRaw) }), [q, group, quick, sortRaw])
-
-  // Our own write landing keeps the typed text (typing may have gone on meanwhile); any other
-  // navigation (a link, back/forward, the site mark) brings the URL's search back.
-  useEffect(() => {
-    if (key === seenKey) return
-    seenKey = key
-    const text = useTyped.getState().text
-    if (awaiting !== null && urlQ === awaiting) {
-      awaiting = null
-      if (text === urlQ) useTyped.setState({ text: null })
-      return
-    }
-    if (text !== null) {
-      window.clearTimeout(timer)
-      timer = 0
-      awaiting = null
-      useTyped.setState({ text: null })
-    }
-  }, [key, urlQ])
-
-  /** Writes the patch, plus any typed search not yet in the URL. */
-  const write = useCallback(
-    (patch: Partial<BoardQuery>) => {
-      window.clearTimeout(timer)
-      timer = 0
-      const text = useTyped.getState().text
-      const current = new URLSearchParams(window.location.search)
-      if (text !== null && text !== (current.get('q') ?? '')) awaiting = text
-      setParams(
-        () => {
-          // Start from the live URL rather than the hook's last render, so two updates in one frame
-          // (e.g. a tab click right after a sort click) both land.
-          const next = new URLSearchParams(window.location.search)
-          const set = (k: string, v: string | null) => (v ? next.set(k, v) : next.delete(k))
-          if (text !== null) set('q', text || null)
-          if ('group' in patch) set('g', patch.group && patch.group !== 'all' ? patch.group : null)
-          if ('quick' in patch) set('f', patch.quick ?? null)
-          if ('sort' in patch) set('sort', patch.sort ? `${patch.sort.key}-${patch.sort.dir}` : null)
-          return next
-        },
-        { replace: true },
-      )
-    },
-    [setParams],
-  )
+  const [state, set] = useQueryStates(boardParams, { urlKeys, history: 'replace', shallow: false })
+  const { q, group, quick, sort } = state
+  const query = useMemo<BoardQuery>(() => ({ q, group, quick, sort }), [q, group, quick, sort])
 
   const update = useCallback(
     (patch: Partial<BoardQuery>) => {
-      if ('q' in patch) useTyped.setState({ text: patch.q ?? '' })
-      // Typing waits for a pause; clearing the box and every other change are written at once.
-      if (Object.keys(patch).length === 1 && patch.q) {
-        window.clearTimeout(timer)
-        timer = window.setTimeout(() => write({}), DEBOUNCE_MS)
-        return
-      }
-      write(patch)
+      // Typing waits for a pause; clearing the box and every other change are written at once, and
+      // take a pending search along (written without a wait, it replaces the pending write).
+      if (Object.keys(patch).length === 1 && patch.q) void set(patch, { limitUrlUpdates: debounce(DEBOUNCE_MS) })
+      else void set((s) => ({ q: s.q, ...patch }))
     },
-    [write],
+    [set],
   )
 
   /** Writes a pending search now (the search box lost focus, e.g. a row is being opened). */
   const flush = useCallback(() => {
-    if (timer) write({})
-  }, [write])
+    // The updater sees the latest search, also one set in the same event (Esc clears, then blurs).
+    void set((s) => (s.q !== (new URLSearchParams(window.location.search).get('q') ?? '') ? { q: s.q } : {}))
+  }, [set])
 
   return [query, update, flush] as const
+}
+
+const serializeBoard = createSerializer(boardParams, { urlKeys })
+
+/**
+ * The query to carry into a link that leaves the board (a node's drawer, or a new tab), read when
+ * it is followed: the board's state, typed text not yet in the URL included, over whatever else
+ * the URL holds. Copying the router's last search instead would lose a search typed a moment ago,
+ * and the navigation would then drop it from the board too.
+ */
+export function useBoardSearch() {
+  const [query] = useBoardQuery()
+  return useCallback(() => serializeBoard(window.location.search, query), [query])
 }
 
 export interface Group {
