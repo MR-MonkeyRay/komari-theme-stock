@@ -3,7 +3,7 @@ import { Slot } from '@radix-ui/react-slot'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import clsx from 'clsx'
 import { motion } from 'motion/react'
-import { createContext, isValidElement, useContext, useEffect, useId, useRef, useState, type ComponentProps, type ReactElement, type ReactNode } from 'react'
+import { createContext, isValidElement, useContext, useEffect, useId, useRef, useState, type ComponentProps, type CSSProperties, type ReactElement, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { finite, levelOf, sizeParts } from '../lib/format'
 import type { MetricTrail } from '../lib/model'
@@ -53,21 +53,23 @@ export function Meter({ value }: { value: number | null }) {
   )
 }
 
-/** Digits before the decimal point, 1 to 3 (1000–1023 count as 3; "<1" as 1). */
-function intDigits(text: string) {
-  const int = text.split('.')[0].replace(/\D/g, '')
-  return Math.min(3, Math.max(1, int.length))
+/** Where a shown figure sits inside its unit, 0 (1 or less) to 1 (1023), on a log scale. */
+function unitPos(text: string) {
+  const v = Number.parseFloat(text)
+  if (!(v > 1)) return 0
+  return Math.min(1, Math.log(v) / Math.log(1024))
 }
 
 /**
  * Up/down pair: ↑1.62M/s ↓2.41M/s, units muted. `byUnit` colors each value by its size unit
- * (B/K/M/G/T/P) instead of by direction; `byDigits` also shades it slightly by its integer digits
- * (for sums, which hold still; live rates would flicker).
+ * (B/K/M/G/T/P) instead of by direction; `byMagnitude` also slides its lightness with the figure inside
+ * its unit (for sums, which hold still; live rates would flicker).
  */
-export function Pair({ up, down, rate = false, tickUp, tickDown, byUnit = false, byDigits = false }: { up: number | null | undefined; down: number | null | undefined; rate?: boolean; tickUp?: boolean; tickDown?: boolean; byUnit?: boolean; byDigits?: boolean }) {
+export function Pair({ up, down, rate = false, tickUp, tickDown, byUnit = false, byMagnitude = false }: { up: number | null | undefined; down: number | null | undefined; rate?: boolean; tickUp?: boolean; tickDown?: boolean; byUnit?: boolean; byMagnitude?: boolean }) {
   if (!finite(up) && !finite(down)) return <span className="pair dash">—</span>
   const one = (v: number | null | undefined, arrow: string, cls: string, flash?: boolean) => {
     const p = sizeParts(v, rate, true)
+    const mag = byUnit && byMagnitude && p && p[1][0] !== 'B'
     const body = p ? (
       <>
         <i className="arrow">{arrow}</i>
@@ -80,7 +82,10 @@ export function Pair({ up, down, rate = false, tickUp, tickDown, byUnit = false,
       </>
     )
     return (
-      <b className={clsx('pair-line', cls, byUnit && p && `unit-${p[1][0].toLowerCase()}`)} data-digits={byUnit && byDigits && p ? intDigits(p[0]) : undefined}>
+      <b
+        className={clsx('pair-line', cls, byUnit && p && `unit-${p[1][0].toLowerCase()}`, mag && 'by-mag')}
+        style={mag ? ({ '--u-pos': unitPos(p[0]).toFixed(3) } as CSSProperties) : undefined}
+      >
         {flash && finite(v) ? (
           <Tick value={v} threshold={Math.max(v * 0.1, 8 * 1024)}>
             {body}

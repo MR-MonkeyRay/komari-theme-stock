@@ -105,7 +105,7 @@ function TrafficFact({ k, v }: { k: string; v: TrafficSum | undefined }) {
     <Fact k={k} wide className={clsx(partial && 'is-partial')}>
       <Tip content={partial ? t('board.partialSince', { date: monthDay(v.since!) }) : undefined}>
         <span className={clsx('traffic-fact', partial && 'has-hint')}>
-          <Pair up={v?.up} down={v?.down} byUnit byDigits />
+          <Pair up={v?.up} down={v?.down} byUnit byMagnitude />
         </span>
       </Tip>
     </Fact>

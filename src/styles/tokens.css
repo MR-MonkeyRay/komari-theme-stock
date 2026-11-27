@@ -76,17 +76,19 @@
   /* Swap in use over the load chart: violet, apart from its line, the candles and the amber core
      count line. */
   --swap-line: var(--ping-5);
-  /* Size units on traffic and network figures, an ordered scale: B and K stay neutral, then
-     M → G → T → P step from misty teal through indigo and orchid to rose, each brighter and more
-     saturated (darker on light), so the order holds without hue and under color-vision deficiency.
-     Hues keep clear of red and green (moves, alerts), the sky-blue upload, the amber download
-     and warn. These are the full-strength stops for 3-digit figures (see .pair-line in board.css). */
-  --unit-b: #7e8798;
-  --unit-k: #9fa8b8;
-  --unit-m: #72b5ba;
-  --unit-g: #98abff;
-  --unit-t: #e1a0ff;
-  --unit-p: #ffa8d6;
+  /* Size units on traffic and network figures: one hue per unit, K → M → G → T → P stepping
+     from teal through cobalt and orchid to magenta and pink, B neutral. Hues keep clear of red and
+     green (moves, alerts), the amber download, warn and brand. Traffic sums also slide in
+     lightness with the figure inside its unit (log scale, 1 → 1023), from --unit-l-lo to
+     --unit-l-hi: brighter as they grow on dark, deeper on light (see .pair-line in board.css). */
+  --unit-b: #848d9e;
+  --unit-k: #46b5b0;
+  --unit-m: #6ca6ff;
+  --unit-g: #c692ff;
+  --unit-t: #f47fd6;
+  --unit-p: #ffa3e6;
+  --unit-l-lo: -0.09;
+  --unit-l-hi: 0.07;
 
   --chart-grid: #171b23;
   --chart-grid-strong: #262b37;
@@ -180,12 +182,15 @@
   --conn-tcp: var(--ping-1);
   --conn-udp: var(--ping-2);
   --swap-line: var(--ping-5);
-  --unit-b: #666f80;
-  --unit-k: #495263;
-  --unit-m: #1d5a5f;
-  --unit-g: #3140a0;
-  --unit-t: #661894;
-  --unit-p: #7a0a49;
+  --unit-b: #646d7e;
+  --unit-k: #0b676b;
+  --unit-m: #1a56c4;
+  --unit-g: #8230b8;
+  --unit-t: #a51c8a;
+  --unit-p: #7a0f66;
+  /* The light end stops at +0.06, which keeps 1.0K–1.0T at >= 4.6:1 on the hover row. */
+  --unit-l-lo: 0.06;
+  --unit-l-hi: -0.1;
 
   --chart-grid: #e2e7f0;
   --chart-grid-strong: #d6dde7;

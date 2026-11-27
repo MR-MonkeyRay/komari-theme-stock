@@ -670,14 +670,15 @@ button.th:hover .th-help {
 .pair-down .arrow {
   color: var(--net-down);
 }
-/* Sizes colored by unit: the color says the magnitude, the neutral arrows the direction. Tokens are
-   the full-strength stops; traffic sums (data-digits) step a 1- or 2-digit figure back toward the
-   panel, so 3.2G, 32G and 320G share one hue and grow in weight. Rules stay at (0, 2, 0) so the
-   .is-partial and phone .c-net overrides above and below still win. */
-.pair.by-unit .arrow {
+/* Sizes colored by unit: the hue names the unit (K/M/G/T/P), the neutral arrows the direction.
+   Traffic sums (.by-mag) also slide in lightness with --u-pos, the figure's place inside its unit
+   (log scale, 0 at 1, 1 at 1023), so 3.2G, 32G and 320G share one hue and grow in weight. Live
+   rates keep the plain unit color: a sliding one would flicker on every refresh. These rules stay
+   at (0, 2, 0) or below, so the .is-partial and phone .c-net overrides above and below still win. */
+.by-unit .arrow {
   color: var(--text-3);
 }
-.pair.by-unit .pair-line small {
+.by-unit .pair-line small {
   color: inherit;
   opacity: 0.82;
 }
@@ -685,28 +686,30 @@ button.th:hover .th-help {
   color: var(--unit-b);
 }
 .pair-line.unit-k {
+  color: var(--unit-k);
   --unit-c: var(--unit-k);
 }
 .pair-line.unit-m {
+  color: var(--unit-m);
   --unit-c: var(--unit-m);
 }
 .pair-line.unit-g {
+  color: var(--unit-g);
   --unit-c: var(--unit-g);
 }
 .pair-line.unit-t {
+  color: var(--unit-t);
   --unit-c: var(--unit-t);
 }
 .pair-line.unit-p {
+  color: var(--unit-p);
   --unit-c: var(--unit-p);
 }
-.pair-line[data-digits='1'] {
-  --unit-mix: 82%;
-}
-.pair-line[data-digits='3'] {
-  --unit-mix: 100%;
-}
-.pair-line:is(.unit-k, .unit-m, .unit-g, .unit-t, .unit-p) {
-  color: color-mix(in oklch, var(--unit-c) var(--unit-mix, 91%), var(--bg-panel));
+/* Behind @supports: an unsupported color with var() would compute to inherit, not fall back. */
+@supports (color: oklch(from red calc(l + 0.1) c h)) {
+  .by-mag:is(.unit-k, .unit-m, .unit-g, .unit-t, .unit-p) {
+    color: oklch(from var(--unit-c) calc(l + var(--unit-l-lo) + (var(--unit-l-hi) - var(--unit-l-lo)) * var(--u-pos, 0.5)) c h);
+  }
 }
 .pair.dash {
   display: block;

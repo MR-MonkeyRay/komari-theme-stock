@@ -72,7 +72,7 @@ function TrafficCell({ cls, label, v }: { cls: string; label: string; v: Traffic
     <Tip content={partial ? t('board.partialSince', { date: monthDay(v.since!) }) : undefined}>
       <span className={clsx(cls, partial && 'is-partial')}>
         <span className="m-label">{label}</span>
-        <Pair up={v?.up} down={v?.down} byUnit byDigits />
+        <Pair up={v?.up} down={v?.down} byUnit byMagnitude />
       </span>
     </Tip>
   )
