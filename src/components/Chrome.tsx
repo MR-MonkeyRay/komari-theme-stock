@@ -53,7 +53,7 @@ function Logomark() {
   )
 }
 
-/** One button for page colors; shows the current mode (default: auto, following the system). */
+/** One button for page colors; shows the current mode (default: dark). */
 export function ThemeToggle({ value, onChange }: { value: Appearance; onChange: (a: Appearance) => void }) {
   const { t } = useTranslation()
   const Icon = ICONS[value]

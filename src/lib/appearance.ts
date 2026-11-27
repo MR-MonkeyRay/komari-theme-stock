@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
 import { flushSync } from 'react-dom'
 
-// `appearance` is the localStorage key shared with Komari's default theme.
+// `appearance` is the localStorage key shared with Komari's default theme. With nothing stored
+// (or storage blocked) the page is dark, the trading-terminal look; index.html does the same.
 export type Appearance = 'light' | 'dark' | 'system'
 const KEY = 'appearance'
 const media = typeof window !== 'undefined' ? window.matchMedia('(prefers-color-scheme: dark)') : null
@@ -9,9 +10,9 @@ const media = typeof window !== 'undefined' ? window.matchMedia('(prefers-color-
 function readStored(): Appearance {
   try {
     const v = localStorage.getItem(KEY)
-    return v === 'light' || v === 'dark' || v === 'system' ? v : 'system'
+    return v === 'light' || v === 'dark' || v === 'system' ? v : 'dark'
   } catch {
-    return 'system'
+    return 'dark'
   }
 }
 
