@@ -53,11 +53,18 @@ export function Meter({ value }: { value: number | null }) {
   )
 }
 
+/** Digits before the decimal point, 1 to 3 (1000–1023 count as 3; "<1" as 1). */
+function intDigits(text: string) {
+  const int = text.split('.')[0].replace(/\D/g, '')
+  return Math.min(3, Math.max(1, int.length))
+}
+
 /**
  * Up/down pair: ↑1.62M/s ↓2.41M/s, units muted. `byUnit` colors each value by its size unit
- * (B/K/M/G/T) instead of by direction.
+ * (B/K/M/G/T/P) instead of by direction; `byDigits` also shades it slightly by its integer digits
+ * (for sums, which hold still; live rates would flicker).
  */
-export function Pair({ up, down, rate = false, tickUp, tickDown, byUnit = false }: { up: number | null | undefined; down: number | null | undefined; rate?: boolean; tickUp?: boolean; tickDown?: boolean; byUnit?: boolean }) {
+export function Pair({ up, down, rate = false, tickUp, tickDown, byUnit = false, byDigits = false }: { up: number | null | undefined; down: number | null | undefined; rate?: boolean; tickUp?: boolean; tickDown?: boolean; byUnit?: boolean; byDigits?: boolean }) {
   if (!finite(up) && !finite(down)) return <span className="pair dash">—</span>
   const one = (v: number | null | undefined, arrow: string, cls: string, flash?: boolean) => {
     const p = sizeParts(v, rate, true)
@@ -73,7 +80,7 @@ export function Pair({ up, down, rate = false, tickUp, tickDown, byUnit = false 
       </>
     )
     return (
-      <b className={clsx('pair-line', cls, byUnit && p && `unit-${p[1][0].toLowerCase()}`)}>
+      <b className={clsx('pair-line', cls, byUnit && p && `unit-${p[1][0].toLowerCase()}`)} data-digits={byUnit && byDigits && p ? intDigits(p[0]) : undefined}>
         {flash && finite(v) ? (
           <Tick value={v} threshold={Math.max(v * 0.1, 8 * 1024)}>
             {body}

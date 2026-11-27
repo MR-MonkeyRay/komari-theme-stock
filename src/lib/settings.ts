@@ -42,7 +42,7 @@ export type ChartStyle = 'candle' | 'line'
 export const defaultPrefs: Prefs = {
   redUp: true,
   showSparkline: true,
-  refreshSeconds: 2,
+  refreshSeconds: 10,
   defaultRange: '24h',
   showEvents: true,
   chartStyle: 'candle',
